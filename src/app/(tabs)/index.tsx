@@ -1,0 +1,169 @@
+import { router } from 'expo-router';
+import { useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { ScoreRing } from '../../components/charts';
+import { Button, Card, Icon, InsightCard, ListItem, ProgressBar, Row, Screen, SectionTitle, Stat, styles } from '../../components/ui';
+import { expenses, inMonth, incomes, projectMonth, sum } from '../../logic/analytics';
+import { computeNetWorth } from '../../logic/balances';
+import { cardCycleInfo, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
+import { formatDate, formatShortDate, toISODate } from '../../logic/dates';
+import { generateInsights, healthScore, noSplurgeStreak, totalPotentialSaving } from '../../logic/insights';
+import { useAppData, useBalances, useMoney } from '../../store/hooks';
+import { colors } from '../../theme';
+
+export default function Home() {
+  const data = useAppData();
+  const balances = useBalances();
+  const { money } = useMoney();
+  const on = new Date();
+  const key = toISODate(on).slice(0, 7);
+
+  const view = useMemo(() => {
+    const month = inMonth(data.transactions, key);
+    const spent = sum(expenses(month));
+    const earned = sum(incomes(month));
+    const budgetTotal = data.budgets.reduce((s, b) => s + b.monthlyLimit, 0);
+    const budgeted = new Set(data.budgets.map((b) => b.categoryId));
+    const budgetSpent = sum(expenses(month).filter((t) => budgeted.has(t.categoryId ?? '')));
+    const insights = generateInsights(data, on);
+    const cards = data.accounts.filter((a) => isCreditCardConfigured(a) && !a.archived);
+    return {
+      spent,
+      earned,
+      projected: projectMonth(month, data.categories, on),
+      budgetTotal,
+      budgetSpent,
+      net: computeNetWorth(data.accounts, balances),
+      insights,
+      potential: totalPotentialSaving(insights),
+      health: healthScore(data, on),
+      streak: noSplurgeStreak(data, on),
+      bestCard: recommendCards(cards, balances, on)[0],
+      dues: cards
+        .map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on))
+        .filter((i) => i.amountDue > 0)
+        .sort((a, b) => a.daysToDue - b.daysToDue),
+      recent: data.transactions.slice().sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, balances, key]);
+
+  const cat = (id?: string) => data.categories.find((c) => c.id === id);
+  const acc = (id?: string) => data.accounts.find((a) => a.id === id);
+
+  return (
+    <Screen>
+      <Card style={{ backgroundColor: colors.primary }}>
+        <Text style={{ color: '#ffffffcc', fontSize: 13 }}>Spent this month</Text>
+        <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.spent)}</Text>
+        <Text style={{ color: '#ffffffcc', fontSize: 12 }}>
+          Projected {money(view.projected)}
+        </Text>
+        {view.budgetTotal > 0 ? (
+          <>
+            <Text style={{ color: '#ffffffcc', fontSize: 12, marginTop: 6 }}>
+              Budgeted categories: {money(view.budgetSpent)} of {money(view.budgetTotal)}
+            </Text>
+            <ProgressBar value={view.budgetSpent / view.budgetTotal} color="#fff" />
+          </>
+        ) : null}
+        <Row style={{ marginTop: 8 }}>
+          <Stat label="Income" value={money(view.earned)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label="Net worth" value={money(view.net.net)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label="Cash & bank" value={money(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
+        </Row>
+      </Card>
+
+      <Row style={{ gap: 8 }}>
+        <View style={{ flex: 1 }}><Button title="Expense" icon="remove-circle-outline" onPress={() => router.push('/add?type=expense')} /></View>
+        <View style={{ flex: 1 }}><Button title="Income" variant="secondary" icon="add-circle-outline" onPress={() => router.push('/add?type=income')} /></View>
+        <View style={{ flex: 1 }}><Button title="Transfer" variant="secondary" icon="swap-horizontal" onPress={() => router.push('/add?type=transfer')} /></View>
+      </Row>
+
+      <Pressable onPress={() => router.push('/insights')}>
+        <Card>
+          <Row style={{ gap: 16 }}>
+            <ScoreRing score={view.health.score} label={view.health.label} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={styles.itemTitle}>Family money health</Text>
+              {view.health.parts.map((p) => (
+                <Text key={p.name} style={styles.itemSub}>
+                  {p.name}: {p.score}/{p.max}
+                </Text>
+              ))}
+            </View>
+          </Row>
+          {view.potential > 0 ? (
+            <Text style={{ color: colors.success, fontWeight: '700' }}>
+              You could save about {money(view.potential)} every month. See how →
+            </Text>
+          ) : null}
+        </Card>
+      </Pressable>
+
+      <Row style={{ gap: 8 }}>
+        <Card style={{ flex: 1 }}>
+          <Icon name="flame" color={colors.accent} size={22} />
+          <Text style={styles.statValue}>{view.streak} day{view.streak === 1 ? '' : 's'}</Text>
+          <Text style={styles.itemSub}>No-splurge streak</Text>
+        </Card>
+        <Pressable style={{ flex: 1 }} onPress={() => router.push('/cards')}>
+          <Card style={{ flex: 1 }}>
+            <Icon name="card" color={colors.info} size={22} />
+            <Text style={styles.statValue} numberOfLines={1}>{view.bestCard ? view.bestCard.account.name : 'Add a card'}</Text>
+            <Text style={styles.itemSub}>
+              {view.bestCard ? `Best card today · ${view.bestCard.freeDays} days free` : 'Get the best-card tip'}
+            </Text>
+          </Card>
+        </Pressable>
+      </Row>
+
+      {view.dues.length > 0 ? (
+        <>
+          <SectionTitle title="Card bills due" />
+          <Card>
+            {view.dues.map((d) => (
+              <ListItem
+                key={d.account.id}
+                icon="card"
+                iconColor={d.daysToDue < 0 ? colors.danger : colors.warning}
+                title={d.account.name}
+                subtitle={d.daysToDue < 0 ? `Overdue since ${formatShortDate(d.dueDate)}` : `Due ${formatShortDate(d.dueDate)} · ${d.daysToDue} days left`}
+                right={money(d.amountDue)}
+                rightColor={d.daysToDue < 3 ? colors.danger : undefined}
+                onPress={() => router.push(`/add?type=transfer&to=${d.account.id}&amount=${Math.round(d.amountDue)}`)}
+              />
+            ))}
+          </Card>
+        </>
+      ) : null}
+
+      <SectionTitle title="Top suggestions" action="All insights" onAction={() => router.push('/insights')} />
+      {view.insights.slice(0, 3).map((i) => <InsightCard key={i.id} insight={i} money={money} />)}
+      {view.insights.length === 0 ? (
+        <Card><Text style={styles.itemSub}>Add a few transactions and suggestions will appear here.</Text></Card>
+      ) : null}
+
+      <SectionTitle title="Recent" action="See all" onAction={() => router.push('/transactions')} />
+      <Card>
+        {view.recent.length === 0 ? <Text style={styles.itemSub}>No transactions yet. Tap “Expense” to add your first one.</Text> : null}
+        {view.recent.map((t) => {
+          const c = cat(t.categoryId);
+          const isTransfer = t.type === 'transfer';
+          return (
+            <ListItem
+              key={t.id}
+              icon={isTransfer ? 'swap-horizontal' : c?.icon ?? 'pricetag-outline'}
+              iconColor={isTransfer ? colors.info : c?.color}
+              title={isTransfer ? `${acc(t.accountId)?.name} → ${acc(t.toAccountId)?.name}` : t.merchant || c?.name || 'Transaction'}
+              subtitle={`${formatDate(t.date)} · ${acc(t.accountId)?.name ?? ''}`}
+              right={`${t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}${money(t.amount)}`}
+              rightColor={t.type === 'income' ? colors.success : undefined}
+              onPress={() => router.push(`/add?id=${t.id}`)}
+            />
+          );
+        })}
+      </Card>
+    </Screen>
+  );
+}
