@@ -1,5 +1,6 @@
+import { ask } from '../components/Dialog';
 import { useMemo, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Button, Card, Empty, Field, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { compareItems, normalize } from '../logic/priceBook';
@@ -21,14 +22,14 @@ export default function Prices() {
 
   const add = () => {
     const p = parseFloat(price);
-    if (!item.trim() || !shop.trim() || !p) return Alert.alert('Enter item, shop and price');
+    if (!item.trim() || !shop.trim() || !p) return ask('Enter item, shop and price');
     addPrice({ item: item.trim(), shop: shop.trim(), price: p, unit: unit.trim() || undefined, date: toISODate(new Date()) });
     setPrice('');
     setShop('');
   };
 
   const removeItem = (name: string) =>
-    Alert.alert(`Remove “${name}” from price book?`, undefined, [
+    ask(`Remove “${name}” from price book?`, undefined, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',

@@ -1,16 +1,20 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { Calendar } from '../../components/DateField';
 import { Chip, Empty, Icon, ListItem, styles } from '../../components/ui';
-import { formatDate, monthLabel, shiftMonthKey, toISODate } from '../../logic/dates';
+import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey } from '../../logic/dates';
 import type { TxnType } from '../../logic/types';
-import { useAppData, useMoney } from '../../store/hooks';
+import { useAppData, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
 export default function Transactions() {
   const data = useAppData();
   const { money } = useMoney();
-  const [month, setMonth] = useState(toISODate(new Date()).slice(0, 7));
+  const cycle = useCycle();
+  const [month, setMonth] = useState(cycle.key);
+  const [calendar, setCalendar] = useState(false);
+  const [day, setDay] = useState('');
   const [type, setType] = useState<TxnType | 'all'>('all');
   const [accountId, setAccountId] = useState<string>('');
   const [query, setQuery] = useState('');
@@ -21,7 +25,7 @@ export default function Transactions() {
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.transactions
-      .filter((t) => t.date.startsWith(month))
+      .filter((t) => (day ? t.date === day : cycleKeyOf(t.date, cycle.startDay) === month))
       .filter((t) => type === 'all' || t.type === type)
       .filter((t) => !accountId || t.accountId === accountId || t.toAccountId === accountId)
       .filter((t) => {
@@ -31,7 +35,17 @@ export default function Transactions() {
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, month, type, accountId, query]);
+  }, [data, month, type, accountId, query, day, cycle.startDay]);
+
+  // Dots on the calendar: red = spent, green = income only
+  const marks = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const t of data.transactions) {
+      if (t.type === 'expense') m[t.date] = colors.danger;
+      else if (t.type === 'income' && !m[t.date]) m[t.date] = colors.success;
+    }
+    return m;
+  }, [data.transactions]);
 
   const totalOut = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const totalIn = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -40,10 +54,26 @@ export default function Transactions() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ padding: 16, gap: 10, backgroundColor: colors.card }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable hitSlop={10} onPress={() => setMonth(shiftMonthKey(month, -1))}><Icon name="chevron-back" /></Pressable>
-          <Text style={styles.sectionTitle}>{monthLabel(month)} {month.slice(0, 4)}</Text>
-          <Pressable hitSlop={10} onPress={() => setMonth(shiftMonthKey(month, 1))}><Icon name="chevron-forward" /></Pressable>
+          <Pressable hitSlop={10} onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>
+          <Pressable onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Icon name="calendar-outline" color={colors.primary} />
+            <Text style={styles.sectionTitle}>{day ? formatDate(day) : cycleLabel(month, cycle.startDay)}</Text>
+          </Pressable>
+          <Pressable hitSlop={10} onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>
         </View>
+        {calendar ? (
+          <View style={{ gap: 6 }}>
+            <Calendar
+              value={day || undefined}
+              marks={marks}
+              onChange={(iso) => {
+                setDay(iso === day ? '' : iso);
+                setMonth(cycleKeyOf(iso, cycle.startDay));
+              }}
+            />
+            {day ? <Chip label="Show the whole cycle" icon="close" onPress={() => setDay('')} /> : <Text style={styles.hint}>Tap a date to see that day. Red dot = money spent.</Text>}
+          </View>
+        ) : null}
         <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
           <Text style={{ color: colors.danger, fontWeight: '700' }}>Out {money(totalOut)}</Text>
           <Text style={{ color: colors.success, fontWeight: '700' }}>In {money(totalIn)}</Text>

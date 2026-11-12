@@ -1,4 +1,4 @@
-import type { Account, Transaction } from './types';
+import type { Account, AccountGroup, AccountType, Transaction } from './types';
 
 /**
  * Debit cards linked to a bank account do not hold money themselves – their spends
@@ -28,42 +28,84 @@ export function computeBalances(accounts: Account[], txns: Transaction[]): Recor
   return bal;
 }
 
+/** Types whose balance is money you owe (stored as a negative balance). */
+export const LIABILITY_TYPES: AccountType[] = ['credit_card', 'loan'];
+/** Money available to spend today. */
+export const LIQUID_TYPES: AccountType[] = ['cash', 'bank', 'wallet'];
+
 export interface NetWorth {
   assets: number;
   liabilities: number;
   net: number;
   liquid: number;
+  byGroup: Record<AccountGroup, number>;
 }
 
 export function computeNetWorth(accounts: Account[], balances: Record<string, number>): NetWorth {
   let assets = 0;
   let liabilities = 0;
   let liquid = 0;
+  const byGroup: Record<AccountGroup, number> = { savings: 0, investment: 0, credit: 0, loan: 0, real_estate: 0, other: 0 };
   for (const a of accounts) {
     if (a.archived) continue;
     if (a.type === 'debit_card' && a.linkedBankId) continue; // counted in the bank
     const b = balances[a.id] ?? 0;
     if (b >= 0) assets += b;
     else liabilities += -b;
-    if ((a.type === 'cash' || a.type === 'bank' || a.type === 'wallet') && b > 0) liquid += b;
+    if (LIQUID_TYPES.includes(a.type) && b > 0) liquid += b;
+    byGroup[ACCOUNT_GROUP_OF[a.type]] += b;
   }
-  return { assets, liabilities, net: assets - liabilities, liquid };
+  return { assets, liabilities, net: assets - liabilities, liquid, byGroup };
 }
 
-export const ACCOUNT_TYPE_LABEL: Record<Account['type'], string> = {
+export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   cash: 'Cash',
   bank: 'Bank account',
   debit_card: 'Debit card',
   credit_card: 'Credit card',
   wallet: 'UPI / Wallet',
+  deposit: 'Fixed / recurring deposit',
+  investment: 'Stocks, funds & gold',
+  loan: 'Loan',
+  property: 'Property / real estate',
   other: 'Other',
 };
 
-export const ACCOUNT_TYPE_ICON: Record<Account['type'], string> = {
+export const ACCOUNT_TYPE_ICON: Record<AccountType, string> = {
   cash: 'cash-outline',
   bank: 'business-outline',
   debit_card: 'card-outline',
   credit_card: 'card',
   wallet: 'phone-portrait-outline',
+  deposit: 'lock-closed-outline',
+  investment: 'trending-up-outline',
+  loan: 'document-text-outline',
+  property: 'home-outline',
   other: 'wallet-outline',
 };
+
+export const ACCOUNT_GROUP_OF: Record<AccountType, AccountGroup> = {
+  cash: 'savings',
+  bank: 'savings',
+  debit_card: 'savings',
+  wallet: 'savings',
+  deposit: 'investment',
+  investment: 'investment',
+  credit_card: 'credit',
+  loan: 'loan',
+  property: 'real_estate',
+  other: 'other',
+};
+
+export const ACCOUNT_GROUPS: { key: AccountGroup; label: string; icon: string; types: AccountType[] }[] = [
+  { key: 'savings', label: 'Savings & cash', icon: 'wallet-outline', types: ['bank', 'cash', 'wallet', 'debit_card'] },
+  { key: 'investment', label: 'Investments', icon: 'trending-up-outline', types: ['investment', 'deposit'] },
+  { key: 'credit', label: 'Credit cards', icon: 'card-outline', types: ['credit_card'] },
+  { key: 'loan', label: 'Loans', icon: 'document-text-outline', types: ['loan'] },
+  { key: 'real_estate', label: 'Real estate', icon: 'home-outline', types: ['property'] },
+  { key: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline', types: ['other'] },
+];
+
+export function isLiability(type: AccountType): boolean {
+  return LIABILITY_TYPES.includes(type);
+}

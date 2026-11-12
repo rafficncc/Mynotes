@@ -1,88 +1,172 @@
+import { ask } from '../components/Dialog';
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
-import { Button, Card, Field, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
-import { diffDays, formatShortDate, parseDate } from '../logic/dates';
-import { billPaidRecently, detectSubscriptions, nextBillDate } from '../logic/recurring';
+import { Text, View } from 'react-native';
+import { DateField } from '../components/DateField';
+import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { diffDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
+import { BILL_TYPES, FREQUENCY_LABEL, billTypeInfo, detectSubscriptions, nextBillDate } from '../logic/recurring';
+import type { Bill, BillType, Frequency } from '../logic/types';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
+const REMIND = [0, 1, 2, 3, 5, 7, 15, 30];
+const FREQS: Frequency[] = ['monthly', 'quarterly', 'half_yearly', 'yearly', 'once'];
+
 export default function Bills() {
   const data = useAppData();
-  const { addBill, deleteBill } = useStore();
+  const { saveBill, deleteBill } = useStore();
   const { money } = useMoney();
+  const on = new Date();
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [type, setType] = useState<BillType>('mobile');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
-  const [dueDay, setDueDay] = useState('');
-  const on = new Date();
+  const [frequency, setFrequency] = useState<Frequency>('monthly');
+  const [dueDate, setDueDate] = useState(toISODate(on));
+  const [remind, setRemind] = useState(3);
+  const [reference, setReference] = useState('');
 
   const bills = useMemo(
     () =>
       data.bills
-        .map((b) => ({ b, due: nextBillDate(b, on), paid: billPaidRecently(b, data.transactions, on) }))
-        .sort((x, y) => x.due.getTime() - y.due.getTime()),
-    [data.bills, data.transactions], // eslint-disable-line react-hooks/exhaustive-deps
+        .map((b) => ({ b, due: nextBillDate(b, on) }))
+        .sort((x, y) => (x.due?.getTime() ?? Infinity) - (y.due?.getTime() ?? Infinity)),
+    [data.bills], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const subs = useMemo(() => detectSubscriptions(data.transactions), [data.transactions]);
-  const subTotal = subs.reduce((s, x) => s + x.amount, 0);
+  const groups = [
+    { title: 'Mobile & internet', types: ['mobile', 'internet'] },
+    { title: 'Home & utilities', types: ['electricity', 'water', 'gas', 'rent', 'school', 'insurance', 'subscription', 'other'] },
+    { title: 'Government: tax, fines & fees', types: ['tax', 'fine', 'government'] },
+  ];
 
-  const add = () => {
-    const amt = parseFloat(amount);
-    const day = parseInt(dueDay, 10);
-    if (!name.trim() || !amt || !(day >= 1 && day <= 31)) return Alert.alert('Enter name, amount and due day (1–31)');
-    addBill({ name: name.trim(), amount: amt, dueDay: day });
+  const edit = (b: Bill) => {
+    setEditing(b.id);
+    setType(b.type);
+    setName(b.name);
+    setAmount(String(b.amount));
+    setFrequency(b.frequency);
+    setDueDate(b.dueDate);
+    setRemind(b.remindDaysBefore);
+    setReference(b.reference ?? '');
+  };
+  const reset = () => {
+    setEditing(null);
     setName('');
     setAmount('');
-    setDueDay('');
+    setReference('');
+  };
+
+  const save = () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) return ask('Enter the bill amount');
+    if (!dueDate) return ask('Pick the due date');
+    const t = billTypeInfo(type);
+    const existing = data.bills.find((b) => b.id === editing);
+    saveBill({
+      id: editing ?? undefined,
+      name: name.trim() || t.label,
+      type,
+      amount: amt,
+      frequency,
+      dueDate,
+      remindDaysBefore: remind,
+      reference: reference.trim() || undefined,
+      categoryId: t.categoryId,
+      lastPaid: existing?.dueDate === dueDate ? existing?.lastPaid : undefined,
+    });
+    reset();
   };
 
   return (
     <Screen>
-      <SectionTitle title="Upcoming bills" />
+      {groups.map((g) => {
+        const list = bills.filter(({ b }) => g.types.includes(b.type));
+        if (!list.length) return null;
+        return (
+          <View key={g.title} style={{ gap: 8 }}>
+            <SectionTitle title={g.title} />
+            <Card>
+              {list.map(({ b, due }) => {
+                const days = due ? diffDays(due, on) : null;
+                const t = billTypeInfo(b.type);
+                return (
+                  <ListItem
+                    key={b.id}
+                    icon={t.icon}
+                    iconColor={days === null ? colors.success : days < 0 ? colors.danger : days <= b.remindDaysBefore ? colors.warning : colors.primary}
+                    title={b.name}
+                    subtitle={
+                      due
+                        ? `${days! < 0 ? `Overdue since ${formatShortDate(due)}` : `Next due ${formatShortDate(due)}`} · ${FREQUENCY_LABEL[b.frequency]} · remind ${b.remindDaysBefore}d before${b.reference ? ` · ${b.reference}` : ''}`
+                        : `Paid on ${formatShortDate(parseDate(b.lastPaid!))}`
+                    }
+                    right={money(b.amount)}
+                    onPress={() => edit(b)}
+                  />
+                );
+              })}
+            </Card>
+          </View>
+        );
+      })}
+      {bills.length === 0 ? <Card><Text style={styles.itemSub}>Add mobile, internet, electricity, taxes, fines and other bills. FamilyFin reminds you before each due date.</Text></Card> : null}
+
+      <SectionTitle title={editing ? 'Edit bill' : 'Add a bill'} />
       <Card>
-        {bills.length === 0 ? <Text style={styles.itemSub}>Add rent, EMI, electricity, school fees, insurance… and never miss a due date.</Text> : null}
-        {bills.map(({ b, due, paid }) => {
-          const days = diffDays(due, on);
-          return (
-            <ListItem
-              key={b.id}
-              icon={paid ? 'checkmark-circle' : 'receipt-outline'}
-              iconColor={paid ? colors.success : days <= 3 ? colors.danger : colors.warning}
-              title={b.name}
-              subtitle={paid ? 'Paid this cycle' : `Due ${formatShortDate(due)} · ${days === 0 ? 'today' : `in ${days} days`}`}
-              right={money(b.amount)}
+        <ChipRow>
+          {BILL_TYPES.map((t) => (
+            <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => setType(t.key)} />
+          ))}
+        </ChipRow>
+        <Field label="Name" value={name} onChangeText={setName} placeholder={billTypeInfo(type).label} hint="Use the same name as the shop/merchant when you log the payment – it'll be ticked off automatically." />
+        <Row style={{ alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}><Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0" /></View>
+          <View style={{ flex: 1 }}><Field label={type === 'mobile' ? 'Mobile number' : type === 'fine' ? 'Challan / reason' : 'Reference (optional)'} value={reference} onChangeText={setReference} placeholder={type === 'mobile' ? '98xxxxxx21' : 'Account / consumer no.'} /></View>
+        </Row>
+        <Text style={styles.label}>How often</Text>
+        <ChipRow>
+          {FREQS.map((f) => (
+            <Chip key={f} label={FREQUENCY_LABEL[f]} selected={frequency === f} onPress={() => setFrequency(f)} />
+          ))}
+        </ChipRow>
+        <DateField label={frequency === 'once' ? 'Due date' : 'Next due date'} value={dueDate} onChange={setDueDate} quick={false} />
+        <Text style={styles.label}>Remind me</Text>
+        <ChipRow>
+          {REMIND.map((d) => (
+            <Chip key={d} label={d === 0 ? 'On the day' : `${d} day${d === 1 ? '' : 's'} before`} selected={remind === d} onPress={() => setRemind(d)} />
+          ))}
+        </ChipRow>
+        <Button title={editing ? 'Save bill' : 'Add bill'} icon="checkmark" onPress={save} />
+        {editing ? (
+          <>
+            <Button title="Pay & record now" variant="secondary" icon="wallet-outline" onPress={() => router.push(`/add?type=expense&billId=${editing}`)} />
+            <Button
+              title="Delete bill"
+              variant="danger"
+              icon="trash-outline"
               onPress={() =>
-                Alert.alert(`Delete ${b.name}?`, undefined, [
+                ask('Delete this bill?', undefined, [
                   { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => deleteBill(b.id) },
+                  { text: 'Delete', style: 'destructive', onPress: () => { deleteBill(editing); reset(); } },
                 ])
               }
             />
-          );
-        })}
-      </Card>
-      <Card>
-        <Field label="Bill name" value={name} onChangeText={setName} placeholder="e.g. Electricity, Car EMI" hint="Use the same name as the shop/merchant when you log the payment – it'll be marked paid automatically." />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="2000" /></View>
-          <View style={{ flex: 1 }}><Field label="Due day" value={dueDay} onChangeText={setDueDay} keyboardType="number-pad" placeholder="10" /></View>
-        </Row>
-        <Button title="Add bill" icon="add" onPress={add} />
+          </>
+        ) : null}
       </Card>
 
       <SectionTitle title="Detected recurring charges" />
       <Card>
         {subs.length === 0 ? (
-          <Text style={styles.itemSub}>Nothing detected yet. Charges of a similar amount at the same merchant for 3+ months show up here.</Text>
+          <Text style={styles.itemSub}>Charges of a similar amount at the same merchant for 3+ months show up here.</Text>
         ) : (
-          <>
-            <Text style={styles.insightText}>
-              {money(subTotal)}/month · {money(subTotal * 12)}/year. Ask: did we use each of these last month?
-            </Text>
-            {subs.map((s) => (
-              <ListItem key={s.merchant} icon="repeat" iconColor={colors.info} title={s.merchant} subtitle={`${s.months} months · last ${formatShortDate(parseDate(s.lastDate))}`} right={money(s.amount)} />
-            ))}
-          </>
+          subs.map((s) => (
+            <ListItem key={s.merchant} icon="repeat" iconColor={colors.info} title={s.merchant} subtitle={`${s.months} months · last ${formatShortDate(parseDate(s.lastDate))}`} right={money(s.amount)} />
+          ))
         )}
       </Card>
     </Screen>

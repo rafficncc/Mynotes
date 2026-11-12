@@ -14,9 +14,9 @@ import {
   spendByPaymentMode,
   sum,
 } from '../../logic/analytics';
-import { monthLabel, shiftMonthKey, toISODate } from '../../logic/dates';
+import { cycleBounds, monthLabel, shiftMonthKey } from '../../logic/dates';
 import { generateInsights, healthScore, totalPotentialSaving } from '../../logic/insights';
-import { useAppData, useMoney } from '../../store/hooks';
+import { useAppData, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
 type Range = 'month' | 'last' | '3m';
@@ -27,11 +27,11 @@ export default function Insights() {
   const { width } = useWindowDimensions();
   const [range, setRange] = useState<Range>('month');
   const on = new Date();
-  const key = toISODate(on).slice(0, 7);
+  const { key, startDay } = useCycle();
 
   const v = useMemo(() => {
     const keys = range === 'month' ? [key] : range === 'last' ? [shiftMonthKey(key, -1)] : [0, 1, 2].map((i) => shiftMonthKey(key, -i));
-    const txns = keys.flatMap((k) => inMonth(data.transactions, k));
+    const txns = keys.flatMap((k) => inMonth(data.transactions, k, startDay));
     const insights = generateInsights(data, on);
     return {
       txns,
@@ -39,7 +39,7 @@ export default function Insights() {
       byMode: spendByPaymentMode(txns, data.accounts),
       merchants: spendByMerchant(txns, 6),
       members: spendByMember(txns, data.members),
-      trend: monthlyTotals(data.transactions, key, 6),
+      trend: monthlyTotals(data.transactions, key, 6, startDay),
       nws: needsWantsSavings(txns, data.categories),
       income: sum(incomes(txns)),
       insights,
@@ -47,7 +47,7 @@ export default function Insights() {
       health: healthScore(data, on),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, range, key]);
+  }, [data, range, key, startDay]);
 
   const total = v.byCat.reduce((s, x) => s + x.value, 0);
 
@@ -72,9 +72,9 @@ export default function Insights() {
 
       <SectionTitle title="Where the money goes" />
       <ChipRow>
-        <Chip label="This month" selected={range === 'month'} onPress={() => setRange('month')} />
-        <Chip label="Last month" selected={range === 'last'} onPress={() => setRange('last')} />
-        <Chip label="Last 3 months" selected={range === '3m'} onPress={() => setRange('3m')} />
+        <Chip label="This cycle" selected={range === 'month'} onPress={() => setRange('month')} />
+        <Chip label="Last cycle" selected={range === 'last'} onPress={() => setRange('last')} />
+        <Chip label="Last 3 cycles" selected={range === '3m'} onPress={() => setRange('3m')} />
       </ChipRow>
       <Card>
         <DonutChart data={v.byCat} centerLabel="Spent" centerValue={compact(total)} format={money} />
@@ -107,7 +107,7 @@ export default function Insights() {
         <Text style={styles.itemTitle}>Income vs expense – last 6 months</Text>
         <BarChart
           width={width - 64}
-          labels={v.trend.map((t) => monthLabel(t.key))}
+          labels={v.trend.map((t) => (startDay > 1 ? `${monthLabel(t.key)} ${cycleBounds(t.key, startDay).start.getDate()}` : monthLabel(t.key)))}
           series={[
             { name: 'Income', color: colors.success, values: v.trend.map((t) => t.income) },
             { name: 'Expense', color: colors.danger, values: v.trend.map((t) => t.expense) },

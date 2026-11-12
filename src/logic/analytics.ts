@@ -1,11 +1,12 @@
-import { daysInMonth, monthKey, parseDate, shiftMonthKey } from './dates';
+import { cycleKeyOf, cycleProgress, parseDate, shiftMonthKey } from './dates';
 import type { Account, AccountType, Category, Transaction } from './types';
 
 export const expenses = (txns: Transaction[]) => txns.filter((t) => t.type === 'expense');
 export const incomes = (txns: Transaction[]) => txns.filter((t) => t.type === 'income');
 
-export function inMonth(txns: Transaction[], key: string): Transaction[] {
-  return txns.filter((t) => monthKey(t.date) === key);
+/** Transactions in a spending cycle (a calendar month when startDay is 1). */
+export function inMonth(txns: Transaction[], key: string, startDay = 1): Transaction[] {
+  return txns.filter((t) => cycleKeyOf(t.date, startDay) === key);
 }
 
 export function sum(txns: Transaction[]): number {
@@ -34,6 +35,10 @@ export function spendByCategory(txns: Transaction[], categories: Category[]): Sl
 }
 
 const TYPE_COLOR: Record<AccountType, string> = {
+  deposit: '#3949AB',
+  investment: '#2E7D32',
+  loan: '#6D4C41',
+  property: '#8D6E63',
   cash: '#43A047',
   bank: '#1E88E5',
   debit_card: '#00ACC1',
@@ -43,6 +48,10 @@ const TYPE_COLOR: Record<AccountType, string> = {
 };
 
 const TYPE_LABEL: Record<AccountType, string> = {
+  deposit: 'Deposit',
+  investment: 'Investment',
+  loan: 'Loan account',
+  property: 'Property',
   cash: 'Cash',
   bank: 'Bank / Net banking',
   debit_card: 'Debit card',
@@ -95,11 +104,11 @@ export interface MonthTotals {
   expense: number;
 }
 
-export function monthlyTotals(txns: Transaction[], endKey: string, months = 6): MonthTotals[] {
+export function monthlyTotals(txns: Transaction[], endKey: string, months = 6, startDay = 1): MonthTotals[] {
   const out: MonthTotals[] = [];
   for (let i = months - 1; i >= 0; i--) {
     const key = shiftMonthKey(endKey, -i);
-    const m = inMonth(txns, key);
+    const m = inMonth(txns, key, startDay);
     out.push({ key, income: sum(incomes(m)), expense: sum(expenses(m)) });
   }
   return out;
@@ -116,18 +125,17 @@ export function weekdayVsWeekend(txns: Transaction[]): { weekdayAvg: number; wee
   return { weekdayAvg: wdn ? wd / wdn : 0, weekendAvg: wen ? we / wen : 0 };
 }
 
-/** Projects full-month spend from the spend so far this month. */
-export function projectMonthSpend(spentSoFar: number, on: Date): number {
-  const dim = daysInMonth(on.getFullYear(), on.getMonth());
-  const day = on.getDate();
-  return day > 0 ? (spentSoFar / day) * dim : spentSoFar;
+/** Projects full-cycle spend from the spend so far in the cycle. */
+export function projectMonthSpend(spentSoFar: number, on: Date, startDay = 1): number {
+  const { elapsed, length } = cycleProgress(on, startDay);
+  return elapsed > 0 ? (spentSoFar / elapsed) * length : spentSoFar;
 }
 
 /** Categories usually paid once a month – they should not be extrapolated by day. */
-export const FIXED_CATEGORY_IDS = ['rent', 'education', 'insurance', 'utilities', 'subscriptions'];
+export const FIXED_CATEGORY_IDS = ['rent', 'emi', 'education', 'insurance', 'utilities', 'telecom', 'govt', 'subscriptions'];
 
 /** Month-end projection that counts fixed bills once and extrapolates only day-to-day spending. */
-export function projectMonth(monthTxns: Transaction[], categories: Category[], on: Date): number {
+export function projectMonth(monthTxns: Transaction[], categories: Category[], on: Date, startDay = 1): number {
   let fixed = 0;
   let variable = 0;
   for (const t of expenses(monthTxns)) {
@@ -135,7 +143,7 @@ export function projectMonth(monthTxns: Transaction[], categories: Category[], o
     if (kind === 'saving' || FIXED_CATEGORY_IDS.includes(t.categoryId ?? '')) fixed += t.amount;
     else variable += t.amount;
   }
-  return fixed + projectMonthSpend(variable, on);
+  return fixed + projectMonthSpend(variable, on, startDay);
 }
 
 /** Splits spend into needs / wants / savings for the 50-30-20 rule. */

@@ -42,6 +42,49 @@ per-shop price history and shows the cheapest shop for each item, plus how much 
 - **Cut-back simulator**: "What if we spend 25% less on dining?" It shows the monthly and yearly saving, what that becomes as a 10-year SIP, and how soon you'd reach your goal.
 - **No-splurge streak** to make saving a habit.
 
+### Actions tab: everything due this cycle
+One list of what to pay or renew in the current spending cycle: credit card bills, mobile/internet/utility bills,
+taxes and fines, EMIs, and document renewals. Items are grouped as **Overdue**, **Due soon** (reminder date reached),
+**Later this cycle** and **Done**. Use *Pay & record* (pre-fills the transaction) or *Mark paid*. The tab shows a badge with the number of urgent items.
+
+### Spending cycle
+Set the day your month starts (e.g. salary on the 25th). Budgets, reports, insights, allowances and Actions all
+follow that cycle instead of the calendar month.
+
+### Bills, reminders and documents
+- Bills by type: mobile, internet, electricity, water, gas, rent, school, insurance, **tax, fines/challans, government fees**, subscriptions.
+- Repeats monthly, every 3 or 6 months, yearly, or once (fines).
+- **"Remind me N days before"** on every bill, EMI, credit card and document. Phone notifications at 9 AM (installed app).
+- **Document expiry tracking**: passport, visa, Emirates ID, residence permit, Aadhaar, PAN, driving licence, vehicle registration, health card, insurance policy, plus sensible reminder defaults (e.g. passport 6 months ahead).
+
+### EMIs
+- Switch on **"Converted to EMI"** when adding a credit card purchase. The card bill then includes only the monthly instalment, with no-cost or interest EMIs (reducing-balance formula).
+- Add running EMIs manually (card EMIs, home/car/personal loans, other instalments): see what's paid, what's left, the end date and the total interest.
+
+### Accounts by category
+Savings & cash (bank, cash, UPI/wallet, debit card), Investments (stocks/funds/gold, fixed deposits), Credit cards,
+Loans (with interest rate), Real estate, and Other, each with group totals in net worth.
+
+### Family allowances and group
+- Give each member an allowance per cycle and see spent vs left. Choose who uses each phone.
+- **Family group without a server**: the organiser shares an invite code; each member logs on their own phone and sends an
+  update code; the organiser imports it (duplicates are ignored). Real-time cloud sync is on the roadmap.
+
+### Region-aware
+27 currencies. Savings tips change with the country (e.g. India: Jan Aushadhi, fuel surcharge waiver, 80C; UAE/Gulf:
+monthly fuel price changes, AC bills, remittance rates; UK: ISA allowance, Railcards; US: 401(k) match, and more).
+
+### Custom categories
+Add your own categories with an icon, a colour and a type (need/want/saving/income). Edit or delete them any time.
+
+### Google account and Drive backup
+Sign in with Google during onboarding or in Settings. Back up to and restore from the hidden app-data folder of your own Google Drive.
+
+### Free plan and Premium
+Free: 4 accounts + 4 credit cards. **Premium: one-time lifetime price of ₹2,500**, shown converted to every supported
+currency (e.g. AED 109, $28.99, £21.99). Store billing (Google Play / App Store) still has to be connected before
+release. Until then the Premium screen offers a "unlock for testing" option.
+
 ### Also included
 Monthly budgets (with suggested limits from your 3-month average), bill reminders that auto-mark themselves paid, savings
 goals with a required monthly saving, multi-currency, CSV export, JSON backup, demo data and a privacy-first design (no bank login, no SMS reading; data stays on the phone).
@@ -57,12 +100,22 @@ npm run typecheck
 
 Production builds: `npx eas-cli@latest build -p android` (Play Store) / `-p ios` (App Store).
 
+### One-time setup for Google sign-in and Drive backup
+1. In Google Cloud Console, create a project and enable the **Google Drive API**.
+2. Configure the OAuth consent screen with the scopes `openid`, `email`, `profile` and `drive.appdata`.
+3. Create OAuth client IDs for **Android** (package `com.familyfin.app` + your signing SHA-1), **iOS** (bundle `com.familyfin.app`) and **Web**.
+4. Put them in `app.json` → `expo.extra.google` (`androidClientId`, `iosClientId`, `webClientId`) and rebuild.
+
+Until the IDs are set, the Google buttons are shown as disabled with an explanation. Everything else works.
+
+Notifications use `expo-notifications`. Reminders are rescheduled automatically whenever bills, EMIs, cards or documents change.
+
 ## Code structure
 
 ```
 src/
   app/                 Expo Router screens
-    (tabs)/            Home, Transactions, Insights, Smart Card, More
+    (tabs)/            Home, Transactions, Actions, Insights, Cards, More
     add.tsx            Add/edit expense, income, transfer (with live card tip)
     account-form.tsx   Accounts & credit card billing cycle
     budgets, prices, bills, goals, family, simulator, settings, welcome
@@ -71,8 +124,13 @@ src/
     insights.ts        Suggestion engine, health score, streak
     analytics.ts       Grouping, trends, projections
     priceBook.ts       Cheapest-shop comparison
-    recurring.ts       Subscription detection, bill due dates
-  store/               Zustand store persisted to device storage
+    recurring.ts       Bill schedules (all frequencies), subscription detection
+    actions.ts         Actions list + reminder schedule
+    emi.ts             EMI maths and progress
+    region.ts          Currencies, premium pricing, country-specific tips
+    familySync.ts      Family group invite/update codes
+  services/            Google sign-in + Drive backup, phone notifications
+  store/               Zustand store persisted to device storage (with data migrations)
   components/          UI kit and SVG charts
 ```
 

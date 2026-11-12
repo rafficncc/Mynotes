@@ -9,10 +9,12 @@ export function useHydrated() {
   const [hydrated, setHydrated] = useState(useStore.persist.hasHydrated());
   useEffect(() => {
     const unsub = useStore.persist.onFinishHydration(() => setHydrated(true));
-    setHydrated(useStore.persist.hasHydrated());
+    // Hydration may have finished between render and this effect.
+    const check = setTimeout(() => useStore.persist.hasHydrated() && setHydrated(true), 0);
     const fallback = setTimeout(() => setHydrated(true), 1500);
     return () => {
       unsub();
+      clearTimeout(check);
       clearTimeout(fallback);
     };
   }, []);

@@ -30,7 +30,7 @@ export default function SmartCard() {
 
   const recs = useMemo(() => recommendCards(cards, balances, purchaseDate, amt), [cards, balances, whenDays, amt]); // eslint-disable-line react-hooks/exhaustive-deps
   const infos = useMemo(
-    () => cards.map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on)),
+    () => cards.map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on, data.emis)),
     [cards, data.transactions, balances], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
@@ -85,7 +85,7 @@ export default function SmartCard() {
           ))
         )}
         <Text style={styles.hint}>
-          Tip: buy big items just after a card's billing date – that's when you get the longest time to pay. Always pay the full bill to keep it interest-free.
+          Tip: buy big items just after a card’s billing date – that’s when you get the longest time to pay. Always pay the full bill to keep it interest-free.
         </Text>
       </Card>
 

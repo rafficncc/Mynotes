@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GoogleConnectButton } from '../components/GoogleBackup';
 import { Button, Card, Icon, Screen, styles } from '../components/ui';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
@@ -10,8 +11,9 @@ const FEATURES: [string, string, string][] = [
   ['card-outline', 'Smart Card picker', 'Tells you which credit card to swipe today for the most interest-free days.'],
   ['bulb-outline', 'Savings coach', 'Finds where money leaks and suggests how to cut it – with ₹ amounts.'],
   ['storefront-outline', 'Cheaper shop finder', 'Compares prices across shops so you buy the same thing for less.'],
-  ['people-outline', 'Built for families', 'Track spends per member, budgets, bills and family goals.'],
-  ['lock-closed-outline', 'Private by design', 'No bank login, no SMS reading. Your data stays on your phone.'],
+  ['people-outline', 'Built for families', 'Allowance per member, family group, bills, EMIs and goals.'],
+  ['checkbox-outline', 'Never miss a due date', 'Reminders for bills, EMIs, card dues and passport/visa expiry.'],
+  ['lock-closed-outline', 'Private by design', 'No bank login, no SMS reading. Data stays on your phone; optional backup to your own Google Drive.'],
 ];
 
 export default function Welcome() {
@@ -51,6 +53,7 @@ export default function Welcome() {
             </View>
           ))}
         </Card>
+        <GoogleConnectButton onSignedIn={start} />
         <Button title="Set up my accounts" icon="arrow-forward" onPress={start} />
         <Button title="Explore with demo data" variant="secondary" icon="play-outline" onPress={demo} />
         <Text style={[styles.hint, { textAlign: 'center' }]}>You can clear demo data any time from Settings.</Text>

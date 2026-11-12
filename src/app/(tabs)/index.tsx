@@ -6,20 +6,20 @@ import { Button, Card, Icon, InsightCard, ListItem, ProgressBar, Row, Screen, Se
 import { expenses, inMonth, incomes, projectMonth, sum } from '../../logic/analytics';
 import { computeNetWorth } from '../../logic/balances';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
-import { formatDate, formatShortDate, toISODate } from '../../logic/dates';
+import { formatDate, formatShortDate } from '../../logic/dates';
 import { generateInsights, healthScore, noSplurgeStreak, totalPotentialSaving } from '../../logic/insights';
-import { useAppData, useBalances, useMoney } from '../../store/hooks';
+import { useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
 export default function Home() {
   const data = useAppData();
   const balances = useBalances();
-  const { money } = useMoney();
+  const { money, compact } = useMoney();
   const on = new Date();
-  const key = toISODate(on).slice(0, 7);
+  const { key, startDay, label: cycleText, progress } = useCycle();
 
   const view = useMemo(() => {
-    const month = inMonth(data.transactions, key);
+    const month = inMonth(data.transactions, key, startDay);
     const spent = sum(expenses(month));
     const earned = sum(incomes(month));
     const budgetTotal = data.budgets.reduce((s, b) => s + b.monthlyLimit, 0);
@@ -30,7 +30,7 @@ export default function Home() {
     return {
       spent,
       earned,
-      projected: projectMonth(month, data.categories, on),
+      projected: projectMonth(month, data.categories, on, startDay),
       budgetTotal,
       budgetSpent,
       net: computeNetWorth(data.accounts, balances),
@@ -40,13 +40,13 @@ export default function Home() {
       streak: noSplurgeStreak(data, on),
       bestCard: recommendCards(cards, balances, on)[0],
       dues: cards
-        .map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on))
+        .map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on, data.emis))
         .filter((i) => i.amountDue > 0)
         .sort((a, b) => a.daysToDue - b.daysToDue),
       recent: data.transactions.slice().sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)).slice(0, 5),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, balances, key]);
+  }, [data, balances, key, startDay]);
 
   const cat = (id?: string) => data.categories.find((c) => c.id === id);
   const acc = (id?: string) => data.accounts.find((a) => a.id === id);
@@ -54,7 +54,7 @@ export default function Home() {
   return (
     <Screen>
       <Card style={{ backgroundColor: colors.primary }}>
-        <Text style={{ color: '#ffffffcc', fontSize: 13 }}>Spent this month</Text>
+        <Text style={{ color: '#ffffffcc', fontSize: 13 }}>Spent this cycle · {cycleText} · {progress.left} days left</Text>
         <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.spent)}</Text>
         <Text style={{ color: '#ffffffcc', fontSize: 12 }}>
           Projected {money(view.projected)}
@@ -68,9 +68,9 @@ export default function Home() {
           </>
         ) : null}
         <Row style={{ marginTop: 8 }}>
-          <Stat label="Income" value={money(view.earned)} color="#fff" labelColor="#ffffffcc" />
-          <Stat label="Net worth" value={money(view.net.net)} color="#fff" labelColor="#ffffffcc" />
-          <Stat label="Cash & bank" value={money(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label="Income" value={compact(view.earned)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label="Net worth" value={compact(view.net.net)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label="Cash & bank" value={compact(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
         </Row>
       </Card>
 

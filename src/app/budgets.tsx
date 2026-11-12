@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { Card, Icon, ProgressBar, Row, Screen, styles } from '../components/ui';
 import { expenses, inMonth, projectMonthSpend, sum } from '../logic/analytics';
-import { shiftMonthKey, toISODate } from '../logic/dates';
-import { useAppData, useMoney } from '../store/hooks';
+import { shiftMonthKey } from '../logic/dates';
+import { useAppData, useCycle, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -12,23 +12,23 @@ export default function Budgets() {
   const setBudget = useStore((s) => s.setBudget);
   const { money } = useMoney();
   const on = new Date();
-  const key = toISODate(on).slice(0, 7);
+  const { key, startDay, label: cycleText } = useCycle();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const rows = useMemo(() => {
-    const month = expenses(inMonth(data.transactions, key));
-    const prev3 = [1, 2, 3].map((i) => expenses(inMonth(data.transactions, shiftMonthKey(key, -i))));
+    const month = expenses(inMonth(data.transactions, key, startDay));
+    const prev3 = [1, 2, 3].map((i) => expenses(inMonth(data.transactions, shiftMonthKey(key, -i), startDay)));
     return data.categories
       .filter((c) => c.kind !== 'income')
       .map((c) => {
         const spent = sum(month.filter((t) => t.categoryId === c.id));
         const avg = prev3.reduce((s, m) => s + sum(m.filter((t) => t.categoryId === c.id)), 0) / 3;
         const limit = data.budgets.find((b) => b.categoryId === c.id)?.monthlyLimit ?? 0;
-        return { c, spent, avg, limit, projected: projectMonthSpend(spent, on) };
+        return { c, spent, avg, limit, projected: projectMonthSpend(spent, on, startDay) };
       })
       .sort((a, b) => (b.limit > 0 ? 1 : 0) - (a.limit > 0 ? 1 : 0) || b.avg - a.avg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, key]);
+  }, [data, key, startDay]);
 
   const commit = (categoryId: string) => {
     const v = drafts[categoryId];
@@ -46,7 +46,7 @@ export default function Budgets() {
   return (
     <Screen>
       <Card>
-        <Text style={styles.itemTitle}>This month: {money(totalSpent)} of {money(totalLimit)} budgeted</Text>
+        <Text style={styles.itemTitle}>This cycle ({cycleText}): {money(totalSpent)} of {money(totalLimit)} budgeted</Text>
         {totalLimit > 0 ? <ProgressBar value={totalSpent / totalLimit} /> : null}
         <Text style={styles.hint}>Tip: start with a budget about 10% below your 3-month average – the app suggests one for each category.</Text>
       </Card>

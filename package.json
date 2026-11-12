@@ -6,10 +6,14 @@
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.24",
+    "expo-auth-session": "~58.0.18",
     "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
     "expo-linking": "~58.0.17",
+    "expo-notifications": "~58.1.9",
     "expo-router": "~58.0.31",
     "expo-status-bar": "~58.0.5",
+    "expo-web-browser": "~58.0.8",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
@@ -21,6 +25,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.4",
     "typescript": "~6.0.3",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
@@ -31,7 +37,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint"
   },
   "private": true
 }

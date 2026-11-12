@@ -11,11 +11,13 @@ import {
 } from './analytics';
 import { computeBalances, computeNetWorth } from './balances';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from './creditCard';
-import { addDays, diffDays, formatShortDate, monthKey, parseDate, shiftMonthKey, toISODate } from './dates';
+import { addDays, currentCycleKey, cycleBounds, cycleProgress, diffDays, formatShortDate, parseDate, shiftMonthKey, toISODate } from './dates';
+import { regionalTips } from './region';
 import { SMALL_SPEND_CATEGORIES } from './defaults';
 import { formatMoney } from './money';
 import { compareItems } from './priceBook';
-import { billPaidRecently, detectSubscriptions, nextBillDate } from './recurring';
+import { generateActions } from './actions';
+import { detectSubscriptions } from './recurring';
 import type { AppData, Insight } from './types';
 
 const SEVERITY_ORDER = { alert: 0, warning: 1, tip: 2, good: 3 } as const;
@@ -28,10 +30,12 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
   const { transactions: txns, categories, accounts, settings } = data;
   const money = (n: number) => formatMoney(n, settings.currency, settings.locale);
   const out: Insight[] = [];
-  const thisKey = toISODate(on).slice(0, 7);
+  const sd = settings.cycleStartDay ?? 1;
+  const progress = cycleProgress(on, sd);
+  const thisKey = currentCycleKey(on, sd);
   const lastKey = shiftMonthKey(thisKey, -1);
-  const thisMonth = inMonth(txns, thisKey);
-  const lastMonth = inMonth(txns, lastKey);
+  const thisMonth = inMonth(txns, thisKey, sd);
+  const lastMonth = inMonth(txns, lastKey, sd);
   const catName = (id?: string) => categories.find((c) => c.id === id)?.name ?? 'Other';
   const balances = computeBalances(accounts, txns);
 
@@ -39,7 +43,7 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
   for (const b of data.budgets) {
     if (b.monthlyLimit <= 0) continue;
     const spent = sum(expenses(thisMonth).filter((t) => t.categoryId === b.categoryId));
-    const projected = projectMonthSpend(spent, on);
+    const projected = projectMonthSpend(spent, on, sd);
     if (spent > b.monthlyLimit) {
       out.push({
         id: `budget-over-${b.categoryId}`,
@@ -49,13 +53,13 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
         detail: `Spent ${money(spent)} of ${money(b.monthlyLimit)} this month. Pause non-essential ${catName(b.categoryId).toLowerCase()} spends till month end.`,
         monthlySaving: spent - b.monthlyLimit,
       });
-    } else if (projected > b.monthlyLimit * 1.05 && on.getDate() >= 5) {
+    } else if (projected > b.monthlyLimit * 1.05 && progress.elapsed >= 5) {
       out.push({
         id: `budget-pace-${b.categoryId}`,
         severity: 'warning',
         icon: 'speedometer',
         title: `${catName(b.categoryId)} on track to overshoot`,
-        detail: `At this pace you'll spend about ${money(projected)} vs a ${money(b.monthlyLimit)} budget. Keep daily spend under ${money(Math.max(0, (b.monthlyLimit - spent) / Math.max(1, daysLeft(on))))}.`,
+        detail: `At this pace you'll spend about ${money(projected)} vs a ${money(b.monthlyLimit)} budget. Keep daily spend under ${money(Math.max(0, (b.monthlyLimit - spent) / Math.max(1, progress.left)))}.`,
         monthlySaving: projected - b.monthlyLimit,
       });
     }
@@ -63,8 +67,8 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
 
   // 2. Category jumped vs the same days of last month (fair even mid-month, and fixed
   //    bills like rent paid on the same date cancel out). Savings going up is good, so skipped.
-  const dayOfMonth = on.getDate();
-  const lastToDate = lastMonth.filter((t) => Number(t.date.slice(8, 10)) <= dayOfMonth);
+  const lastStart = cycleBounds(lastKey, sd).start;
+  const lastToDate = lastMonth.filter((t) => diffDays(parseDate(t.date), lastStart) < progress.elapsed);
   const lastByCat = spendByCategory(lastToDate, categories);
   const thisByCat = spendByCategory(thisMonth, categories);
   const budgetFlagged = new Set(out.map((i) => i.id.replace(/^budget-(over|pace)-/, '')));
@@ -72,13 +76,13 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
     if (categories.find((c) => c.id === cur.key)?.kind === 'saving') continue;
     if (budgetFlagged.has(cur.key)) continue; // already covered by a budget alert
     const prev = lastByCat.find((p) => p.key === cur.key)?.value ?? 0;
-    if (prev > 0 && cur.value > prev * 1.25 && cur.value - prev > 500 && dayOfMonth >= 7) {
+    if (prev > 0 && cur.value > prev * 1.25 && cur.value - prev > 500 && progress.elapsed >= 7) {
       out.push({
         id: `jump-${cur.key}`,
         severity: 'warning',
         icon: 'trending-up',
         title: `${cur.label} up ${Math.round((cur.value / prev - 1) * 100)}%`,
-        detail: `${money(cur.value)} so far this month vs ${money(prev)} by the same date last month.`,
+        detail: `${money(cur.value)} so far this month vs ${money(prev)} by the same point last cycle.`,
         monthlySaving: cur.value - prev,
       });
     }
@@ -139,7 +143,7 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
 
   // 6. Subscriptions
   // Rent, fees, insurance and SIPs recur too, but they are not "subscriptions" to cancel.
-  const notSubs = new Set(['rent', 'education', 'insurance', 'utilities']);
+  const notSubs = new Set(['rent', 'emi', 'education', 'insurance', 'utilities', 'telecom', 'govt']);
   const subs = detectSubscriptions(txns).filter((s) => {
     const kind = categories.find((c) => c.id === s.categoryId)?.kind;
     return kind !== 'saving' && !notSubs.has(s.categoryId ?? '');
@@ -172,7 +176,7 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
   // 8. Credit cards: dues, utilisation, float
   const cards = accounts.filter((a) => isCreditCardConfigured(a) && !a.archived);
   for (const card of cards) {
-    const info = cardCycleInfo(card, txns, balances[card.id] ?? 0, on);
+    const info = cardCycleInfo(card, txns, balances[card.id] ?? 0, on, data.emis);
     if (info.amountDue > 0 && info.daysToDue < 0) {
       out.push({
         id: `card-overdue-${card.id}`,
@@ -216,7 +220,7 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
         const type = accounts.find((a) => a.id === t.accountId)?.type;
         const kind = categories.find((c) => c.id === t.categoryId)?.kind;
         // Rent, school fees and investments usually can't be paid by card.
-        const cardable = kind !== 'saving' && t.categoryId !== 'rent' && t.categoryId !== 'education';
+        const cardable = kind !== 'saving' && !['rent', 'emi', 'education', 'govt'].includes(t.categoryId ?? '');
         return cardable && (type === 'debit_card' || type === 'bank' || type === 'wallet');
       });
       const amt = sum(nonCard.filter((t) => t.amount >= 1000));
@@ -232,19 +236,17 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
     }
   }
 
-  // 9. Upcoming bills
-  for (const bill of data.bills) {
-    const due = nextBillDate(bill, on);
-    const days = diffDays(due, on);
-    if (days <= 5 && !billPaidRecently(bill, txns, on)) {
-      out.push({
-        id: `bill-${bill.id}`,
-        severity: days <= 1 ? 'alert' : 'warning',
-        icon: 'receipt',
-        title: `${bill.name} due ${days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`}`,
-        detail: `${money(bill.amount)} on ${formatShortDate(due)}. Set up autopay to never miss it.`,
-      });
-    }
+  // 9. Bills, EMIs and renewals that need attention (details on the Actions tab)
+  const pending = generateActions(data, on).filter((a) => a.kind !== 'card' && (a.status === 'overdue' || a.status === 'due'));
+  const overdue = pending.filter((a) => a.status === 'overdue');
+  if (pending.length > 0) {
+    out.push({
+      id: 'actions',
+      severity: overdue.length > 0 ? 'alert' : 'warning',
+      icon: 'checkbox-outline',
+      title: overdue.length > 0 ? `${overdue.length} overdue item${overdue.length > 1 ? 's' : ''} on your Actions list` : `${pending.length} payment${pending.length > 1 ? 's' : ''} or renewal${pending.length > 1 ? 's' : ''} due soon`,
+      detail: pending.slice(0, 3).map((a) => `${a.title} (${formatShortDate(a.date)})`).join(', ') + '. Open the Actions tab to pay or mark done.',
+    });
   }
 
   // 10. 50/30/20 and savings rate (based on last full month, or this month if no history)
@@ -284,7 +286,7 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
   }
 
   // 11. Emergency fund
-  const avgMonthly = average([1, 2, 3].map((i) => sum(expenses(inMonth(txns, shiftMonthKey(thisKey, -i))))).filter((x) => x > 0));
+  const avgMonthly = average([1, 2, 3].map((i) => sum(expenses(inMonth(txns, shiftMonthKey(thisKey, -i), sd)))).filter((x) => x > 0));
   const nw = computeNetWorth(accounts, balances);
   if (avgMonthly > 0 && nw.liquid < avgMonthly * 3) {
     out.push({
@@ -309,14 +311,28 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
     });
   }
 
+  // 13. Tips that fit the family's country (from the chosen currency)
+  out.push(...regionalTips(data, thisMonth));
+
+  // Member allowances
+  for (const m of data.members) {
+    if (!m.budget || m.budget <= 0) continue;
+    const spent = sum(expenses(thisMonth).filter((t) => t.memberId === m.id));
+    if (spent > m.budget) {
+      out.push({
+        id: `member-${m.id}`,
+        severity: 'warning',
+        icon: 'person',
+        title: `${m.name} is over their allowance`,
+        detail: `${money(spent)} spent of a ${money(m.budget)} allowance this cycle.`,
+        monthlySaving: spent - m.budget,
+      });
+    }
+  }
+
   return out.sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || (b.monthlySaving ?? 0) - (a.monthlySaving ?? 0),
   );
-}
-
-function daysLeft(on: Date): number {
-  const end = new Date(on.getFullYear(), on.getMonth() + 1, 0);
-  return diffDays(end, on) + 1;
 }
 
 function average(xs: number[]): number {
@@ -352,8 +368,9 @@ export interface HealthScore {
 
 /** 0–100 family financial health score. */
 export function healthScore(data: AppData, on: Date = new Date()): HealthScore {
-  const thisKey = monthKey(toISODate(on));
-  const months = [1, 2, 3].map((i) => inMonth(data.transactions, shiftMonthKey(thisKey, -i)));
+  const sd = data.settings.cycleStartDay ?? 1;
+  const thisKey = currentCycleKey(on, sd);
+  const months = [1, 2, 3].map((i) => inMonth(data.transactions, shiftMonthKey(thisKey, -i), sd));
   const income = months.reduce((s, m) => s + sum(incomes(m)), 0);
   const spent = months.reduce((s, m) => s + sum(expenses(m).filter((t) => {
     const kind = data.categories.find((c) => c.id === t.categoryId)?.kind;
@@ -366,9 +383,9 @@ export function healthScore(data: AppData, on: Date = new Date()): HealthScore {
   parts.push({ name: 'Savings rate', score: clamp(Math.round((rate / 0.3) * 30), 0, 30), max: 30, hint: `${Math.round(rate * 100)}% of income saved (target 30%)` });
 
   // Budget discipline (20)
-  const thisMonth = inMonth(data.transactions, thisKey);
+  const thisMonth = inMonth(data.transactions, thisKey, sd);
   const budgets = data.budgets.filter((b) => b.monthlyLimit > 0);
-  const within = budgets.filter((b) => projectMonthSpend(sum(expenses(thisMonth).filter((t) => t.categoryId === b.categoryId)), on) <= b.monthlyLimit).length;
+  const within = budgets.filter((b) => projectMonthSpend(sum(expenses(thisMonth).filter((t) => t.categoryId === b.categoryId)), on, sd) <= b.monthlyLimit).length;
   parts.push({
     name: 'Budget discipline',
     score: budgets.length ? Math.round((within / budgets.length) * 20) : 10,
@@ -389,7 +406,7 @@ export function healthScore(data: AppData, on: Date = new Date()): HealthScore {
   let creditHint = 'No credit card debt';
   for (const card of cards) {
     if (!isCreditCardConfigured(card)) continue;
-    const info = cardCycleInfo(card, data.transactions, balances[card.id] ?? 0, on);
+    const info = cardCycleInfo(card, data.transactions, balances[card.id] ?? 0, on, data.emis);
     if (info.amountDue > 0 && info.daysToDue < 0) { credit -= 15; creditHint = `${card.name} bill overdue`; }
     if (info.utilization !== null && info.utilization > 0.3) { credit -= 5; creditHint = `${card.name} utilisation above 30%`; }
   }

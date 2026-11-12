@@ -1,17 +1,16 @@
 import { router } from 'expo-router';
 import { Text } from 'react-native';
 import { Button, Card, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
-import { ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, computeNetWorth } from '../logic/balances';
-import type { AccountType } from '../logic/types';
+import { ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, computeNetWorth, isLiability } from '../logic/balances';
+import { FREE_LIMITS } from '../logic/region';
 import { useAppData, useBalances, useMoney } from '../store/hooks';
 import { colors } from '../theme';
 
-const ORDER: AccountType[] = ['cash', 'bank', 'wallet', 'debit_card', 'credit_card', 'other'];
 
 export default function Accounts() {
   const data = useAppData();
   const balances = useBalances();
-  const { money } = useMoney();
+  const { money, compact } = useMoney();
   const nw = computeNetWorth(data.accounts, balances);
   const active = data.accounts.filter((a) => !a.archived);
 
@@ -19,17 +18,25 @@ export default function Accounts() {
     <Screen>
       <Card>
         <Row>
-          <Stat label="You own" value={money(nw.assets)} color={colors.success} />
-          <Stat label="You owe" value={money(nw.liabilities)} color={colors.danger} />
-          <Stat label="Net worth" value={money(nw.net)} />
+          <Stat label="You own" value={compact(nw.assets)} color={colors.success} />
+          <Stat label="You owe" value={compact(nw.liabilities)} color={colors.danger} />
+          <Stat label="Net worth" value={compact(nw.net)} />
         </Row>
       </Card>
-      {ORDER.map((type) => {
-        const list = active.filter((a) => a.type === type);
+      {!data.settings.premium ? (
+        <Text style={[styles.hint, { textAlign: 'center' }]} onPress={() => router.push('/premium')}>
+          Free plan: {active.filter((a) => a.type !== 'credit_card').length}/{FREE_LIMITS.accounts} accounts · {active.filter((a) => a.type === 'credit_card').length}/{FREE_LIMITS.creditCards} credit cards. Tap for unlimited.
+        </Text>
+      ) : null}
+      {ACCOUNT_GROUPS.map((group) => {
+        const list = active.filter((a) => group.types.includes(a.type));
         if (!list.length) return null;
         return (
-          <Card key={type}>
-            <Text style={styles.label}>{ACCOUNT_TYPE_LABEL[type]}</Text>
+          <Card key={group.key}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text style={styles.label}>{group.label}</Text>
+              <Text style={[styles.label, { color: nw.byGroup[group.key] < 0 ? colors.danger : colors.text }]}>{money(nw.byGroup[group.key])}</Text>
+            </Row>
             {list.map((a) => {
               const linked = a.type === 'debit_card' && a.linkedBankId ? data.accounts.find((b) => b.id === a.linkedBankId) : undefined;
               const bal = balances[a.id] ?? 0;
@@ -40,17 +47,19 @@ export default function Accounts() {
                     : 'Tap to add billing date'
                   : linked
                     ? `Linked to ${linked.name}`
-                    : undefined;
+                    : a.type === 'loan' && a.interestRate
+                      ? `${a.interestRate}% interest`
+                      : undefined;
               return (
                 <ListItem
                   key={a.id}
                   icon={ACCOUNT_TYPE_ICON[a.type]}
-                  iconColor={a.type === 'credit_card' ? colors.danger : colors.primary}
+                  iconColor={isLiability(a.type) ? colors.danger : colors.primary}
                   title={a.name}
                   subtitle={sub}
-                  right={linked ? '' : a.type === 'credit_card' ? money(Math.max(0, -bal)) : money(bal)}
-                  rightSub={a.type === 'credit_card' && !linked ? 'outstanding' : undefined}
-                  rightColor={bal < 0 && a.type !== 'credit_card' ? colors.danger : undefined}
+                  right={linked ? '' : isLiability(a.type) ? money(Math.max(0, -bal)) : money(bal)}
+                  rightSub={isLiability(a.type) && !linked ? 'outstanding' : undefined}
+                  rightColor={isLiability(a.type) || bal < 0 ? colors.danger : undefined}
                   onPress={() => router.push(`/account-form?id=${a.id}`)}
                 />
               );

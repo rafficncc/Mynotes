@@ -1,5 +1,7 @@
+import { ask } from '../components/Dialog';
 import { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { DateField } from '../components/DateField';
+import { Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { diffDays, formatDate, parseDate } from '../logic/dates';
 import { useAppData, useMoney } from '../store/hooks';
@@ -15,8 +17,7 @@ export default function Goals() {
 
   const add = () => {
     const t = parseFloat(target);
-    if (!name.trim() || !t) return Alert.alert('Enter a goal name and target amount');
-    if (deadline && !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return Alert.alert('Deadline must be YYYY-MM-DD');
+    if (!name.trim() || !t) return ask('Enter a goal name and target amount');
     addGoal({ name: name.trim(), target: t, saved: 0, deadline: deadline || undefined });
     setName('');
     setTarget('');
@@ -50,7 +51,7 @@ export default function Goals() {
                 label="Delete"
                 icon="trash-outline"
                 onPress={() =>
-                  Alert.alert('Delete goal?', undefined, [
+                  ask('Delete goal?', undefined, [
                     { text: 'Cancel', style: 'cancel' },
                     { text: 'Delete', style: 'destructive', onPress: () => deleteGoal(g.id) },
                   ])
@@ -65,8 +66,8 @@ export default function Goals() {
         <Field label="Goal" value={name} onChangeText={setName} placeholder="e.g. Kids school fees, Goa trip" />
         <Row style={{ alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}><Field label="Target amount" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="50000" /></View>
-          <View style={{ flex: 1 }}><Field label="Deadline (optional)" value={deadline} onChangeText={setDeadline} placeholder="YYYY-MM-DD" /></View>
         </Row>
+        <DateField label="Deadline (optional)" value={deadline} onChange={setDeadline} optional quick={false} />
         <Button title="Add goal" icon="add" onPress={add} />
       </Card>
     </Screen>

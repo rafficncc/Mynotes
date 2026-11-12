@@ -3,8 +3,25 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { buildDemoData } from '../logic/demo';
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '../logic/defaults';
+import { mergeTransactions } from '../logic/familySync';
 import { uid } from '../logic/money';
-import type { Account, AppData, Bill, Budget, Goal, Member, PriceEntry, Settings, Transaction } from '../logic/types';
+import { FREE_LIMITS } from '../logic/region';
+import type {
+  Account,
+  AppData,
+  Bill,
+  Budget,
+  Category,
+  DocumentRecord,
+  EmiPlan,
+  FamilyGroup,
+  GoogleAccount,
+  Goal,
+  Member,
+  PriceEntry,
+  Settings,
+  Transaction,
+} from '../logic/types';
 
 type New<T> = Omit<T, 'id' | 'createdAt'>;
 
@@ -12,9 +29,12 @@ interface Actions {
   addAccount: (a: New<Account>) => string;
   updateAccount: (id: string, patch: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
-  addTransaction: (t: New<Transaction>) => void;
+  addTransaction: (t: New<Transaction>) => string;
   updateTransaction: (id: string, patch: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
+  addCategory: (c: Omit<Category, 'id' | 'custom'>) => string;
+  updateCategory: (id: string, patch: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
   setBudget: (b: Budget) => void;
   addPrice: (p: Omit<PriceEntry, 'id'>) => void;
   deletePrice: (id: string) => void;
@@ -22,10 +42,19 @@ interface Actions {
   updateGoal: (id: string, patch: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   addMember: (m: Omit<Member, 'id'>) => void;
+  updateMember: (id: string, patch: Partial<Member>) => void;
   deleteMember: (id: string) => void;
-  addBill: (b: Omit<Bill, 'id'>) => void;
+  saveBill: (b: Omit<Bill, 'id'> & { id?: string }) => void;
   deleteBill: (id: string) => void;
+  saveEmi: (e: Omit<EmiPlan, 'id'> & { id?: string }) => string;
+  deleteEmi: (id: string) => void;
+  saveDocument: (d: Omit<DocumentRecord, 'id'> & { id?: string }) => void;
+  deleteDocument: (id: string) => void;
+  setGroup: (g: FamilyGroup | undefined, members?: Member[]) => void;
+  importFamilySpends: (txns: Transaction[]) => number;
+  setGoogle: (g: GoogleAccount | undefined) => void;
   updateSettings: (patch: Partial<Settings>) => void;
+  replaceAll: (data: AppData) => void;
   loadDemo: () => void;
   resetAll: () => void;
 }
@@ -43,12 +72,24 @@ export const emptyData = (): AppData => ({
   goals: [],
   members: [{ id: 'me', name: 'Me', relation: 'Self' }],
   bills: [],
+  emis: [],
+  documents: [],
   settings: DEFAULT_SETTINGS,
 });
 
+/** Free plan limits. Archived accounts don't count. */
+export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
+  if (premium) return false;
+  const active = accounts.filter((a) => !a.archived);
+  if (type === 'credit_card') return active.filter((a) => a.type === 'credit_card').length >= FREE_LIMITS.creditCards;
+  return active.filter((a) => a.type !== 'credit_card').length >= FREE_LIMITS.accounts;
+}
+
+const FAMILY_WALLET_ID = 'family-wallet';
+
 export const useStore = create<Store>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...emptyData(),
 
       addAccount: (a) => {
@@ -67,19 +108,45 @@ export const useStore = create<Store>()(
             : { accounts: s.accounts.filter((a) => a.id !== id) };
         }),
 
-      addTransaction: (t) =>
+      addTransaction: (t) => {
+        const id = uid();
         set((s) => {
-          const txn: Transaction = { ...t, id: uid(), createdAt: now() };
+          const txn: Transaction = { ...t, id, createdAt: now() };
           const prices = [...s.prices];
           // Logging an item with a merchant automatically builds the price book.
           if (txn.type === 'expense' && txn.item && txn.merchant && txn.quantity && txn.quantity > 0) {
             prices.push({ id: uid(), item: txn.item, shop: txn.merchant, price: Math.round((txn.amount / txn.quantity) * 100) / 100, date: txn.date });
           }
           return { transactions: [txn, ...s.transactions], prices };
-        }),
+        });
+        return id;
+      },
       updateTransaction: (id, patch) =>
         set((s) => ({ transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
-      deleteTransaction: (id) => set((s) => ({ transactions: s.transactions.filter((t) => t.id !== id) })),
+      deleteTransaction: (id) =>
+        set((s) => ({
+          transactions: s.transactions.filter((t) => t.id !== id),
+          emis: s.emis.filter((e) => e.transactionId !== id),
+        })),
+
+      addCategory: (c) => {
+        const id = `c_${uid()}`;
+        set((s) => ({ categories: [...s.categories, { ...c, id, custom: true }] }));
+        return id;
+      },
+      updateCategory: (id, patch) =>
+        set((s) => ({ categories: s.categories.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+      // Transactions of a deleted category move to "Other" (or "Other income").
+      deleteCategory: (id) =>
+        set((s) => {
+          const cat = s.categories.find((c) => c.id === id);
+          const fallback = cat?.kind === 'income' ? 'other_income' : 'other';
+          return {
+            categories: s.categories.filter((c) => c.id !== id),
+            budgets: s.budgets.filter((b) => b.categoryId !== id),
+            transactions: s.transactions.map((t) => (t.categoryId === id ? { ...t, categoryId: fallback } : t)),
+          };
+        }),
 
       setBudget: (b) =>
         set((s) => ({
@@ -96,22 +163,100 @@ export const useStore = create<Store>()(
       deleteGoal: (id) => set((s) => ({ goals: s.goals.filter((g) => g.id !== id) })),
 
       addMember: (m) => set((s) => ({ members: [...s.members, { ...m, id: uid() }] })),
+      updateMember: (id, patch) => set((s) => ({ members: s.members.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
       deleteMember: (id) => set((s) => ({ members: s.members.filter((m) => m.id !== id) })),
 
-      addBill: (b) => set((s) => ({ bills: [...s.bills, { ...b, id: uid() }] })),
+      saveBill: ({ id, ...b }) =>
+        set((s) => (id ? { bills: s.bills.map((x) => (x.id === id ? { ...x, ...b } : x)) } : { bills: [...s.bills, { ...b, id: uid() }] })),
       deleteBill: (id) => set((s) => ({ bills: s.bills.filter((b) => b.id !== id) })),
 
+      saveEmi: ({ id, ...e }) => {
+        const planId = id ?? uid();
+        set((s) => ({
+          emis: id ? s.emis.map((x) => (x.id === id ? { ...x, ...e } : x)) : [...s.emis, { ...e, id: planId }],
+          transactions: e.transactionId
+            ? s.transactions.map((t) => (t.id === e.transactionId ? { ...t, emiPlanId: planId } : t))
+            : s.transactions,
+        }));
+        return planId;
+      },
+      deleteEmi: (id) =>
+        set((s) => ({
+          emis: s.emis.filter((e) => e.id !== id),
+          transactions: s.transactions.map((t) => (t.emiPlanId === id ? { ...t, emiPlanId: undefined } : t)),
+        })),
+
+      saveDocument: ({ id, ...d }) =>
+        set((s) => (id ? { documents: s.documents.map((x) => (x.id === id ? { ...x, ...d } : x)) } : { documents: [...s.documents, { ...d, id: uid() }] })),
+      deleteDocument: (id) => set((s) => ({ documents: s.documents.filter((d) => d.id !== id) })),
+
+      setGroup: (group, members) =>
+        set((s) => {
+          if (!members) return { group };
+          // Keep local members, add/refresh the group's members by id.
+          const map = new Map(s.members.map((m) => [m.id, m]));
+          for (const m of members) map.set(m.id, { ...map.get(m.id), ...m });
+          return { group, members: [...map.values()] };
+        }),
+
+      importFamilySpends: (incoming) => {
+        const s = get();
+        const accounts = s.accounts.some((a) => a.id === FAMILY_WALLET_ID)
+          ? s.accounts
+          : [...s.accounts, { id: FAMILY_WALLET_ID, name: 'Family members’ spends', type: 'other' as const, openingBalance: 0, createdAt: now() }];
+        const { merged, added } = mergeTransactions(s.transactions, incoming, FAMILY_WALLET_ID);
+        set({ accounts, transactions: merged, group: s.group ? { ...s.group, lastSync: now() } : s.group });
+        return added;
+      },
+
+      setGoogle: (google) => set({ google }),
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
-      loadDemo: () => set(buildDemoData()),
-      resetAll: () => set({ ...emptyData(), settings: { ...DEFAULT_SETTINGS, onboarded: true } }),
+      replaceAll: (data) => set(migrateData(data)),
+      loadDemo: () => set({ ...buildDemoData(), group: undefined }),
+      resetAll: () =>
+        set((s) => ({ ...emptyData(), google: s.google, group: undefined, settings: { ...DEFAULT_SETTINGS, onboarded: true, premium: s.settings.premium } })),
     }),
     {
       name: 'familyfin-data',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      migrate: (persisted) => migrateData(persisted as Partial<AppData>) as unknown as Store,
     },
   ),
 );
+
+/** Upgrades data saved by older versions (and restored backups) to the current shape. */
+export function migrateData(raw: Partial<AppData>): AppData {
+  const base = emptyData();
+  const categories = [...(raw.categories ?? base.categories)];
+  for (const c of DEFAULT_CATEGORIES) if (!categories.some((x) => x.id === c.id)) categories.push(c);
+  const bills = (raw.bills ?? []).map((b) => {
+    const old = b as Partial<Bill> & { dueDay?: number };
+    if (old.dueDate) return b as Bill;
+    const d = new Date();
+    const day = String(Math.min(old.dueDay ?? 1, 28)).padStart(2, '0');
+    return {
+      id: old.id!,
+      name: old.name ?? 'Bill',
+      type: 'other',
+      amount: old.amount ?? 0,
+      frequency: 'monthly',
+      dueDate: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${day}`,
+      remindDaysBefore: 3,
+      categoryId: old.categoryId,
+      accountId: old.accountId,
+    } satisfies Bill;
+  });
+  return {
+    ...base,
+    ...raw,
+    categories,
+    bills,
+    emis: raw.emis ?? [],
+    documents: raw.documents ?? [],
+    settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
+  } as AppData;
+}
 
 /** Snapshot of the plain data (without actions) for the logic layer. */
 export function selectData(s: Store): AppData {
@@ -124,6 +269,10 @@ export function selectData(s: Store): AppData {
     goals: s.goals,
     members: s.members,
     bills: s.bills,
+    emis: s.emis,
+    documents: s.documents,
+    group: s.group,
+    google: s.google,
     settings: s.settings,
   };
 }

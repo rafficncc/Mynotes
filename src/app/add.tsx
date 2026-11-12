@@ -1,7 +1,10 @@
+import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Switch, Text, View } from 'react-native';
+import { DateField } from '../components/DateField';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
+import { emiAmount } from '../logic/emi';
 import { ACCOUNT_TYPE_ICON } from '../logic/balances';
 import { recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
@@ -18,32 +21,48 @@ const TYPES: { key: TxnType; label: string; icon: string }[] = [
 ];
 
 export default function AddTransaction() {
-  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string }>();
+  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string; billId?: string; emiId?: string }>();
   const navigation = useNavigation();
   const store = useStore();
   const balances = useBalances();
   const { money } = useMoney();
   const existing = params.id ? store.transactions.find((t) => t.id === params.id) : undefined;
+  const bill = params.billId ? store.bills.find((b) => b.id === params.billId) : undefined;
+  const emi = params.emiId ? store.emis.find((e) => e.id === params.emiId) : undefined;
+  const existingEmi = existing?.emiPlanId ? store.emis.find((e) => e.id === existing.emiPlanId) : undefined;
+  // Paying a loan EMI = transfer into the loan account; other EMIs are expenses.
+  const emiIsTransfer = !!emi && !!emi.accountId && store.accounts.find((a) => a.id === emi.accountId)?.type === 'loan';
   const accounts = store.accounts.filter((a) => !a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId);
 
-  const [type, setType] = useState<TxnType>(existing?.type ?? params.type ?? 'expense');
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : params.amount ?? '');
-  const [accountId, setAccountId] = useState(
-    existing?.accountId ?? (params.to ? accounts.find((a) => a.type === 'bank')?.id : undefined) ?? accounts[0]?.id ?? '',
+  const bank = accounts.find((a) => a.type === 'bank')?.id;
+  const [type, setType] = useState<TxnType>(existing?.type ?? (emi ? (emiIsTransfer ? 'transfer' : 'expense') : params.type ?? 'expense'));
+  const [amount, setAmount] = useState(
+    existing ? String(existing.amount) : params.amount ?? (bill ? String(bill.amount) : emi ? String(emi.monthlyAmount) : ''),
   );
-  const [toAccountId, setToAccountId] = useState(existing?.toAccountId ?? params.to ?? '');
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? '');
-  const [merchant, setMerchant] = useState(existing?.merchant ?? '');
-  const [memberId, setMemberId] = useState(existing?.memberId ?? '');
+  const [accountId, setAccountId] = useState(
+    existing?.accountId ??
+      (params.to || emiIsTransfer ? bank : undefined) ??
+      bill?.accountId ??
+      (emi && !emiIsTransfer ? emi.accountId : undefined) ??
+      accounts[0]?.id ??
+      '',
+  );
+  const [toAccountId, setToAccountId] = useState(existing?.toAccountId ?? params.to ?? (emiIsTransfer ? emi!.accountId! : ''));
+  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? bill?.categoryId ?? (emi ? 'emi' : ''));
+  const [merchant, setMerchant] = useState(existing?.merchant ?? bill?.name ?? (emi && !emiIsTransfer ? `${emi.name} EMI` : ''));
+  const [memberId, setMemberId] = useState(existing ? existing.memberId ?? '' : store.settings.currentMemberId ?? '');
+  const [emiOn, setEmiOn] = useState(!!existingEmi);
+  const [emiMonths, setEmiMonths] = useState(existingEmi ? existingEmi.totalMonths : 6);
+  const [emiRate, setEmiRate] = useState(existingEmi?.interestRate ? String(existingEmi.interestRate) : '0');
   const [date, setDate] = useState(existing?.date ?? toISODate(new Date()));
-  const [note, setNote] = useState(existing?.note ?? '');
+  const [note, setNote] = useState(existing?.note ?? (emiIsTransfer ? `${emi!.name} EMI` : ''));
   const [item, setItem] = useState(existing?.item ?? '');
   const [quantity, setQuantity] = useState(existing?.quantity ? String(existing.quantity) : '');
   const [showMore, setShowMore] = useState(!!(existing?.item || existing?.note));
 
   useEffect(() => {
-    navigation.setOptions({ title: existing ? 'Edit transaction' : 'Add transaction' });
-  }, [navigation, existing]);
+    navigation.setOptions({ title: existing ? 'Edit transaction' : bill ? `Pay ${bill.name}` : emi ? `Pay ${emi.name} EMI` : 'Add transaction' });
+  }, [navigation, existing, bill, emi]);
 
   const amt = parseFloat(amount) || 0;
   const categories = store.categories.filter((c) => (type === 'income' ? c.kind === 'income' : c.kind !== 'income'));
@@ -91,10 +110,10 @@ export default function AddTransaction() {
   }, [type, store.accounts, store.settings.payCardsInFull, balances, date, amt, accountId]);
 
   const save = () => {
-    if (!amt || amt <= 0) return Alert.alert('Enter an amount');
-    if (!accountId) return Alert.alert('Choose an account');
-    if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) return Alert.alert('Choose a different destination account');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Alert.alert('Date must be YYYY-MM-DD');
+    if (!amt || amt <= 0) return ask('Enter an amount');
+    if (!accountId) return ask('Choose an account');
+    if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) return ask('Choose a different destination account');
+    if (!date) return ask('Pick a date');
     const qty = parseFloat(quantity) || undefined;
     const payload = {
       type,
@@ -109,13 +128,37 @@ export default function AddTransaction() {
       item: type === 'expense' ? item.trim() || undefined : undefined,
       quantity: type === 'expense' && item.trim() ? qty : undefined,
     };
+    const txnId = existing ? existing.id : store.addTransaction(payload);
     if (existing) store.updateTransaction(existing.id, payload);
-    else store.addTransaction(payload);
+    if (bill) store.saveBill({ ...bill, lastPaid: date });
+    if (emi) store.saveEmi({ ...emi, lastPaid: date });
+
+    // Credit card purchase converted to EMI
+    const isCard = store.accounts.find((a) => a.id === accountId)?.type === 'credit_card';
+    if (type === 'expense' && isCard && emiOn) {
+      const rate = parseFloat(emiRate) || 0;
+      const start = addDays(parseDate(date), 30);
+      store.saveEmi({
+        id: existingEmi?.id,
+        name: merchant.trim() || item.trim() || 'Card purchase',
+        kind: 'card_emi',
+        accountId,
+        transactionId: txnId,
+        principal: amt,
+        monthlyAmount: emiAmount(amt, rate, emiMonths),
+        totalMonths: emiMonths,
+        startDate: toISODate(start),
+        interestRate: rate,
+        remindDaysBefore: 3,
+      });
+    } else if (existingEmi && !emiOn) {
+      store.deleteEmi(existingEmi.id);
+    }
     router.back();
   };
 
   const remove = () =>
-    Alert.alert('Delete transaction?', undefined, [
+    ask('Delete transaction?', undefined, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => { store.deleteTransaction(existing!.id); router.back(); } },
     ]);
@@ -173,6 +216,7 @@ export default function AddTransaction() {
             {categories.map((c) => (
               <Chip key={c.id} label={c.name} icon={c.icon} color={c.color} selected={categoryId === c.id} onPress={() => setCategoryId(c.id)} />
             ))}
+            <Chip label="New category" icon="add" onPress={() => router.push(`/categories?kind=${type === 'income' ? 'income' : 'want'}`)} />
           </ChipRow>
         </>
       )}
@@ -189,12 +233,35 @@ export default function AddTransaction() {
         </>
       ) : null}
 
-      <Text style={styles.label}>Date</Text>
-      <ChipRow>
-        <Chip label="Today" selected={date === toISODate(new Date())} onPress={() => setDate(toISODate(new Date()))} />
-        <Chip label="Yesterday" selected={date === toISODate(addDays(new Date(), -1))} onPress={() => setDate(toISODate(addDays(new Date(), -1)))} />
-      </ChipRow>
-      <Field label="" value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+      <DateField label="Date" value={date} onChange={setDate} />
+
+      {type === 'expense' && store.accounts.find((a) => a.id === accountId)?.type === 'credit_card' ? (
+        <Card style={{ padding: 12 }}>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemTitle}>Converted to EMI?</Text>
+              <Text style={styles.itemSub}>The card bill will then include only the monthly instalment.</Text>
+            </View>
+            <Switch value={emiOn} onValueChange={setEmiOn} trackColor={{ true: colors.primary }} />
+          </Row>
+          {emiOn ? (
+            <>
+              <ChipRow>
+                {[3, 6, 9, 12, 18, 24].map((m) => (
+                  <Chip key={m} label={`${m} months`} selected={emiMonths === m} onPress={() => setEmiMonths(m)} />
+                ))}
+              </ChipRow>
+              <Field label="Interest rate % per year (0 for no-cost EMI)" value={emiRate} onChangeText={setEmiRate} keyboardType="decimal-pad" />
+              {amt > 0 ? (
+                <Text style={[styles.insightText, { color: colors.success, fontWeight: '700' }]}>
+                  {money(emiAmount(amt, parseFloat(emiRate) || 0, emiMonths))} × {emiMonths} months
+                  {(parseFloat(emiRate) || 0) > 0 ? ` · interest ${money(emiAmount(amt, parseFloat(emiRate) || 0, emiMonths) * emiMonths - amt)}` : ''}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+        </Card>
+      ) : null}
 
       {!showMore ? (
         <Chip label="Add item, quantity & note" icon="add" onPress={() => setShowMore(true)} />

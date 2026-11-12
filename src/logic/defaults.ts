@@ -2,8 +2,11 @@ import type { Category, Settings } from './types';
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'groceries', name: 'Groceries', icon: 'cart-outline', color: '#2E7D32', kind: 'need' },
-  { id: 'rent', name: 'Rent / EMI', icon: 'home-outline', color: '#5D4037', kind: 'need' },
-  { id: 'utilities', name: 'Bills & Utilities', icon: 'flash-outline', color: '#F9A825', kind: 'need' },
+  { id: 'rent', name: 'Rent', icon: 'home-outline', color: '#5D4037', kind: 'need' },
+  { id: 'emi', name: 'Loans & EMIs', icon: 'calendar-number-outline', color: '#4E342E', kind: 'need' },
+  { id: 'utilities', name: 'Electricity, Water & Gas', icon: 'flash-outline', color: '#F9A825', kind: 'need' },
+  { id: 'telecom', name: 'Mobile & Internet', icon: 'wifi-outline', color: '#3949AB', kind: 'need' },
+  { id: 'govt', name: 'Taxes, Fines & Govt fees', icon: 'library-outline', color: '#37474F', kind: 'need' },
   { id: 'transport', name: 'Fuel & Transport', icon: 'car-outline', color: '#1565C0', kind: 'need' },
   { id: 'health', name: 'Health & Medicine', icon: 'medkit-outline', color: '#C62828', kind: 'need' },
   { id: 'education', name: 'Education & Fees', icon: 'school-outline', color: '#6A1B9A', kind: 'need' },
@@ -25,8 +28,12 @@ export const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
+  currencyCode: 'INR',
   currency: '₹',
   locale: 'en-IN',
+  cycleStartDay: 1,
+  premium: false,
+  notificationsEnabled: true,
   payCardsInFull: true,
   onboarded: false,
 };

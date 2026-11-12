@@ -62,3 +62,43 @@ export function formatDate(s: string): string {
 export function formatShortDate(d: Date): string {
   return d.toLocaleDateString('en', { day: 'numeric', month: 'short' });
 }
+
+/* ---------- Spending cycle (e.g. salary day to the day before next salary) ---------- */
+
+/** Cycle key = 'YYYY-MM' of the month in which the cycle starts. With startDay 1 it equals the calendar month. */
+export function cycleKeyOf(dateStr: string, startDay = 1): string {
+  if (startDay <= 1) return dateStr.slice(0, 7);
+  const d = parseDate(dateStr);
+  const start = clampedDate(d.getFullYear(), d.getMonth(), startDay);
+  return diffDays(d, start) >= 0 ? dateStr.slice(0, 7) : shiftMonthKey(dateStr.slice(0, 7), -1);
+}
+
+export function cycleBounds(key: string, startDay = 1): { start: Date; end: Date } {
+  const [y, m] = key.split('-').map(Number);
+  const start = clampedDate(y, m - 1, Math.max(1, startDay));
+  const next = clampedDate(y, m, Math.max(1, startDay));
+  return { start, end: addDays(next, -1) };
+}
+
+export function currentCycleKey(on: Date, startDay = 1): string {
+  return cycleKeyOf(toISODate(on), startDay);
+}
+
+/** Days elapsed in the cycle (including today) and total cycle length. */
+export function cycleProgress(on: Date, startDay = 1): { elapsed: number; length: number; left: number } {
+  const { start, end } = cycleBounds(currentCycleKey(on, startDay), startDay);
+  const length = diffDays(end, start) + 1;
+  const elapsed = diffDays(on, start) + 1;
+  return { elapsed, length, left: length - elapsed + 1 };
+}
+
+export function cycleLabel(key: string, startDay = 1): string {
+  if (startDay <= 1) return `${monthLabel(key)} ${key.slice(0, 4)}`;
+  const { start, end } = cycleBounds(key, startDay);
+  return `${formatShortDate(start)} – ${formatShortDate(end)}`;
+}
+
+/** Adds months keeping the day (clamped), e.g. 31 Jan + 1 → 28/29 Feb. */
+export function addMonths(d: Date, n: number, day = d.getDate()): Date {
+  return clampedDate(d.getFullYear(), d.getMonth() + n, day);
+}

@@ -1,15 +1,16 @@
+import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Field, Row, Screen, styles } from '../components/ui';
-import { ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL } from '../logic/balances';
+import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, isLiability } from '../logic/balances';
+import { FREE_LIMITS } from '../logic/region';
 import { interestFreeDays } from '../logic/creditCard';
 import { addDays, clampedDate } from '../logic/dates';
 import type { AccountType } from '../logic/types';
-import { useStore } from '../store/useStore';
+import { accountLimitReached, useStore } from '../store/useStore';
 import { colors } from '../theme';
 
-const TYPES: AccountType[] = ['cash', 'bank', 'debit_card', 'credit_card', 'wallet', 'other'];
 
 const validDay = (s: string) => {
   const n = parseInt(s, 10);
@@ -22,11 +23,15 @@ export default function AccountForm() {
   const existing = params.id ? store.accounts.find((a) => a.id === params.id) : undefined;
 
   const [type, setType] = useState<AccountType>(existing?.type ?? params.type ?? 'bank');
+  const [group, setGroup] = useState(ACCOUNT_GROUP_OF[existing?.type ?? params.type ?? 'bank']);
   const [name, setName] = useState(existing?.name ?? '');
   const isCard = type === 'credit_card';
+  const owed = isLiability(type);
   const [balance, setBalance] = useState(
-    existing ? String(isCard ? Math.max(0, -existing.openingBalance) : existing.openingBalance) : '',
+    existing ? String(isLiability(existing.type) ? Math.max(0, -existing.openingBalance) : existing.openingBalance) : '',
   );
+  const [interest, setInterest] = useState(existing?.interestRate ? String(existing.interestRate) : '');
+  const [remindCard, setRemindCard] = useState(existing?.remindDaysBefore ?? 5);
   const [limit, setLimit] = useState(existing?.creditLimit ? String(existing.creditLimit) : '');
   const [billingDay, setBillingDay] = useState(existing?.billingDay ? String(existing.billingDay) : '');
   const [dueDay, setDueDay] = useState(existing?.dueDay ? String(existing.dueDay) : '');
@@ -44,13 +49,22 @@ export default function AccountForm() {
   }
 
   const save = () => {
-    if (!name.trim()) return Alert.alert('Give the account a name');
-    if (isCard && (!bd || !dd)) return Alert.alert('Billing date needed', 'Enter the day of month your card statement is generated and the day the payment is due (1–31). You can find both on your card statement.');
+    if (!name.trim()) return ask('Give the account a name');
+    if (!existing && accountLimitReached(store.accounts, type, store.settings.premium)) {
+      return ask(
+        'Free plan limit reached',
+        `The free plan includes ${FREE_LIMITS.accounts} accounts and ${FREE_LIMITS.creditCards} credit cards. Upgrade to Premium for unlimited.`,
+        [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/premium') }],
+      );
+    }
+    if (isCard && (!bd || !dd)) return ask('Billing date needed', 'Enter the day of month your card statement is generated and the day the payment is due (1–31). You can find both on your card statement.');
     const amt = parseFloat(balance) || 0;
     const payload = {
       name: name.trim(),
       type,
-      openingBalance: isCard ? -Math.abs(amt) : amt,
+      openingBalance: owed ? -Math.abs(amt) : amt,
+      interestRate: type === 'loan' ? parseFloat(interest) || undefined : undefined,
+      remindDaysBefore: isCard ? remindCard : undefined,
       creditLimit: isCard ? parseFloat(limit) || undefined : undefined,
       billingDay: isCard ? bd : undefined,
       dueDay: isCard ? dd : undefined,
@@ -63,19 +77,29 @@ export default function AccountForm() {
   };
 
   const remove = () =>
-    Alert.alert('Remove account?', 'Accounts with transactions are archived so your history stays correct.', [
+    ask('Remove account?', 'Accounts with transactions are archived so your history stays correct.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => { store.deleteAccount(existing!.id); router.back(); } },
     ]);
 
   return (
     <Screen>
-      <Text style={styles.label}>Type</Text>
+      <Text style={styles.label}>Category</Text>
       <ChipRow>
-        {TYPES.map((t) => (
-          <Chip key={t} label={ACCOUNT_TYPE_LABEL[t]} icon={ACCOUNT_TYPE_ICON[t]} selected={type === t} onPress={() => setType(t)} />
+        {ACCOUNT_GROUPS.map((g) => (
+          <Chip key={g.key} label={g.label} icon={g.icon} selected={group === g.key} onPress={() => { setGroup(g.key); setType(g.types[0]); }} />
         ))}
       </ChipRow>
+      {(ACCOUNT_GROUPS.find((g) => g.key === group)?.types.length ?? 0) > 1 ? (
+        <>
+          <Text style={styles.label}>Type</Text>
+          <ChipRow>
+            {ACCOUNT_GROUPS.find((g) => g.key === group)!.types.map((t) => (
+              <Chip key={t} label={ACCOUNT_TYPE_LABEL[t]} icon={ACCOUNT_TYPE_ICON[t]} selected={type === t} onPress={() => setType(t)} color={colors.info} />
+            ))}
+          </ChipRow>
+        </>
+      ) : null}
       <Field label="Name" value={name} onChangeText={setName} placeholder={isCard ? 'e.g. HDFC Millennia' : 'e.g. SBI Savings'} />
 
       {type === 'debit_card' ? (
@@ -87,18 +111,28 @@ export default function AccountForm() {
               <Chip key={b.id} label={b.name} selected={linkedBankId === b.id} onPress={() => setLinkedBankId(b.id)} />
             ))}
           </ChipRow>
-          <Text style={styles.hint}>Spends on a linked debit card reduce that bank's balance – but you still see “debit card” as the payment mode in reports.</Text>
+          <Text style={styles.hint}>Spends on a linked debit card reduce that bank’s balance – but you still see “debit card” as the payment mode in reports.</Text>
         </>
       ) : null}
 
       {!(type === 'debit_card' && linkedBankId) ? (
         <Field
-          label={isCard ? 'Current outstanding amount' : 'Current balance'}
+          label={isCard ? 'Current outstanding amount' : type === 'loan' ? 'Outstanding loan amount' : type === 'property' ? 'Current market value' : type === 'investment' ? 'Current value' : 'Current balance'}
           value={balance}
           onChangeText={setBalance}
           keyboardType="numbers-and-punctuation"
           placeholder="0"
         />
+      ) : null}
+
+      {type === 'loan' ? (
+        <Card>
+          <Field label="Interest rate % per year" value={interest} onChangeText={setInterest} keyboardType="decimal-pad" placeholder="e.g. 9.5" />
+          <Text style={styles.hint}>Record EMI payments as a Transfer from your bank to this loan, or add the EMI under More → EMIs to get reminders.</Text>
+        </Card>
+      ) : null}
+      {type === 'property' || type === 'investment' || type === 'deposit' ? (
+        <Text style={styles.hint}>Counts toward your net worth but not toward money available to spend. Update the value whenever it changes.</Text>
       ) : null}
 
       {isCard ? (
@@ -121,6 +155,12 @@ export default function AccountForm() {
             </View>
           </Row>
           {preview ? <Text style={[styles.insightText, { color: colors.success }]}>{preview}</Text> : null}
+          <Text style={styles.label}>Remind me before the due date</Text>
+          <ChipRow>
+            {[1, 3, 5, 7, 10].map((d) => (
+              <Chip key={d} label={`${d} day${d === 1 ? '' : 's'}`} selected={remindCard === d} onPress={() => setRemindCard(d)} />
+            ))}
+          </ChipRow>
         </Card>
       ) : null}
 

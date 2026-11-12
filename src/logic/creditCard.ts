@@ -1,5 +1,6 @@
 import { addDays, clampedDate, diffDays, parseDate, toISODate } from './dates';
-import type { Account, Transaction } from './types';
+import { cardEmiCharges } from './emi';
+import type { Account, EmiPlan, Transaction } from './types';
 
 /**
  * Credit card billing maths.
@@ -54,11 +55,12 @@ export interface CardCycleInfo {
   freeDaysToday: number;
 }
 
-function cardMovements(card: Account, txns: Transaction[]) {
-  const charges: { date: Date; amount: number }[] = [];
+function cardMovements(card: Account, txns: Transaction[], emis: EmiPlan[], on: Date) {
+  // Purchases converted to EMI are billed as monthly instalments instead of in full.
+  const charges: { date: Date; amount: number }[] = cardEmiCharges(emis, card.id, on);
   const payments: { date: Date; amount: number }[] = [];
   for (const t of txns) {
-    if (t.type === 'expense' && t.accountId === card.id) charges.push({ date: parseDate(t.date), amount: t.amount });
+    if (t.type === 'expense' && t.accountId === card.id && !t.emiPlanId) charges.push({ date: parseDate(t.date), amount: t.amount });
     if (t.type === 'income' && t.accountId === card.id) payments.push({ date: parseDate(t.date), amount: t.amount }); // refunds / cashback
     if (t.type === 'transfer' && t.toAccountId === card.id) payments.push({ date: parseDate(t.date), amount: t.amount });
     if (t.type === 'transfer' && t.accountId === card.id) charges.push({ date: parseDate(t.date), amount: t.amount });
@@ -66,12 +68,12 @@ function cardMovements(card: Account, txns: Transaction[]) {
   return { charges, payments };
 }
 
-export function cardCycleInfo(card: Account, txns: Transaction[], balance: number, on: Date): CardCycleInfo {
+export function cardCycleInfo(card: Account, txns: Transaction[], balance: number, on: Date, emis: EmiPlan[] = []): CardCycleInfo {
   const billingDay = card.billingDay ?? 1;
   const dueDay = card.dueDay ?? 20;
   const last = lastStatementDate(on, billingDay);
   const next = clampedDate(last.getFullYear(), last.getMonth() + 1, billingDay);
-  const { charges, payments } = cardMovements(card, txns);
+  const { charges, payments } = cardMovements(card, txns, emis, on);
 
   // Everything outstanding at the last statement (including older unpaid amounts and opening balance)
   const opening = card.openingBalance < 0 ? -card.openingBalance : 0;

@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Text } from 'react-native';
 import { Card, Chip, ChipRow, Icon, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { expenses, inMonth, sum } from '../logic/analytics';
-import { shiftMonthKey, toISODate } from '../logic/dates';
-import { useAppData, useMoney } from '../store/hooks';
+import { shiftMonthKey } from '../logic/dates';
+import { useAppData, useCycle, useMoney } from '../store/hooks';
 import { colors } from '../theme';
 
 const CUTS = [0, 10, 25, 50];
@@ -19,16 +19,16 @@ export default function Simulator() {
   const data = useAppData();
   const { money } = useMoney();
   const [cuts, setCuts] = useState<Record<string, number>>({});
-  const key = toISODate(new Date()).slice(0, 7);
+  const { key, startDay } = useCycle();
 
   const rows = useMemo(() => {
-    const months = [1, 2, 3].map((i) => expenses(inMonth(data.transactions, shiftMonthKey(key, -i))));
+    const months = [1, 2, 3].map((i) => expenses(inMonth(data.transactions, shiftMonthKey(key, -i), startDay)));
     return data.categories
       .filter((c) => c.kind === 'want' || c.id === 'groceries' || c.id === 'transport' || c.id === 'utilities')
       .map((c) => ({ c, avg: months.reduce((s, m) => s + sum(m.filter((t) => t.categoryId === c.id)), 0) / 3 }))
       .filter((r) => r.avg > 0)
       .sort((a, b) => b.avg - a.avg);
-  }, [data, key]);
+  }, [data, key, startDay]);
 
   const monthly = rows.reduce((s, r) => s + (r.avg * (cuts[r.c.id] ?? 0)) / 100, 0);
   const goal = data.goals.find((g) => g.saved < g.target);
