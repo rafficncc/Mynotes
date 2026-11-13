@@ -38,7 +38,11 @@
     "web": "expo start --web",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:apk": "npx eas-cli@latest build -p android --profile preview",
+    "build:ios-sim": "npx eas-cli@latest build -p ios --profile preview-simulator",
+    "build:ios": "npx eas-cli@latest build -p ios --profile preview",
+    "build:testflight": "npx eas-cli@latest build -p ios --profile production --auto-submit"
   },
   "private": true
 }
