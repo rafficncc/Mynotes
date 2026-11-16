@@ -42,6 +42,13 @@ per-shop price history and shows the cheapest shop for each item, plus how much 
 - **Cut-back simulator**: "What if we spend 25% less on dining?" It shows the monthly and yearly saving, what that becomes as a 10-year SIP, and how soon you'd reach your goal.
 - **No-splurge streak** to make saving a habit.
 
+### Scan a bill
+Take a photo of a bill, or pick one from the gallery, and FamilyFin fills in **one expense for the bill total**: shop, date,
+total, category (learned from your past spends) and the payment account (card / UPI / cash, matched by card digits when
+printed). The text is read **on the phone** with Google ML Kit, so photos are never uploaded. Works with Indian (GST),
+Gulf (VAT), US and European bill formats, including slightly tilted photos. You can also save the bill's item prices to
+the price book for "cheaper shop" tips (off by default). Needs the installed app; it doesn't work in Expo Go or the web preview.
+
 ### Actions tab: everything due this cycle
 One list of what to pay or renew in the current spending cycle: credit card bills, mobile/internet/utility bills,
 taxes and fines, EMIs, and document renewals. Items are grouped as **Overdue**, **Due soon** (reminder date reached),

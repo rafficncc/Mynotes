@@ -79,6 +79,7 @@ export default function Home() {
         <View style={{ flex: 1 }}><Button title="Income" variant="secondary" icon="add-circle-outline" onPress={() => router.push('/add?type=income')} /></View>
         <View style={{ flex: 1 }}><Button title="Transfer" variant="secondary" icon="swap-horizontal" onPress={() => router.push('/add?type=transfer')} /></View>
       </Row>
+      <Button title="Scan a bill" variant="secondary" icon="scan-outline" onPress={() => router.push('/scan')} />
 
       <Pressable onPress={() => router.push('/insights')}>
         <Card>

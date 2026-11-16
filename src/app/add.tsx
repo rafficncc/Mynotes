@@ -1,7 +1,7 @@
 import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Switch, Text, View } from 'react-native';
+import { Image, Switch, Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
 import { emiAmount } from '../logic/emi';
@@ -9,6 +9,8 @@ import { ACCOUNT_TYPE_ICON } from '../logic/balances';
 import { recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { normalize } from '../logic/priceBook';
+import { matchAccount } from '../logic/receipt';
+import { takeScanDraft } from '../store/scanDraft';
 import type { TxnType } from '../logic/types';
 import { useBalances, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
@@ -21,7 +23,11 @@ const TYPES: { key: TxnType; label: string; icon: string }[] = [
 ];
 
 export default function AddTransaction() {
-  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string; billId?: string; emiId?: string }>();
+  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string; billId?: string; emiId?: string; scanned?: string }>();
+  // A bill scanned on the Scan screen becomes ONE expense for its total.
+  const [scan] = useState(() => (params.scanned ? takeScanDraft() : null));
+  const receipt = scan?.receipt;
+  const [savePrices, setSavePrices] = useState(false);
   const navigation = useNavigation();
   const store = useStore();
   const balances = useBalances();
@@ -37,32 +43,33 @@ export default function AddTransaction() {
   const bank = accounts.find((a) => a.type === 'bank')?.id;
   const [type, setType] = useState<TxnType>(existing?.type ?? (emi ? (emiIsTransfer ? 'transfer' : 'expense') : params.type ?? 'expense'));
   const [amount, setAmount] = useState(
-    existing ? String(existing.amount) : params.amount ?? (bill ? String(bill.amount) : emi ? String(emi.monthlyAmount) : ''),
+    existing ? String(existing.amount) : params.amount ?? (receipt?.total ? String(receipt.total) : bill ? String(bill.amount) : emi ? String(emi.monthlyAmount) : ''),
   );
   const [accountId, setAccountId] = useState(
     existing?.accountId ??
       (params.to || emiIsTransfer ? bank : undefined) ??
       bill?.accountId ??
       (emi && !emiIsTransfer ? emi.accountId : undefined) ??
+      matchAccount(receipt?.payment, accounts) ??
       accounts[0]?.id ??
       '',
   );
   const [toAccountId, setToAccountId] = useState(existing?.toAccountId ?? params.to ?? (emiIsTransfer ? emi!.accountId! : ''));
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? bill?.categoryId ?? (emi ? 'emi' : ''));
-  const [merchant, setMerchant] = useState(existing?.merchant ?? bill?.name ?? (emi && !emiIsTransfer ? `${emi.name} EMI` : ''));
+  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? bill?.categoryId ?? (emi ? 'emi' : receipt?.categoryId ?? ''));
+  const [merchant, setMerchant] = useState(existing?.merchant ?? bill?.name ?? (emi && !emiIsTransfer ? `${emi.name} EMI` : receipt?.merchant ?? ''));
   const [memberId, setMemberId] = useState(existing ? existing.memberId ?? '' : store.settings.currentMemberId ?? '');
   const [emiOn, setEmiOn] = useState(!!existingEmi);
   const [emiMonths, setEmiMonths] = useState(existingEmi ? existingEmi.totalMonths : 6);
   const [emiRate, setEmiRate] = useState(existingEmi?.interestRate ? String(existingEmi.interestRate) : '0');
-  const [date, setDate] = useState(existing?.date ?? toISODate(new Date()));
-  const [note, setNote] = useState(existing?.note ?? (emiIsTransfer ? `${emi!.name} EMI` : ''));
+  const [date, setDate] = useState(existing?.date ?? receipt?.date ?? toISODate(new Date()));
+  const [note, setNote] = useState(existing?.note ?? (emiIsTransfer ? `${emi!.name} EMI` : receipt ? `Scanned bill${receipt.items.length ? ` · ${receipt.items.length} items` : ''}` : ''));
   const [item, setItem] = useState(existing?.item ?? '');
   const [quantity, setQuantity] = useState(existing?.quantity ? String(existing.quantity) : '');
   const [showMore, setShowMore] = useState(!!(existing?.item || existing?.note));
 
   useEffect(() => {
-    navigation.setOptions({ title: existing ? 'Edit transaction' : bill ? `Pay ${bill.name}` : emi ? `Pay ${emi.name} EMI` : 'Add transaction' });
-  }, [navigation, existing, bill, emi]);
+    navigation.setOptions({ title: existing ? 'Edit transaction' : bill ? `Pay ${bill.name}` : emi ? `Pay ${emi.name} EMI` : receipt ? 'Scanned bill' : 'Add transaction' });
+  }, [navigation, existing, bill, emi, receipt]);
 
   const amt = parseFloat(amount) || 0;
   const categories = store.categories.filter((c) => (type === 'income' ? c.kind === 'income' : c.kind !== 'income'));
@@ -131,6 +138,10 @@ export default function AddTransaction() {
     const txnId = existing ? existing.id : store.addTransaction(payload);
     if (existing) store.updateTransaction(existing.id, payload);
     if (bill) store.saveBill({ ...bill, lastPaid: date });
+    // Optional: remember item prices from the scanned bill for "cheaper shop" tips
+    if (receipt && savePrices && merchant.trim()) {
+      for (const it of receipt.items) store.addPrice({ item: it.name, shop: merchant.trim(), price: it.unitPrice, date });
+    }
     if (emi) store.saveEmi({ ...emi, lastPaid: date });
 
     // Credit card purchase converted to EMI
@@ -172,15 +183,45 @@ export default function AddTransaction() {
     </ChipRow>
   );
 
+  const currencyMismatch = receipt?.currency && receipt.currency !== store.settings.currencyCode;
+
   return (
     <Screen>
+      {receipt ? (
+        <Card style={{ backgroundColor: colors.infoSoft, padding: 12 }}>
+          <Row style={{ alignItems: 'flex-start' }}>
+            {scan?.uri ? <Image source={{ uri: scan.uri }} style={{ width: 54, height: 72, borderRadius: 6, backgroundColor: colors.border }} /> : <Icon name="receipt-outline" color={colors.info} />}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.itemTitle, { color: colors.info }]}>Scanned bill: check the details</Text>
+              <Text style={styles.insightText}>
+                Saved as one expense for the bill total. Found: {[receipt.merchant && 'shop', receipt.date && 'date', receipt.total && 'total', receipt.payment && 'payment'].filter(Boolean).join(', ') || 'nothing certain'}.
+              </Text>
+              {receipt.totalConfidence === 'low' ? (
+                <Text style={[styles.insightText, { color: colors.warning, fontWeight: '700' }]}>No “Total” line found. Please check the amount.</Text>
+              ) : null}
+              {!receipt.total ? <Text style={[styles.insightText, { color: colors.warning, fontWeight: '700' }]}>Couldn’t read the total. Please type it in.</Text> : null}
+              {!receipt.date ? <Text style={styles.hint}>No date found, so today is used.</Text> : null}
+              {currencyMismatch ? <Text style={[styles.insightText, { color: colors.warning }]}>This bill looks like it is in {receipt.currency}, not {store.settings.currencyCode}.</Text> : null}
+            </View>
+          </Row>
+          {receipt.items.length > 0 ? (
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text style={[styles.itemSub, { flex: 1 }]}>Also save the {receipt.items.length} item prices to the price book (for “cheaper shop” tips)</Text>
+              <Switch value={savePrices} onValueChange={setSavePrices} trackColor={{ true: colors.primary }} />
+            </Row>
+          ) : null}
+        </Card>
+      ) : !existing && type === 'expense' && !bill && !emi ? (
+        <Chip label="Scan a bill instead" icon="scan-outline" onPress={() => router.replace('/scan')} />
+      ) : null}
+
       <ChipRow>
         {TYPES.map((t) => (
           <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => setType(t.key)} />
         ))}
       </ChipRow>
 
-      <Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0" autoFocus={!existing && !params.amount} style={[styles.input, { fontSize: 28, fontWeight: '700' }]} />
+      <Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0" autoFocus={!existing && !params.amount && !receipt} style={[styles.input, { fontSize: 28, fontWeight: '700' }]} />
 
       <Text style={styles.label}>{type === 'transfer' ? 'From' : type === 'income' ? 'Received in' : 'Paid with'}</Text>
       {accountChips(accountId, setAccountId)}

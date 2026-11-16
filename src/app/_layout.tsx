@@ -56,6 +56,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="add" options={{ presentation: 'modal', title: 'Add transaction' }} />
+        <Stack.Screen name="scan" options={{ presentation: 'modal', title: 'Scan a bill' }} />
         <Stack.Screen name="account-form" options={{ presentation: 'modal', title: 'Account' }} />
         <Stack.Screen name="welcome" options={{ headerShown: false, gestureEnabled: false }} />
         {screens.map(([name, title, modal]) => (

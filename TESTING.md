@@ -37,6 +37,7 @@ Apple does not allow installing apps from a file, so the options are:
 `npm run build:ios-sim` produces a build for the iOS Simulator on a Mac. This is useful for checking the app, but it can't go on a real iPhone.
 
 ## What to test
+- **Scan a bill** (Home → Scan a bill): try a supermarket, restaurant and fuel bill. Check the shop, date, total and payment account it fills in. Then try a crumpled or tilted bill.
 - Add an expense, income and transfer. Try the calendar date picker.
 - Credit card: add billing and due days, then check the **Cards** tab and the card tip when adding an expense.
 - **Actions** tab: pay a bill with *Pay & record*, or use *Mark paid*.
