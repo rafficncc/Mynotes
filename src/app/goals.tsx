@@ -3,13 +3,14 @@ import { useState } from 'react';
 import { DateField } from '../components/DateField';
 import { Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
-import { diffDays, formatDate, parseDate } from '../logic/dates';
-import { useAppData, useMoney } from '../store/hooks';
+import { diffDays, formatDate, parseDate, toISODate } from '../logic/dates';
+import { toast } from '../components/Toast';
+import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 
 export default function Goals() {
   const data = useAppData();
-  const { addGoal, updateGoal, deleteGoal } = useStore();
+  const { addGoal, updateGoal, deleteGoal, addTransaction } = useStore();
   const { money } = useMoney();
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
@@ -20,6 +21,18 @@ export default function Goals() {
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const accounts = data.accounts.filter((a) => !a.archived && a.type !== 'people');
+
+  // With accounts set on the goal, money really moves (e.g. bank → savings account); otherwise it is earmarked only.
+  const addToGoal = (id: string, n: number) => {
+    const g = data.goals.find((x) => x.id === id)!;
+    updateGoal(id, { saved: g.saved + n });
+    if (g.fromAccountId && g.toAccountId) {
+      addTransaction({ type: 'transfer', amount: n, date: toISODate(new Date()), accountId: g.fromAccountId, toAccountId: g.toAccountId, note: `Saved for ${g.name}` });
+      notifyBalance(g.fromAccountId, `Moved ${money(n)} to “${g.name}”`);
+    } else {
+      toast(`Counted ${money(n)} towards “${g.name}”. To move money between accounts, set it in Auto-save.`);
+    }
+  };
 
   const openAuto = (id: string) => {
     const g = data.goals.find((x) => x.id === id)!;
@@ -68,7 +81,7 @@ export default function Goals() {
             <ChipRow>
               <Chip label={g.autoAmount ? 'Auto-save' : 'Set auto-save'} icon="repeat-outline" selected={!!g.autoAmount} onPress={() => openAuto(g.id)} />
               {[500, 1000, 5000].map((n) => (
-                <Chip key={n} label={`+${money(n)}`} onPress={() => updateGoal(g.id, { saved: g.saved + n })} />
+                <Chip key={n} label={`+${money(n)}`} onPress={() => addToGoal(g.id, n)} />
               ))}
               <Chip
                 label="Delete"

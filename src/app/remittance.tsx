@@ -7,8 +7,8 @@ import { formatDate, toISODate } from '../logic/dates';
 import { formatMoney } from '../logic/money';
 import { lastRate, remittanceStats } from '../logic/money2';
 import { CURRENCIES, currencyInfo } from '../logic/region';
-import { SPENDABLE_TYPES } from '../logic/balances';
-import { useAppData, useMoney } from '../store/hooks';
+import { ledgerAccountId, SPENDABLE_TYPES } from '../logic/balances';
+import { notifyBalance, useAppData, useBalances, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -18,6 +18,7 @@ export default function Remittance() {
   const data = useAppData();
   const addTransaction = useStore((s) => s.addTransaction);
   const { money } = useMoney();
+  const balances = useBalances();
   const family = data.settings.currencyCode;
   const [to, setTo] = useState(family === 'INR' ? HOME_CURRENCIES[1] : 'INR');
   const [sent, setSent] = useState('');
@@ -55,6 +56,7 @@ export default function Remittance() {
     });
     setSent('');
     setFee('');
+    notifyBalance(accountId, `Sent ${fmtTo(received)} home`);
   };
 
   return (
@@ -101,6 +103,7 @@ export default function Remittance() {
             <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
           ))}
         </ChipRow>
+        <Text style={styles.hint}>Balance: {money(balances[ledgerAccountId(data.accounts, accountId)] ?? 0)}. The amount sent plus the fee is taken from this account.</Text>
         <DateField label="Date" value={date} onChange={setDate} />
         <Button title="Save transfer" icon="paper-plane-outline" onPress={save} />
       </Card>

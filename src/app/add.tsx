@@ -19,7 +19,7 @@ import { normalize } from '../logic/priceBook';
 import { matchAccount } from '../logic/receipt';
 import { takeScanDraft } from '../store/scanDraft';
 import type { TxnType } from '../logic/types';
-import { useBalances, useMoney } from '../store/hooks';
+import { notifyBalance, useBalances, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -222,6 +222,7 @@ export default function AddTransaction() {
       store.deleteEmi(existingEmi.id);
     }
     router.back();
+    notifyBalance(accountId, existing ? 'Saved' : type === 'income' ? 'Income added' : type === 'transfer' ? 'Transfer saved' : 'Expense saved');
   };
 
   // Goes to the recycle bin, so no confirmation: Undo is offered instead.

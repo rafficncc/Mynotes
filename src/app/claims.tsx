@@ -6,7 +6,8 @@ import { ask } from '../components/Dialog';
 import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { formatDate, toISODate } from '../logic/dates';
 import type { ClaimStatus, MedicalClaim } from '../logic/types';
-import { useAppData, useMoney } from '../store/hooks';
+import { defaultPayAccount } from '../logic/payments';
+import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -20,7 +21,7 @@ const STATUS: { key: ClaimStatus; label: string; color: string }[] = [
 
 export default function Claims() {
   const data = useAppData();
-  const { saveItem, deleteItem } = useStore();
+  const { saveItem, deleteItem, addTransaction, deleteTransaction, updateTransaction } = useStore();
   const { money } = useMoney();
   const blank = { title: '', memberId: '', policyId: '', amount: '', date: toISODate(new Date()), status: 'to_submit' as ClaimStatus, approvedAmount: '', notes: '' };
   const [f, setF] = useState(blank);
@@ -50,7 +51,22 @@ export default function Claims() {
     const amount = parseFloat(f.amount);
     if (!f.title.trim() || !amount) return ask('Enter what the claim is for and the amount');
     const old = data.claims.find((c) => c.id === editing);
+    const payout = parseFloat(f.approvedAmount) || amount;
+    let paidTxnId = old?.paidTxnId;
+    if (f.status === 'paid' && !paidTxnId) {
+      const accountId = defaultPayAccount(data.accounts);
+      if (accountId) {
+        paidTxnId = addTransaction({ type: 'income', amount: payout, date: toISODate(new Date()), accountId, categoryId: 'other_income', merchant: 'Insurance claim', note: f.title.trim(), memberId: f.memberId || undefined });
+        setTimeout(() => notifyBalance(accountId, 'Claim money received'), 0);
+      }
+    } else if (f.status !== 'paid' && paidTxnId) {
+      deleteTransaction(paidTxnId); // claim no longer paid: undo the income (kept in the recycle bin)
+      paidTxnId = undefined;
+    } else if (f.status === 'paid' && paidTxnId && old && (old.approvedAmount ?? old.amount) !== payout) {
+      updateTransaction(paidTxnId, { amount: payout });
+    }
     saveItem('claims', {
+      paidTxnId,
       id: editing ?? undefined,
       title: f.title.trim(),
       memberId: f.memberId || undefined,

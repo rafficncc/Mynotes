@@ -43,6 +43,8 @@ export interface Account {
   /** Investments: monthly SIP amount and debit day */
   sipAmount?: number;
   sipDay?: number;
+  /** Last SIP debit recorded automatically (YYYY-MM-DD). */
+  sipLast?: string;
   /** Gold / jewellery weight in grams */
   goldGrams?: number;
   /** Credit cards: reward points balance and value of one point */
@@ -276,6 +278,8 @@ export interface MedicalClaim {
   status: ClaimStatus;
   approvedAmount?: number;
   notes?: string;
+  /** Income transaction recorded when the claim was paid out. */
+  paidTxnId?: string;
 }
 
 export type VaultSection = 'contact' | 'nominee' | 'account' | 'instruction' | 'other';

@@ -7,7 +7,7 @@ import { formatDate, toISODate } from '../logic/dates';
 import { PEOPLE_ACCOUNT_ID, personBalances } from '../logic/money2';
 import { normalize } from '../logic/priceBook';
 import { SPENDABLE_TYPES } from '../logic/balances';
-import { useAppData, useMoney } from '../store/hooks';
+import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -55,6 +55,7 @@ export default function People() {
     });
     setAmount('');
     setNote('');
+    notifyBalance(accountId, 'Saved');
   };
 
   const history = (name: string) =>

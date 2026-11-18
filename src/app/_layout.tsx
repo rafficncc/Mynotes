@@ -8,6 +8,7 @@ import { DialogHost } from '../components/Dialog';
 import { LockGate } from '../components/LockScreen';
 import { toast, ToastHost } from '../components/Toast';
 import { dueContributions } from '../logic/motivation';
+import { dueSipTransfers } from '../logic/payments';
 import { deletePhoto } from '../services/billPhotos';
 import { syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
@@ -32,6 +33,14 @@ function StartupTasks() {
     const cutoff = Date.now() - 30 * 86400000;
     useStore.getState().trash.filter((t) => new Date(t.deletedAt ?? 0).getTime() < cutoff).forEach((t) => deletePhoto(t.photoUri));
     useStore.getState().purgeTrash();
+    // SIP debits that fell due: bank → fund transfers, so both balances follow
+    for (const fund of useStore.getState().accounts) {
+      const due = dueSipTransfers(fund, useStore.getState().accounts, new Date());
+      if (!due.length) continue;
+      due.forEach((t) => useStore.getState().addTransaction(t));
+      useStore.getState().updateAccount(fund.id, { sipLast: due[due.length - 1].date });
+      toast(`Recorded ${due.length > 1 ? `${due.length} SIP debits` : 'this month’s SIP'} for ${fund.name}`);
+    }
     // Automatic monthly goal contributions that fell due since the last app open
     const st = useStore.getState();
     for (const g of st.goals) {

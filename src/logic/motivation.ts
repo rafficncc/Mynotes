@@ -1,9 +1,10 @@
 import { generateActions } from './actions';
 import { expenses, inMonth, incomes, sum } from './analytics';
 import { computeBalances, computeNetWorth } from './balances';
-import { addDays, addMonths, clampedDate, currentCycleKey, diffDays, parseDate, shiftMonthKey, toISODate } from './dates';
+import { addDays, addMonths, currentCycleKey, diffDays, parseDate, shiftMonthKey, toISODate } from './dates';
 import { noSplurgeStreak } from './insights';
 import { personBalances } from './money2';
+import { monthlyDueDates } from './payments';
 import type { AppData, Challenge, Goal } from './types';
 
 /* ------------------------- Challenges ------------------------- */
@@ -136,14 +137,5 @@ export function memberStreaks(data: AppData, on: Date): { id: string; name: stri
  */
 export function dueContributions(goal: Goal, on: Date): string[] {
   if (!goal.autoAmount || !goal.autoDay || goal.saved >= goal.target) return [];
-  const today = toISODate(on);
-  let d = goal.lastAuto
-    ? addMonths(parseDate(goal.lastAuto), 1, goal.autoDay)
-    : clampedDate(on.getFullYear(), on.getMonth(), goal.autoDay);
-  const out: string[] = [];
-  while (toISODate(d) <= today && out.length < 24) {
-    out.push(toISODate(d));
-    d = addMonths(d, 1, goal.autoDay);
-  }
-  return out;
+  return monthlyDueDates(goal.autoDay, goal.lastAuto, on);
 }

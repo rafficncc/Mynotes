@@ -6,7 +6,9 @@ import { TipCard } from '../../components/TipCard';
 import { Card, Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import { generateActions, type ActionItem, type ActionStatus } from '../../logic/actions';
 import { diffDays, formatShortDate, toISODate } from '../../logic/dates';
-import { useAppData, useCycle, useMoney } from '../../store/hooks';
+import { toast } from '../../components/Toast';
+import { alreadyPaid, billPayment, emiPayment, premiumPayment } from '../../logic/payments';
+import { notifyBalance, useAppData, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
 import { colors } from '../../theme';
 
@@ -34,6 +36,7 @@ export default function Actions() {
   const saveBill = useStore((s) => s.saveBill);
   const saveEmi = useStore((s) => s.saveEmi);
   const saveItem = useStore((s) => s.saveItem);
+  const addTransaction = useStore((s) => s.addTransaction);
   const [filter, setFilter] = useState<Filter>('all');
   const on = new Date();
   const actions = useMemo(() => generateActions(data, on), [data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -49,13 +52,34 @@ export default function Actions() {
     if (a.kind === 'document') return router.push(`/documents?edit=${a.documentId}`);
     if (a.kind === 'warranty') return router.push(`/add?id=${a.transactionId}`);
   };
+  // Records the payment from the account (so balances follow), unless it was already logged.
   const markDone = (a: ActionItem) => {
     const today = toISODate(new Date());
+    let txn: Parameters<typeof addTransaction>[0] | null = null;
+    let name = '';
     if (a.kind === 'bill' && a.billId?.startsWith('policy:')) {
       const p = data.policies.find((x) => x.id === a.billId!.slice(7));
-      if (p) saveItem('policies', { ...p, lastPaid: today });
-    } else if (a.kind === 'bill' && a.billId) saveBill({ ...data.bills.find((b) => b.id === a.billId)!, lastPaid: today });
-    if (a.kind === 'emi' && a.emiId) saveEmi({ ...data.emis.find((e) => e.id === a.emiId)!, lastPaid: today });
+      if (!p) return;
+      saveItem('policies', { ...p, lastPaid: today });
+      name = `${p.name} premium`;
+      txn = premiumPayment(p, data.accounts, today);
+    } else if (a.kind === 'bill' && a.billId) {
+      const b = data.bills.find((x) => x.id === a.billId);
+      if (!b) return;
+      saveBill({ ...b, lastPaid: today });
+      name = b.name;
+      txn = billPayment(b, data.accounts, today);
+    } else if (a.kind === 'emi' && a.emiId) {
+      const e = data.emis.find((x) => x.id === a.emiId);
+      if (!e) return;
+      saveEmi({ ...e, lastPaid: today });
+      name = `${e.name} EMI`;
+      txn = emiPayment(e, data.accounts, today);
+    }
+    if (!txn) return;
+    if (alreadyPaid(name, data.transactions, new Date())) return toast(`${name} marked paid (payment was already recorded)`);
+    addTransaction(txn);
+    notifyBalance(txn.accountId, `${name} paid`);
   };
 
   return (
@@ -66,7 +90,7 @@ export default function Actions() {
         points={[
           'Everything to pay or renew in your spending cycle is listed here: card bills, bills, EMIs, insurance, documents and warranties.',
           'Red = overdue, orange = the reminder date has come, blue = later this cycle.',
-          'Tap “Pay & record” to log the payment, or “Mark paid” if you already logged it.',
+          '“Pay & record” lets you choose the account and details; “Mark paid” records it from your bank in one tap (skipped if you already logged it).',
           'Set how many days before you want a reminder on each bill, EMI, card or document.',
         ]}
       />
