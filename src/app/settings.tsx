@@ -10,7 +10,9 @@ import { CURRENCIES, currencyInfo, premiumPrice } from '../logic/region';
 import { notificationsSupported, requestReminderPermission, syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
+import { changeLanguage, LANGUAGES, t } from '../i18n';
 import { colors } from '../theme';
+import { getLangPref, getThemePref, setThemePref, type LangPref, type ThemePref } from '../theme/prefs';
 
 const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 
@@ -21,6 +23,8 @@ export default function Settings() {
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   const s = data.settings;
+  const [langPref, setLangPrefState] = useState<LangPref>(getLangPref());
+  const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref());
   const cur = currencyInfo(s.currencyCode);
 
   const currencies = useMemo(() => {
@@ -54,7 +58,46 @@ export default function Settings() {
 
   return (
     <Screen>
-      <SectionTitle title="Spending cycle" />
+      <SectionTitle title={t('Language')} />
+      <ChipRow>
+        {LANGUAGES.map((l) => (
+          <Chip
+            key={l.key}
+            label={l.key === 'auto' ? t(l.label) : l.label}
+            selected={langPref === l.key}
+            onPress={() => {
+              setLangPrefState(l.key);
+              const restart = changeLanguage(l.key);
+              ask(restart ? t('Close and reopen FamilyFin to apply.') : 'OK', restart ? undefined : 'Screens you open now use the new language. Close and reopen the app to switch everything.');
+            }}
+          />
+        ))}
+      </ChipRow>
+
+      <SectionTitle title={t('Theme')} />
+      <ChipRow>
+        {(
+          [
+            ['system', 'Same as phone'],
+            ['light', 'Light'],
+            ['dark', 'Dark'],
+          ] as [ThemePref, string][]
+        ).map(([k, l]) => (
+          <Chip
+            key={k}
+            label={t(l)}
+            icon={k === 'dark' ? 'moon-outline' : k === 'light' ? 'sunny-outline' : 'phone-portrait-outline'}
+            selected={themePref === k}
+            onPress={() => {
+              setThemePref(k);
+              setThemePrefState(k);
+              ask(t('Close and reopen FamilyFin to apply.'));
+            }}
+          />
+        ))}
+      </ChipRow>
+
+      <SectionTitle title={t('Spending cycle')} />
       <Card>
         <Text style={styles.itemSub}>
           Pick the day your month starts – usually salary day. Budgets, reports and Actions follow this cycle. Current cycle: {cycleLabel(currentCycleKey(new Date(), s.cycleStartDay), s.cycleStartDay)}.
@@ -73,7 +116,7 @@ export default function Settings() {
         <Text style={styles.hint}>Day 1 = calendar month. For salary on the 29th–31st, pick 28.</Text>
       </Card>
 
-      <SectionTitle title="Currency & country" />
+      <SectionTitle title={t('Currency & country')} />
       <Card>
         <Text style={styles.itemSub}>
           {cur.name} ({cur.code}). Savings tips are tuned to your region and Premium is priced in your currency.
@@ -92,7 +135,7 @@ export default function Settings() {
         </ChipRow>
       </Card>
 
-      <SectionTitle title="Reminders" />
+      <SectionTitle title={t('Reminders')} />
       <Card>
         <Row>
           <View style={{ flex: 1 }}>
@@ -101,6 +144,13 @@ export default function Settings() {
           </View>
           <Switch value={s.notificationsEnabled} onValueChange={toggleReminders} trackColor={{ true: colors.primary }} />
         </Row>
+        <Row>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemTitle}>Weekly summary</Text>
+            <Text style={styles.itemSub}>Sunday evening: how much you spent this week vs last week.</Text>
+          </View>
+          <Switch value={s.weeklySummary !== false} onValueChange={(v) => updateSettings({ weeklySummary: v })} trackColor={{ true: colors.primary }} accessibilityLabel="Weekly summary" />
+        </Row>
         {notificationsSupported ? (
           <Button title="Schedule reminders now" variant="secondary" icon="notifications-outline" onPress={testReminders} />
         ) : (
@@ -108,12 +158,12 @@ export default function Settings() {
         )}
       </Card>
 
-      <SectionTitle title="Google account & backup" />
+      <SectionTitle title={t('Google account & backup')} />
       <Card>
         <GoogleBackupPanel />
       </Card>
 
-      <SectionTitle title="This phone is used by" />
+      <SectionTitle title={t('This phone is used by')} />
       <Card>
         <ChipRow>
           {data.members.map((m) => (
@@ -123,10 +173,10 @@ export default function Settings() {
         <Text style={styles.hint}>New spends are counted against this person’s allowance.</Text>
       </Card>
 
-      <SectionTitle title="More" />
+      <SectionTitle title={t('More')} />
       <Card>
         <ListItem icon="diamond-outline" iconColor={colors.accent} title={s.premium ? 'Premium – active' : 'FamilyFin Premium'} subtitle={s.premium ? 'Thank you!' : `Lifetime · ${premiumPrice(s.currencyCode).label}`} onPress={() => router.push('/premium')} />
-        <ListItem icon="pricetags-outline" title="Categories" subtitle="Add your own categories" onPress={() => router.push('/categories')} />
+        <ListItem icon="pricetags-outline" title={t('Categories')} subtitle="Add your own categories" onPress={() => router.push('/categories')} />
         <Row>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemTitle}>I always pay card bills in full</Text>
@@ -136,7 +186,7 @@ export default function Settings() {
         </Row>
       </Card>
 
-      <SectionTitle title="Your data" />
+      <SectionTitle title={t('Your data')} />
       <Card>
         <Text style={styles.itemSub}>
           {data.transactions.length} transactions · {data.accounts.length} accounts. Stored on this phone{data.google?.lastBackup ? ' and in your Google Drive backup' : ''}.

@@ -27,7 +27,7 @@ async function loadRecognizer(): Promise<Recognize> {
   }
 }
 
-async function pickImage(source: ScanSource): Promise<string | null> {
+export async function pickImage(source: ScanSource): Promise<string | null> {
   const options: ImagePicker.ImagePickerOptions = {
     mediaTypes: ['images'],
     quality: 1,

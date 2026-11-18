@@ -24,7 +24,8 @@ export function Screen({ children, padded = true }: { children: ReactNode; padde
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: padded ? spacing.lg : 0, paddingBottom: 100, gap: spacing.md }}
+      // Centred, readable width on tablets; full width on phones.
+      contentContainerStyle={{ padding: padded ? spacing.lg : 0, paddingBottom: 100, gap: spacing.md, width: '100%', maxWidth: 760, alignSelf: 'center' }}
       keyboardShouldPersistTaps="handled"
     >
       {children}
@@ -41,7 +42,7 @@ export function SectionTitle({ title, action, onAction }: { title: string; actio
     <View style={styles.sectionRow}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {action ? (
-        <Pressable onPress={onAction} hitSlop={8}>
+        <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
           <Text style={styles.link}>{action}</Text>
         </Pressable>
       ) : null}
@@ -67,6 +68,9 @@ export function Button({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       style={({ pressed }) => [styles.button, { backgroundColor: bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 }]}
     >
@@ -80,7 +84,7 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} style={styles.input} {...props} />
+      <TextInput placeholderTextColor={colors.muted} style={styles.input} accessibilityLabel={label || props.placeholder} {...props} />
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
@@ -103,6 +107,8 @@ export function Chip({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!selected }}
       style={[styles.chip, selected && { backgroundColor: c, borderColor: c }]}
     >
       {icon ? <Icon name={icon} size={14} color={selected ? '#fff' : c} /> : null}
@@ -141,7 +147,13 @@ export function ListItem({
   onPress?: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.listItem, pressed && onPress && { opacity: 0.7 }]}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={[title, subtitle, right].filter(Boolean).join(', ')}
+      style={({ pressed }) => [styles.listItem, pressed && onPress && { opacity: 0.7 }]}
+    >
       {icon ? (
         <View style={[styles.iconBubble, { backgroundColor: `${iconColor}1A` }]}>
           <Icon name={icon} size={18} color={iconColor} />
@@ -166,7 +178,7 @@ export function ProgressBar({ value, color = colors.primary, plain }: { value: n
   const pct = Math.max(0, Math.min(1, value));
   const barColor = plain ? color : value > 1 ? colors.danger : value > 0.85 ? colors.warning : color;
   return (
-    <View style={styles.progressTrack}>
+    <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(Math.min(value, 9.99) * 100) }}>
       <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: barColor }]} />
     </View>
   );

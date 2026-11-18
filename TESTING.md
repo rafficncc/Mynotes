@@ -37,6 +37,8 @@ Apple does not allow installing apps from a file, so the options are:
 `npm run build:ios-sim` produces a build for the iOS Simulator on a Mac. This is useful for checking the app, but it can't go on a real iPhone.
 
 ## What to test
+- **New in this build:** More → Security (turn on App lock and try fingerprint), voice entry, Lend & borrow, Split a bill (Add expense), Reports → Share as PDF, Year in review → Share, Challenges, Settings → Language (Hindi/Malayalam/Tamil/Arabic) and Theme (dark), and delete a transaction then tap Undo.
+- Long-press the FamilyFin icon for the shortcuts (Voice expense, Scan a bill, Add expense).
 - **Scan a bill** (Home → Scan a bill): try a supermarket, restaurant and fuel bill. Check the shop, date, total and payment account it fills in. Then try a crumpled or tilted bill.
 - Add an expense, income and transfer. Try the calendar date picker.
 - Credit card: add billing and due days, then check the **Cards** tab and the card tip when adding an expense.

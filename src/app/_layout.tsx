@@ -1,13 +1,52 @@
-import { Stack } from 'expo-router';
+import * as QuickActions from 'expo-quick-actions';
+import { t } from '../i18n';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { DialogHost } from '../components/Dialog';
+import { LockGate } from '../components/LockScreen';
+import { toast, ToastHost } from '../components/Toast';
+import { dueContributions } from '../logic/motivation';
+import { deletePhoto } from '../services/billPhotos';
 import { syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
 import { useHydrated } from '../store/useHydrated';
-import { colors } from '../theme';
+import { useStore } from '../store/useStore';
+import { colors, isDark } from '../theme';
+
+const base = isDark ? DarkTheme : DefaultTheme;
+const navTheme = { ...base, colors: { ...base.colors, primary: colors.primary, background: colors.bg, card: colors.card, text: colors.text, border: colors.border } };
 
 /** Re-schedules phone reminders shortly after any change to bills, EMIs, cards or documents. */
+/** Runs once after data loads: empties old recycle-bin items. */
+function StartupTasks() {
+  const hydrated = useHydrated();
+  useEffect(() => {
+    if (!hydrated) return;
+    QuickActions.setItems([
+      { id: 'voice', title: 'Voice expense', icon: Platform.OS === 'ios' ? 'symbol:mic' : null, params: { href: '/voice' } },
+      { id: 'scan', title: t('Scan a bill'), icon: Platform.OS === 'ios' ? 'symbol:doc.viewfinder' : null, params: { href: '/scan' } },
+      { id: 'add', title: 'Add expense', icon: Platform.OS === 'ios' ? 'add' : null, params: { href: '/add?type=expense' } },
+    ]).catch(() => undefined);
+    const cutoff = Date.now() - 30 * 86400000;
+    useStore.getState().trash.filter((t) => new Date(t.deletedAt ?? 0).getTime() < cutoff).forEach((t) => deletePhoto(t.photoUri));
+    useStore.getState().purgeTrash();
+    // Automatic monthly goal contributions that fell due since the last app open
+    const st = useStore.getState();
+    for (const g of st.goals) {
+      const dates = dueContributions(g, new Date());
+      if (!dates.length) continue;
+      for (const date of dates) {
+        if (g.fromAccountId && g.toAccountId) st.addTransaction({ type: 'transfer', amount: g.autoAmount!, date, accountId: g.fromAccountId, toAccountId: g.toAccountId, note: `Auto-save: ${g.name}` });
+      }
+      st.updateGoal(g.id, { saved: Math.min(g.target, g.saved + g.autoAmount! * dates.length), lastAuto: dates[dates.length - 1] });
+      toast(`Added ${dates.length > 1 ? `${dates.length} monthly savings` : 'this month’s saving'} to “${g.name}”`);
+    }
+  }, [hydrated]);
+  return null;
+}
+
 function ReminderSync() {
   const data = useAppData();
   const { money } = useMoney();
@@ -15,6 +54,11 @@ function ReminderSync() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!hydrated) return;
+    QuickActions.setItems([
+      { id: 'voice', title: 'Voice expense', icon: Platform.OS === 'ios' ? 'symbol:mic' : null, params: { href: '/voice' } },
+      { id: 'scan', title: t('Scan a bill'), icon: Platform.OS === 'ios' ? 'symbol:doc.viewfinder' : null, params: { href: '/scan' } },
+      { id: 'add', title: 'Add expense', icon: Platform.OS === 'ios' ? 'add' : null, params: { href: '/add?type=expense' } },
+    ]).catch(() => undefined);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       syncReminders(data, money).catch(() => undefined);
@@ -22,30 +66,47 @@ function ReminderSync() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [hydrated, data.bills, data.emis, data.documents, data.accounts, data.transactions, data.settings.notificationsEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hydrated, data.bills, data.emis, data.documents, data.accounts, data.transactions, data.settings.notificationsEnabled, data.settings.weeklySummary, data.policies, data.vehicles]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
 const screens: [string, string, boolean?][] = [
-  ['accounts', 'Accounts'],
+  ['accounts', t('Accounts')],
   ['budgets', 'Budgets'],
-  ['prices', 'Price book'],
-  ['goals', 'Savings goals'],
-  ['family', 'Family & allowances'],
-  ['bills', 'Bills & reminders'],
-  ['emis', 'EMIs & instalments'],
-  ['documents', 'Document expiry'],
-  ['categories', 'Categories'],
-  ['simulator', 'Cut-back simulator'],
+  ['prices', t('Price book')],
+  ['goals', t('Savings goals')],
+  ['family', t('Family & allowances')],
+  ['bills', t('Bills & reminders')],
+  ['emis', t('EMIs & instalments')],
+  ['documents', t('Document expiry')],
+  ['categories', t('Categories')],
+  ['simulator', t('Cut-back simulator')],
   ['settings', 'Settings'],
   ['premium', 'FamilyFin Premium', true],
+  ['trash', t('Recycle bin')],
+  ['people', t('Lend & borrow')],
+  ['remittance', t('Money sent home')],
+  ['events', t('Events & trips')],
+  ['policies', t('Insurance policies')],
+  ['investments', t('Investments')],
+  ['vehicles', t('Vehicles')],
+  ['claims', t('Medical claims')],
+  ['vault', t('Money vault')],
+  ['prepay', t('Loan prepayment')],
+  ['reports', t('Reports')],
+  ['year', t('Year in review')],
+  ['challenges', t('Challenges & badges')],
+  ['voice', t('Voice entry')],
+  ['setup', 'FamilyFin'],
+  ['security', t('Security & privacy')],
 ];
 
 export default function RootLayout() {
   return (
-    <>
-      <StatusBar style="dark" />
+    <ThemeProvider value={navTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ReminderSync />
+      <StartupTasks />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.card },
@@ -55,15 +116,17 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="add" options={{ presentation: 'modal', title: 'Add transaction' }} />
-        <Stack.Screen name="scan" options={{ presentation: 'modal', title: 'Scan a bill' }} />
+        <Stack.Screen name="add" options={{ presentation: 'modal', title: t('Add transaction') }} />
+        <Stack.Screen name="scan" options={{ presentation: 'modal', title: t('Scan a bill') }} />
         <Stack.Screen name="account-form" options={{ presentation: 'modal', title: 'Account' }} />
         <Stack.Screen name="welcome" options={{ headerShown: false, gestureEnabled: false }} />
         {screens.map(([name, title, modal]) => (
           <Stack.Screen key={name} name={name} options={{ title, presentation: modal ? 'modal' : undefined }} />
         ))}
       </Stack>
+      <ToastHost />
+      <LockGate />
       <DialogHost />
-    </>
+    </ThemeProvider>
   );
 }

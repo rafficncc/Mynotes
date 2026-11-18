@@ -9,21 +9,20 @@ import type { AppData, FamilyGroup, Member, Transaction } from './types';
 const INVITE = 'FFI1:';
 const UPDATE = 'FFU1:';
 
-function encode(obj: unknown): string {
-  const json = JSON.stringify(obj);
-  const bytes = encodeURIComponent(json).replace(/%([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-  return btoa(bytes);
+/** UTF-8 text ⇄ base64 (also used by the encrypted storage). */
+export function utf8ToBase64(text: string): string {
+  return btoa(encodeURIComponent(text).replace(/%([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16))));
 }
 
-function decode<T>(s: string): T {
-  const bytes = atob(s.trim());
-  const json = decodeURIComponent(
-    Array.from(bytes)
-      .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, '0')}`)
-      .join(''),
-  );
-  return JSON.parse(json) as T;
+export function base64ToUtf8(b64: string): string {
+  const bytes = atob(b64.trim());
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += `%${bytes.charCodeAt(i).toString(16).padStart(2, '0')}`;
+  return decodeURIComponent(out);
 }
+
+const encode = (obj: unknown) => utf8ToBase64(JSON.stringify(obj));
+const decode = <T,>(s: string) => JSON.parse(base64ToUtf8(s)) as T;
 
 export function newGroupCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

@@ -1,3 +1,4 @@
+import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -32,6 +33,13 @@ export default function AccountForm() {
   );
   const [interest, setInterest] = useState(existing?.interestRate ? String(existing.interestRate) : '');
   const [remindCard, setRemindCard] = useState(existing?.remindDaysBefore ?? 5);
+  const [maturityDate, setMaturityDate] = useState(existing?.maturityDate ?? '');
+  const [maturityAmount, setMaturityAmount] = useState(existing?.maturityAmount ? String(existing.maturityAmount) : '');
+  const [sipAmount, setSipAmount] = useState(existing?.sipAmount ? String(existing.sipAmount) : '');
+  const [sipDay, setSipDay] = useState(existing?.sipDay ? String(existing.sipDay) : '');
+  const [goldGrams, setGoldGrams] = useState(existing?.goldGrams ? String(existing.goldGrams) : '');
+  const [points, setPoints] = useState(existing?.rewardPoints ? String(existing.rewardPoints) : '');
+  const [pointValue, setPointValue] = useState(existing?.pointValue ? String(existing.pointValue) : '');
   const [limit, setLimit] = useState(existing?.creditLimit ? String(existing.creditLimit) : '');
   const [billingDay, setBillingDay] = useState(existing?.billingDay ? String(existing.billingDay) : '');
   const [dueDay, setDueDay] = useState(existing?.dueDay ? String(existing.dueDay) : '');
@@ -63,7 +71,14 @@ export default function AccountForm() {
       name: name.trim(),
       type,
       openingBalance: owed ? -Math.abs(amt) : amt,
-      interestRate: type === 'loan' ? parseFloat(interest) || undefined : undefined,
+      interestRate: type === 'loan' || type === 'deposit' ? parseFloat(interest) || undefined : undefined,
+      maturityDate: type === 'deposit' ? maturityDate || undefined : undefined,
+      maturityAmount: type === 'deposit' ? parseFloat(maturityAmount) || undefined : undefined,
+      sipAmount: type === 'investment' ? parseFloat(sipAmount) || undefined : undefined,
+      sipDay: type === 'investment' ? validDay(sipDay) : undefined,
+      goldGrams: type === 'gold' ? parseFloat(goldGrams) || undefined : undefined,
+      rewardPoints: isCard ? parseFloat(points) || undefined : undefined,
+      pointValue: isCard ? parseFloat(pointValue) || undefined : undefined,
       remindDaysBefore: isCard ? remindCard : undefined,
       creditLimit: isCard ? parseFloat(limit) || undefined : undefined,
       billingDay: isCard ? bd : undefined,
@@ -125,6 +140,26 @@ export default function AccountForm() {
         />
       ) : null}
 
+      {type === 'deposit' ? (
+        <Card>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Interest % / year" value={interest} onChangeText={setInterest} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Maturity amount" value={maturityAmount} onChangeText={setMaturityAmount} keyboardType="decimal-pad" /></View>
+          </Row>
+          <DateField label="Maturity date" value={maturityDate} onChange={setMaturityDate} optional quick={false} hint="You’ll be reminded 15 days before, to decide whether to renew." />
+        </Card>
+      ) : null}
+      {type === 'investment' ? (
+        <Card>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Monthly SIP" value={sipAmount} onChangeText={setSipAmount} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="SIP debit day" value={sipDay} onChangeText={setSipDay} keyboardType="number-pad" placeholder="1-31" /></View>
+          </Row>
+        </Card>
+      ) : null}
+      {type === 'gold' ? (
+        <Field label="Weight in grams" value={goldGrams} onChangeText={setGoldGrams} keyboardType="decimal-pad" hint="Value = weight × today’s price. Update it from Investments." />
+      ) : null}
       {type === 'loan' ? (
         <Card>
           <Field label="Interest rate % per year" value={interest} onChangeText={setInterest} keyboardType="decimal-pad" placeholder="e.g. 9.5" />
@@ -155,6 +190,10 @@ export default function AccountForm() {
             </View>
           </Row>
           {preview ? <Text style={[styles.insightText, { color: colors.success }]}>{preview}</Text> : null}
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Reward points balance" value={points} onChangeText={setPoints} keyboardType="number-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Value of 1 point" value={pointValue} onChangeText={setPointValue} keyboardType="decimal-pad" placeholder="e.g. 0.25" /></View>
+          </Row>
           <Text style={styles.label}>Remind me before the due date</Text>
           <ChipRow>
             {[1, 3, 5, 7, 10].map((d) => (

@@ -19,11 +19,13 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'travel', name: 'Travel', icon: 'airplane-outline', color: '#0277BD', kind: 'want' },
   { id: 'festivals', name: 'Gifts & Festivals', icon: 'gift-outline', color: '#D84315', kind: 'want' },
   { id: 'personal', name: 'Personal care', icon: 'cut-outline', color: '#8D6E63', kind: 'want' },
+  { id: 'remittance', name: 'Money sent home', icon: 'paper-plane-outline', color: '#0277BD', kind: 'need' },
   { id: 'investments', name: 'Savings & Investments', icon: 'trending-up-outline', color: '#2E7D32', kind: 'saving' },
   { id: 'other', name: 'Other', icon: 'ellipsis-horizontal-circle-outline', color: '#757575', kind: 'want' },
   { id: 'salary', name: 'Salary', icon: 'briefcase-outline', color: '#2E7D32', kind: 'income' },
   { id: 'business', name: 'Business', icon: 'storefront-outline', color: '#00695C', kind: 'income' },
   { id: 'interest', name: 'Interest & Dividends', icon: 'stats-chart-outline', color: '#1B5E20', kind: 'income' },
+  { id: 'cashback', name: 'Cashback & rewards', icon: 'gift-outline', color: '#43A047', kind: 'income' },
   { id: 'other_income', name: 'Other income', icon: 'add-circle-outline', color: '#388E3C', kind: 'income' },
 ];
 

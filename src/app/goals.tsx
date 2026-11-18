@@ -14,6 +14,27 @@ export default function Goals() {
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [autoFor, setAutoFor] = useState<string | null>(null);
+  const [autoAmount, setAutoAmount] = useState('');
+  const [autoDay, setAutoDay] = useState('1');
+  const [fromAccountId, setFromAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
+  const accounts = data.accounts.filter((a) => !a.archived && a.type !== 'people');
+
+  const openAuto = (id: string) => {
+    const g = data.goals.find((x) => x.id === id)!;
+    setAutoFor(id);
+    setAutoAmount(g.autoAmount ? String(g.autoAmount) : '');
+    setAutoDay(String(g.autoDay ?? 1));
+    setFromAccountId(g.fromAccountId ?? '');
+    setToAccountId(g.toAccountId ?? '');
+  };
+  const saveAuto = () => {
+    const amt = parseFloat(autoAmount) || undefined;
+    const day = Math.min(28, Math.max(1, parseInt(autoDay, 10) || 1));
+    updateGoal(autoFor!, { autoAmount: amt, autoDay: amt ? day : undefined, fromAccountId: fromAccountId || undefined, toAccountId: toAccountId || undefined });
+    setAutoFor(null);
+  };
 
   const add = () => {
     const t = parseFloat(target);
@@ -43,7 +64,9 @@ export default function Goals() {
               {g.deadline ? ` · by ${formatDate(g.deadline)}` : ''}
               {perMonth ? ` · save ${money(perMonth)}/month to make it` : ''}
             </Text>
+            {g.autoAmount ? <Text style={styles.itemSub}>Auto-saves {money(g.autoAmount)} on day {g.autoDay} every month</Text> : null}
             <ChipRow>
+              <Chip label={g.autoAmount ? 'Auto-save' : 'Set auto-save'} icon="repeat-outline" selected={!!g.autoAmount} onPress={() => openAuto(g.id)} />
               {[500, 1000, 5000].map((n) => (
                 <Chip key={n} label={`+${money(n)}`} onPress={() => updateGoal(g.id, { saved: g.saved + n })} />
               ))}
@@ -61,6 +84,37 @@ export default function Goals() {
           </Card>
         );
       })}
+      {autoFor ? (
+        <Card>
+          <Text style={styles.itemTitle}>Automatic monthly saving</Text>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Amount each month" value={autoAmount} onChangeText={setAutoAmount} keyboardType="decimal-pad" placeholder="e.g. 2000" /></View>
+            <View style={{ flex: 1 }}><Field label="On day (1–28)" value={autoDay} onChangeText={setAutoDay} keyboardType="number-pad" /></View>
+          </Row>
+          <Text style={styles.label}>Move money from (optional)</Text>
+          <ChipRow>
+            <Chip label="Just count it" selected={!fromAccountId} onPress={() => setFromAccountId('')} />
+            {accounts.map((a) => (
+              <Chip key={a.id} label={a.name} selected={fromAccountId === a.id} onPress={() => setFromAccountId(a.id)} />
+            ))}
+          </ChipRow>
+          {fromAccountId ? (
+            <>
+              <Text style={styles.label}>…into</Text>
+              <ChipRow>
+                {accounts.filter((a) => a.id !== fromAccountId).map((a) => (
+                  <Chip key={a.id} label={a.name} selected={toAccountId === a.id} onPress={() => setToAccountId(a.id)} />
+                ))}
+              </ChipRow>
+            </>
+          ) : null}
+          <Text style={styles.hint}>Each month on that day the goal grows by this amount{fromAccountId && toAccountId ? ', and a transfer between the two accounts is recorded' : ''}. Leave the amount empty to turn auto-save off.</Text>
+          <Row>
+            <View style={{ flex: 1 }}><Button title="Save" onPress={saveAuto} /></View>
+            <View style={{ flex: 1 }}><Button title="Cancel" variant="secondary" onPress={() => setAutoFor(null)} /></View>
+          </Row>
+        </Card>
+      ) : null}
       <SectionTitle title="New goal" />
       <Card>
         <Field label="Goal" value={name} onChangeText={setName} placeholder="e.g. Kids school fees, Goa trip" />

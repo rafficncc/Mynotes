@@ -2,11 +2,12 @@ import { computeBalances } from './balances';
 import { cardCycleInfo, isCreditCardConfigured } from './creditCard';
 import { addDays, currentCycleKey, cycleBounds, diffDays, parseDate, toISODate } from './dates';
 import { instalmentDates } from './emi';
+import { policyBills, trackerDocuments } from './trackers';
 import { billOccurrences, billPaidRecently, billTypeInfo, firstOccurrenceFrom, nextBillDate } from './recurring';
 import type { AppData, Bill, DocumentType, EmiPlan } from './types';
 
 export type ActionStatus = 'overdue' | 'due' | 'upcoming' | 'done';
-export type ActionKind = 'card' | 'bill' | 'emi' | 'document';
+export type ActionKind = 'card' | 'bill' | 'emi' | 'document' | 'warranty';
 
 export interface ActionItem {
   id: string;
@@ -22,6 +23,9 @@ export interface ActionItem {
   emiId?: string;
   accountId?: string;
   documentId?: string;
+  transactionId?: string;
+  /** Screen to open for items that come from trackers (policies, vehicles, deposits). */
+  route?: string;
 }
 
 export const DOCUMENT_TYPES: { key: DocumentType; label: string; icon: string; remind: number }[] = [
@@ -43,6 +47,7 @@ export function documentTypeInfo(type: DocumentType) {
 }
 
 const CARD_REMIND_DEFAULT = 5;
+export const WARRANTY_REMIND_DAYS = 30;
 
 function status(date: Date, remindOn: Date, on: Date): ActionStatus {
   if (diffDays(date, on) < 0) return 'overdue';
@@ -96,7 +101,7 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
   }
 
   // Bills (mobile, internet, utilities, taxes, fines…)
-  for (const bill of data.bills) {
+  for (const bill of [...data.bills, ...policyBills(data.policies)]) {
     const t = billTypeInfo(bill.type);
     if (bill.lastPaid && diffDays(parseDate(bill.lastPaid), start) >= 0 && diffDays(parseDate(bill.lastPaid), on) <= 0) {
       out.push({ id: `bill-done-${bill.id}`, kind: 'bill', title: bill.name, subtitle: `Paid ${toISODate(parseDate(bill.lastPaid))}`, date: parseDate(bill.lastPaid), remindOn: parseDate(bill.lastPaid), amount: bill.amount, status: 'done', icon: t.icon, billId: bill.id });
@@ -118,6 +123,7 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
       status: status(due, remindOn, on),
       icon: t.icon,
       billId: bill.id,
+      route: bill.id.startsWith('policy:') ? `/add?type=expense&policyId=${bill.id.slice(7)}` : undefined,
     });
   }
 
@@ -147,7 +153,7 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
   }
 
   // Document renewals
-  for (const doc of data.documents) {
+  for (const doc of [...data.documents, ...trackerDocuments(data.vehicles, data.policies, data.accounts)]) {
     if (!doc.expiryDate) continue;
     const exp = parseDate(doc.expiryDate);
     const remindOn = addDays(exp, -doc.remindDaysBefore);
@@ -164,6 +170,26 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
       status: days < 0 ? 'overdue' : status(exp, remindOn, on),
       icon: documentTypeInfo(doc.type).icon,
       documentId: doc.id,
+      route: doc.id.startsWith('vehicle:') ? '/vehicles' : doc.id.startsWith('policy:') ? '/policies' : doc.id.startsWith('account:') ? '/investments' : undefined,
+    });
+  }
+
+  // Warranties ending in the next 30 days (things bought, with a warranty date)
+  for (const t of data.transactions) {
+    if (!t.warrantyUntil) continue;
+    const end = parseDate(t.warrantyUntil);
+    const days = diffDays(end, on);
+    if (days < 0 || days > WARRANTY_REMIND_DAYS) continue;
+    out.push({
+      id: `warranty-${t.id}`,
+      kind: 'warranty',
+      title: `Warranty ends: ${t.item || t.merchant || 'purchase'}`,
+      subtitle: `Bought ${toISODate(parseDate(t.date))}${t.photoUri ? ' · bill photo saved' : ''}. Check it for faults now.`,
+      date: end,
+      remindOn: addDays(end, -WARRANTY_REMIND_DAYS),
+      status: 'due',
+      icon: 'shield-half-outline',
+      transactionId: t.id,
     });
   }
 
@@ -194,7 +220,7 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
     }
     if (diffDays(due, on) > 0) out.push({ id: `${id}-d`, title: `${what} is due today`, body: `Pay today${amt} to avoid late fees.`, date: due });
   };
-  for (const bill of data.bills) {
+  for (const bill of [...data.bills, ...policyBills(data.policies)]) {
     const occ = bill.frequency === 'once' ? (bill.lastPaid ? [] : [parseDate(bill.dueDate)]) : billOccurrences(bill, until).filter((d) => diffDays(d, on) > 0);
     const next = nextBillDate(bill, on);
     for (const d of occ.slice(0, 3)) if (!next || diffDays(d, next) >= 0) push(`bill-${bill.id}-${toISODate(d)}`, bill.name, d, bill.remindDaysBefore, bill.amount);
@@ -205,18 +231,31 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
       push(`emi-${plan.id}-${toISODate(d)}`, `${plan.name} EMI`, d, plan.remindDaysBefore, plan.monthlyAmount);
     }
   }
+  // SIP debits: a reminder the day before, so the bank account has enough money
+  for (const a of data.accounts) {
+    if (a.archived || !a.sipAmount || !a.sipDay) continue;
+    const next = firstOccurrenceFrom({ dueDate: toISODate(new Date(on.getFullYear(), on.getMonth(), a.sipDay)), frequency: 'monthly' }, addDays(on, 1));
+    if (next) push(`sip-${a.id}-${toISODate(next)}`, `${a.name} SIP`, next, 1, a.sipAmount);
+  }
   const balances = computeBalances(data.accounts, data.transactions);
   for (const card of data.accounts) {
     if (card.archived || !isCreditCardConfigured(card)) continue;
     const info = cardCycleInfo(card, data.transactions, balances[card.id] ?? 0, on, data.emis);
     if (info.amountDue > 0) push(`card-${card.id}-${toISODate(info.dueDate)}`, `${card.name} bill`, info.dueDate, card.remindDaysBefore ?? CARD_REMIND_DEFAULT, info.amountDue);
   }
-  for (const doc of data.documents) {
+  for (const doc of [...data.documents, ...trackerDocuments(data.vehicles, data.policies, data.accounts)]) {
     if (!doc.expiryDate) continue;
     const exp = parseDate(doc.expiryDate);
     const remindOn = addDays(exp, -doc.remindDaysBefore);
     if (diffDays(remindOn, on) > 0 && diffDays(remindOn, until) <= 0) {
       out.push({ id: `doc-${doc.id}-r`, title: `${doc.name} expires in ${doc.remindDaysBefore} days`, body: `Expiry date ${doc.expiryDate}. Start the renewal now.`, date: remindOn });
+    }
+  }
+  for (const t of data.transactions) {
+    if (!t.warrantyUntil) continue;
+    const remindOn = addDays(parseDate(t.warrantyUntil), -WARRANTY_REMIND_DAYS);
+    if (diffDays(remindOn, on) > 0 && diffDays(remindOn, until) <= 0) {
+      out.push({ id: `warranty-${t.id}`, title: `Warranty ends in ${WARRANTY_REMIND_DAYS} days`, body: `${t.item || t.merchant || 'Purchase'}: warranty until ${t.warrantyUntil}.`, date: remindOn });
     }
   }
   return out.sort((a, b) => a.date.getTime() - b.date.getTime());

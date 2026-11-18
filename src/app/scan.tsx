@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { t } from '../i18n';
 import { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Button, Card, Icon, Screen, styles } from '../components/ui';
@@ -45,7 +46,7 @@ export default function Scan() {
         <View style={{ backgroundColor: colors.primarySoft, padding: 16, borderRadius: 40 }}>
           <Icon name="scan-outline" size={40} color={colors.primary} />
         </View>
-        <Text style={styles.sectionTitle}>Scan a bill</Text>
+        <Text style={styles.sectionTitle}>{t('Scan a bill')}</Text>
         <Text style={[styles.itemSub, { textAlign: 'center' }]}>
           FamilyFin reads the shop, date and total and fills in the expense for you. The photo is read on your phone and never uploaded.
         </Text>
@@ -53,12 +54,12 @@ export default function Scan() {
       {busy ? (
         <Card style={{ alignItems: 'center', gap: 8 }}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={styles.itemSub}>Reading the bill…</Text>
+          <Text style={styles.itemSub}>{t('Reading the bill…')}</Text>
         </Card>
       ) : (
         <>
-          <Button title="Take a photo" icon="camera-outline" onPress={() => run('camera')} />
-          <Button title="Choose from gallery" variant="secondary" icon="images-outline" onPress={() => run('library')} />
+          <Button title={t('Take a photo')} icon="camera-outline" onPress={() => run('camera')} />
+          <Button title={t('Choose from gallery')} variant="secondary" icon="images-outline" onPress={() => run('library')} />
         </>
       )}
       {error ? (
@@ -72,7 +73,7 @@ export default function Scan() {
           <Text key={t} style={styles.itemSub}>• {t}</Text>
         ))}
       </Card>
-      <Button title="Enter it by hand instead" variant="secondary" icon="create-outline" onPress={() => router.replace('/add?type=expense')} />
+      <Button title={t('Enter it by hand instead')} variant="secondary" icon="create-outline" onPress={() => router.replace('/add?type=expense')} />
     </Screen>
   );
 }

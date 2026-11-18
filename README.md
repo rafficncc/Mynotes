@@ -49,6 +49,41 @@ printed). The text is read **on the phone** with Google ML Kit, so photos are ne
 Gulf (VAT), US and European bill formats, including slightly tilted photos. You can also save the bill's item prices to
 the price book for "cheaper shop" tips (off by default). Needs the installed app; it doesn't work in Expo Go or the web preview.
 
+### Privacy & security
+- **App lock** with a 4–6 digit PIN and fingerprint/face unlock. It locks again after the app has been in the background for the time you choose (immediately, 1, 5 or 15 min).
+- **Hide amounts** mode (₹••••) for using the app in public. Toggle it with the eye on Home.
+- **Encrypted storage**: everything saved on the phone is encrypted with AES-256-GCM, and the key lives in the Android Keystore / iOS Keychain.
+- **Recycle bin with Undo**: deleted transactions can be restored for 30 days.
+- **Money vault**: emergency instructions, contacts, nominees and where accounts are kept. It asks for the PIN on every open and can be shared with your spouse.
+
+### Faster entry
+- **Voice entry**: say "200 cash milk" or "450 petrol with HDFC card". You can also type it.
+- App-icon shortcuts (Voice expense, Scan a bill, Add expense), and a `familyfin://voice?text=…` link for Siri Shortcuts or Google Assistant routines.
+- The bill photo is kept with the expense, plus an optional **warranty date** with a reminder a month before it ends.
+
+### More money tools
+- **Lend & borrow**: who owes whom, repayments, and **split a bill** equally when adding an expense.
+- **Foreign currency** expenses (original amount and rate kept) and a **remittance tracker** (amount sent, fee, rate, amount received, best and average rate).
+- **Events & trips** with a budget and a cost breakdown per category.
+- **Insurance policies** (premium reminders, cover, nominee, renewal), **fixed deposits** (maturity reminder), **SIPs** (debit reminder), **gold** by weight.
+- **Loan prepayment calculator**: interest saved by finishing earlier vs. paying a lower EMI.
+- **Card rewards**: estimated rewards since the last bill, points balance and value, plus a Cashback category.
+- **Vehicle log**: mileage and cost per km from fuel fills, with insurance, PUC and service reminders.
+- **Medical claims** by status and medical spend per family member.
+
+### Reports & motivation
+- Reports for **any date range**, a **month vs month** comparison by category, a **net worth trend** over 12 months, and a **PDF** to share with your spouse or CA.
+- **Weekly summary** notification on Sunday evening, and a shareable **Year in review** image.
+- **Challenges**: no-spend weekend, a week without a category, the 52-week challenge, and saving an amount in a month. Plus **badges** and **family streaks**.
+- Savings goals with **automatic monthly contributions**.
+
+### App quality
+- **Dark mode** (follows the phone, or pick one).
+- **Languages**: English, हिन्दी, മലയാളം, தமிழ், العربية (with a right-to-left layout). The main screens are translated; the remaining screens still show English for now.
+- Screen-reader labels, support for larger system text, and a centred layout on tablets.
+- **Guided first-time setup** (salary account, payday, cash, cards, rent) and how-it-works cards on the Actions and Cards tabs.
+- **Real Play Store / App Store payment** for lifetime Premium (`familyfin_premium_lifetime`), with restore. `expo.extra.allowTestUnlock` (true for test builds) keeps an "Unlock for testing" option. Set it to `false` for the store release.
+
 ### Actions tab: everything due this cycle
 One list of what to pay or renew in the current spending cycle: credit card bills, mobile/internet/utility bills,
 taxes and fines, EMIs, and document renewals. Items are grouped as **Overdue**, **Due soon** (reminder date reached),

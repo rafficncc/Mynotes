@@ -8,6 +8,8 @@ export type AccountType =
   | 'investment'
   | 'loan'
   | 'property'
+  | 'gold'
+  | 'people'
   | 'other';
 
 /** How accounts are grouped on screen and in net worth. */
@@ -35,6 +37,17 @@ export interface Account {
   interestRate?: number;
   /** Credit cards: remind this many days before the due date. */
   remindDaysBefore?: number;
+  /** Deposits: maturity date and amount */
+  maturityDate?: string;
+  maturityAmount?: number;
+  /** Investments: monthly SIP amount and debit day */
+  sipAmount?: number;
+  sipDay?: number;
+  /** Gold / jewellery weight in grams */
+  goldGrams?: number;
+  /** Credit cards: reward points balance and value of one point */
+  rewardPoints?: number;
+  pointValue?: number;
 }
 
 export type TxnType = 'expense' | 'income' | 'transfer';
@@ -57,6 +70,24 @@ export interface Transaction {
   quantity?: number;
   /** Set when this purchase was converted to an EMI plan (credit card EMI). */
   emiPlanId?: string;
+  /** Lend / borrow / split: the other person (transfers to or from the "People" account). */
+  person?: string;
+  /** Photo of the bill, saved in the app's private folder. */
+  photoUri?: string;
+  /** Warranty end date for things bought (reminder before it ends). */
+  warrantyUntil?: string;
+  /** Paid in another currency: original amount and the rate used (amount = foreign × rate). For remittances: amount received at home. */
+  fx?: { currency: string; amount: number; rate: number };
+  /** Remittance / transfer fee included in this record. */
+  fee?: number;
+  /** Event or trip this spend belongs to. */
+  eventId?: string;
+  /** Vehicle log: which vehicle, odometer reading and litres filled. */
+  vehicleId?: string;
+  odometer?: number;
+  litres?: number;
+  /** Set when moved to the recycle bin. */
+  deletedAt?: string;
   createdAt: string;
 }
 
@@ -93,6 +124,13 @@ export interface Goal {
   target: number;
   saved: number;
   deadline?: string;
+  /** Automatic monthly contribution */
+  autoAmount?: number;
+  autoDay?: number;
+  fromAccountId?: string;
+  toAccountId?: string;
+  /** Last date an automatic contribution was added (YYYY-MM-DD). */
+  lastAuto?: string;
 }
 
 export interface Member {
@@ -182,6 +220,87 @@ export interface DocumentRecord {
   notes?: string;
 }
 
+export interface EventBudget {
+  id: string;
+  name: string;
+  kind: 'trip' | 'wedding' | 'festival' | 'move' | 'party' | 'other';
+  budget: number;
+  startDate: string;
+  endDate?: string;
+  closed?: boolean;
+}
+
+export type PolicyType = 'life' | 'term' | 'health' | 'vehicle' | 'home' | 'travel' | 'other';
+
+export interface InsurancePolicy {
+  id: string;
+  type: PolicyType;
+  name: string;
+  insurer?: string;
+  policyNo?: string;
+  memberId?: string;
+  sumAssured?: number;
+  premium: number;
+  frequency: Frequency;
+  /** Next premium due date */
+  nextDue: string;
+  remindDaysBefore: number;
+  /** Policy end / renewal date */
+  renewalDate?: string;
+  nominee?: string;
+  lastPaid?: string;
+  notes?: string;
+}
+
+export interface Vehicle {
+  id: string;
+  name: string;
+  regNo?: string;
+  insuranceExpiry?: string;
+  pucExpiry?: string;
+  nextServiceDate?: string;
+  nextServiceKm?: number;
+  remindDaysBefore: number;
+}
+
+export type ClaimStatus = 'to_submit' | 'submitted' | 'approved' | 'paid' | 'rejected';
+
+export interface MedicalClaim {
+  id: string;
+  title: string;
+  memberId?: string;
+  policyId?: string;
+  amount: number;
+  date: string;
+  submittedOn?: string;
+  status: ClaimStatus;
+  approvedAmount?: number;
+  notes?: string;
+}
+
+export type VaultSection = 'contact' | 'nominee' | 'account' | 'instruction' | 'other';
+
+export interface VaultEntry {
+  id: string;
+  section: VaultSection;
+  title: string;
+  detail: string;
+}
+
+export type ChallengeType = 'no_spend_weekend' | 'week52' | 'no_category_week' | 'save_target';
+
+export interface Challenge {
+  id: string;
+  type: ChallengeType;
+  startDate: string;
+  /** 52-week: amount for week 1; save_target: amount to save */
+  amount?: number;
+  categoryId?: string;
+  /** 52-week: week numbers ticked off */
+  done?: number[];
+  memberId?: string;
+}
+
 export interface FamilyGroup {
   id: string;
   name: string;
@@ -215,6 +334,14 @@ export interface Settings {
   currentMemberId?: string;
   premium: boolean;
   notificationsEnabled: boolean;
+  lockEnabled?: boolean;
+  /** Lock again after the app was in the background this many minutes (0 = immediately). */
+  lockAfterMinutes?: number;
+  useBiometrics?: boolean;
+  hideAmounts?: boolean;
+  weeklySummary?: boolean;
+  /** Tips the user has dismissed (tutorial cards). */
+  seenTips?: string[];
   /** If the user always pays card bills in full, using credit cards is "free float" and the app can recommend it. */
   payCardsInFull: boolean;
   onboarded: boolean;
@@ -231,6 +358,13 @@ export interface AppData {
   bills: Bill[];
   emis: EmiPlan[];
   documents: DocumentRecord[];
+  trash: Transaction[];
+  events: EventBudget[];
+  policies: InsurancePolicy[];
+  vehicles: Vehicle[];
+  claims: MedicalClaim[];
+  vault: VaultEntry[];
+  challenges: Challenge[];
   group?: FamilyGroup;
   google?: GoogleAccount;
   settings: Settings;

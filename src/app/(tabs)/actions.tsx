@@ -1,6 +1,8 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
+import { t } from '../../i18n';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
+import { TipCard } from '../../components/TipCard';
 import { Card, Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import { generateActions, type ActionItem, type ActionStatus } from '../../logic/actions';
 import { diffDays, formatShortDate, toISODate } from '../../logic/dates';
@@ -9,19 +11,20 @@ import { useStore } from '../../store/useStore';
 import { colors } from '../../theme';
 
 const SECTIONS: { key: ActionStatus; title: string; color: string; bg: string }[] = [
-  { key: 'overdue', title: 'Overdue', color: colors.danger, bg: colors.dangerSoft },
-  { key: 'due', title: 'Due soon (reminder reached)', color: colors.warning, bg: colors.warningSoft },
-  { key: 'upcoming', title: 'Later this cycle', color: colors.info, bg: colors.infoSoft },
-  { key: 'done', title: 'Done this cycle', color: colors.success, bg: colors.successSoft },
+  { key: 'overdue', title: t('Overdue'), color: colors.danger, bg: colors.dangerSoft },
+  { key: 'due', title: t('Due soon (reminder reached)'), color: colors.warning, bg: colors.warningSoft },
+  { key: 'upcoming', title: t('Later this cycle'), color: colors.info, bg: colors.infoSoft },
+  { key: 'done', title: t('Done this cycle'), color: colors.success, bg: colors.successSoft },
 ];
 
 type Filter = 'all' | ActionItem['kind'];
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'card', label: 'Cards' },
-  { key: 'bill', label: 'Bills' },
-  { key: 'emi', label: 'EMIs' },
-  { key: 'document', label: 'Documents' },
+  { key: 'all', label: t('All') },
+  { key: 'card', label: t('Cards') },
+  { key: 'bill', label: t('Bills') },
+  { key: 'emi', label: t('EMIs') },
+  { key: 'document', label: t('Documents') },
+  { key: 'warranty', label: t('Warranties') },
 ];
 
 export default function Actions() {
@@ -30,6 +33,7 @@ export default function Actions() {
   const { money } = useMoney();
   const saveBill = useStore((s) => s.saveBill);
   const saveEmi = useStore((s) => s.saveEmi);
+  const saveItem = useStore((s) => s.saveItem);
   const [filter, setFilter] = useState<Filter>('all');
   const on = new Date();
   const actions = useMemo(() => generateActions(data, on), [data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -38,19 +42,34 @@ export default function Actions() {
   const counts = (k: ActionStatus) => actions.filter((a) => a.status === k).length;
 
   const pay = (a: ActionItem) => {
+    if (a.route) return router.push(a.route as Href);
     if (a.kind === 'card') return router.push(`/add?type=transfer&to=${a.accountId}&amount=${Math.round(a.amount ?? 0)}`);
     if (a.kind === 'bill') return router.push(`/add?type=expense&billId=${a.billId}`);
     if (a.kind === 'emi') return router.push(`/add?emiId=${a.emiId}`);
     if (a.kind === 'document') return router.push(`/documents?edit=${a.documentId}`);
+    if (a.kind === 'warranty') return router.push(`/add?id=${a.transactionId}`);
   };
   const markDone = (a: ActionItem) => {
     const today = toISODate(new Date());
-    if (a.kind === 'bill' && a.billId) saveBill({ ...data.bills.find((b) => b.id === a.billId)!, lastPaid: today });
+    if (a.kind === 'bill' && a.billId?.startsWith('policy:')) {
+      const p = data.policies.find((x) => x.id === a.billId!.slice(7));
+      if (p) saveItem('policies', { ...p, lastPaid: today });
+    } else if (a.kind === 'bill' && a.billId) saveBill({ ...data.bills.find((b) => b.id === a.billId)!, lastPaid: today });
     if (a.kind === 'emi' && a.emiId) saveEmi({ ...data.emis.find((e) => e.id === a.emiId)!, lastPaid: today });
   };
 
   return (
     <Screen>
+      <TipCard
+        id="actions"
+        title="How the Actions tab works"
+        points={[
+          'Everything to pay or renew in your spending cycle is listed here: card bills, bills, EMIs, insurance, documents and warranties.',
+          'Red = overdue, orange = the reminder date has come, blue = later this cycle.',
+          'Tap “Pay & record” to log the payment, or “Mark paid” if you already logged it.',
+          'Set how many days before you want a reminder on each bill, EMI, card or document.',
+        ]}
+      />
       <Card style={{ backgroundColor: colors.primary }}>
         <Text style={{ color: '#ffffffcc', fontSize: 13 }}>This cycle · {cycle.label}</Text>
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>{money(toPay)} to pay</Text>
@@ -70,7 +89,7 @@ export default function Actions() {
       </ChipRow>
 
       {shown.length === 0 ? (
-        <Empty icon="checkmark-done-circle-outline" title="Nothing to do" text="Add bills, EMIs and documents and they'll show up here when they are due." />
+        <Empty icon="checkmark-done-circle-outline" title={t('Nothing to do')} text="Add bills, EMIs and documents and they'll show up here when they are due." />
       ) : null}
 
       {SECTIONS.map((sec) => {
@@ -99,11 +118,13 @@ export default function Actions() {
                   {a.status !== 'done' ? (
                     <ChipRow>
                       {a.kind === 'document' ? (
-                        <Chip label="Update expiry" icon="create-outline" onPress={() => pay(a)} />
+                        <Chip label={t('Update expiry')} icon="create-outline" onPress={() => pay(a)} />
+                      ) : a.kind === 'warranty' ? (
+                        <Chip label={t('View purchase')} icon="receipt-outline" onPress={() => pay(a)} />
                       ) : (
-                        <Chip label="Pay & record" icon="wallet-outline" selected onPress={() => pay(a)} />
+                        <Chip label={t('Pay & record')} icon="wallet-outline" selected onPress={() => pay(a)} />
                       )}
-                      {a.kind === 'bill' || a.kind === 'emi' ? <Chip label="Mark paid" icon="checkmark" onPress={() => markDone(a)} /> : null}
+                      {a.kind === 'bill' || a.kind === 'emi' ? <Chip label={t('Mark paid')} icon="checkmark" onPress={() => markDone(a)} /> : null}
                     </ChipRow>
                   ) : null}
                 </Card>
@@ -113,12 +134,12 @@ export default function Actions() {
         );
       })}
 
-      <SectionTitle title="Manage" />
+      <SectionTitle title={t('Manage')} />
       <ChipRow>
-        <Chip label="Bills & reminders" icon="receipt-outline" onPress={() => router.push('/bills')} />
-        <Chip label="EMIs" icon="calendar-number-outline" onPress={() => router.push('/emis')} />
-        <Chip label="Documents" icon="id-card-outline" onPress={() => router.push('/documents')} />
-        <Chip label="Spending cycle" icon="sync-outline" onPress={() => router.push('/settings')} />
+        <Chip label={t('Bills & reminders')} icon="receipt-outline" onPress={() => router.push('/bills')} />
+        <Chip label={t('EMIs')} icon="calendar-number-outline" onPress={() => router.push('/emis')} />
+        <Chip label={t('Documents')} icon="id-card-outline" onPress={() => router.push('/documents')} />
+        <Chip label={t('Spending cycle')} icon="sync-outline" onPress={() => router.push('/settings')} />
       </ChipRow>
     </Screen>
   );

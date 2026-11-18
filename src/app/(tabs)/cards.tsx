@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
+import { TipCard } from '../../components/TipCard';
 import { Button, Card, Chip, ChipRow, Empty, Field, Icon, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import { cardCycleInfo, goldenWindow, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
-import { addDays, formatShortDate } from '../../logic/dates';
+import { addDays, formatShortDate, toISODate } from '../../logic/dates';
+import { estimatedRewards } from '../../logic/trackers';
 import { useAppData, useBalances, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
@@ -49,6 +51,16 @@ export default function SmartCard() {
 
   return (
     <Screen>
+      <TipCard
+        id="cards"
+        title="How Smart Card works"
+        points={[
+          'Each card has a billing day (statement) and a due day. Spends right after the billing day get the longest time to pay – up to 50 days.',
+          'Enter an amount and when you plan to buy; the card at the top gives the most interest-free days with enough limit.',
+          'When you add an expense, FamilyFin also tells you if another card would be better.',
+          'Always pay the full bill by the due date to keep it interest-free.',
+        ]}
+      />
       <Card>
         <Text style={styles.itemTitle}>Which card should I use?</Text>
         <Row style={{ alignItems: 'flex-end' }}>
@@ -104,6 +116,8 @@ export default function SmartCard() {
       <SectionTitle title="Your cards" action="Add card" onAction={() => router.push('/account-form?type=credit_card')} />
       {infos.map((info) => {
         const gw = goldenWindow(info.account, on);
+        const earned = estimatedRewards(info.account, data.transactions, toISODate(info.lastStatement));
+        const pointsWorth = (info.account.rewardPoints ?? 0) * (info.account.pointValue ?? 0);
         const overdue = info.amountDue > 0 && info.daysToDue < 0;
         return (
           <Card key={info.account.id}>
@@ -148,6 +162,12 @@ export default function SmartCard() {
             {gw ? (
               <Text style={styles.hint}>
                 Golden window: {formatShortDate(gw.start)} – {formatShortDate(gw.end)} (longest free credit)
+              </Text>
+            ) : null}
+            {info.account.rewardRate || info.account.rewardPoints ? (
+              <Text style={styles.itemSub}>
+                Rewards: about {money(earned)} earned since the last bill
+                {info.account.rewardPoints ? ` · ${info.account.rewardPoints.toLocaleString()} points${pointsWorth ? ` worth ${money(pointsWorth)}` : ''}` : ''}
               </Text>
             ) : null}
             {info.amountDue > 0 ? (

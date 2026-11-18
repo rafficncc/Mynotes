@@ -1,9 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { buildDemoData } from '../logic/demo';
+import { encryptedStorage } from '../services/secureStorage';
 import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '../logic/defaults';
 import { mergeTransactions } from '../logic/familySync';
+import { PEOPLE_ACCOUNT_ID } from '../logic/money2';
 import { uid } from '../logic/money';
 import { FREE_LIMITS } from '../logic/region';
 import type {
@@ -25,13 +26,26 @@ import type {
 
 type New<T> = Omit<T, 'id' | 'createdAt'>;
 
+/** Lists with plain add/edit/delete, handled by saveItem / deleteItem. */
+export type ListKey = 'events' | 'policies' | 'vehicles' | 'claims' | 'vault' | 'challenges' | 'goals';
+
+const TRASH_DAYS = 30;
+
 interface Actions {
   addAccount: (a: New<Account>) => string;
   updateAccount: (id: string, patch: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
   addTransaction: (t: New<Transaction>) => string;
   updateTransaction: (id: string, patch: Partial<Transaction>) => void;
+  /** Moves to the recycle bin (restorable for 30 days). */
   deleteTransaction: (id: string) => void;
+  restoreTransaction: (id: string) => void;
+  /** Creates the hidden "Lent & borrowed" account on first use. */
+  ensurePeopleAccount: () => void;
+  purgeTrash: (id?: string) => void;
+  /** Saves (adds or updates by id) a record in one of the simple lists. */
+  saveItem: <K extends ListKey>(key: K, item: Omit<AppData[K][number], 'id'> & { id?: string }) => string;
+  deleteItem: (key: ListKey, id: string) => void;
   addCategory: (c: Omit<Category, 'id' | 'custom'>) => string;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
@@ -74,13 +88,20 @@ export const emptyData = (): AppData => ({
   bills: [],
   emis: [],
   documents: [],
+  trash: [],
+  events: [],
+  policies: [],
+  vehicles: [],
+  claims: [],
+  vault: [],
+  challenges: [],
   settings: DEFAULT_SETTINGS,
 });
 
 /** Free plan limits. Archived accounts don't count. */
 export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
   if (premium) return false;
-  const active = accounts.filter((a) => !a.archived);
+  const active = accounts.filter((a) => !a.archived && a.type !== 'people');
   if (type === 'credit_card') return active.filter((a) => a.type === 'credit_card').length >= FREE_LIMITS.creditCards;
   return active.filter((a) => a.type !== 'credit_card').length >= FREE_LIMITS.accounts;
 }
@@ -124,10 +145,45 @@ export const useStore = create<Store>()(
       updateTransaction: (id, patch) =>
         set((s) => ({ transactions: s.transactions.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
       deleteTransaction: (id) =>
-        set((s) => ({
-          transactions: s.transactions.filter((t) => t.id !== id),
-          emis: s.emis.filter((e) => e.transactionId !== id),
-        })),
+        set((s) => {
+          const t = s.transactions.find((x) => x.id === id);
+          if (!t) return {};
+          return { transactions: s.transactions.filter((x) => x.id !== id), trash: [{ ...t, deletedAt: now() }, ...s.trash] };
+        }),
+      restoreTransaction: (id) =>
+        set((s) => {
+          const t = s.trash.find((x) => x.id === id);
+          if (!t) return {};
+          const { deletedAt: _d, ...rest } = t;
+          return { trash: s.trash.filter((x) => x.id !== id), transactions: [rest, ...s.transactions] };
+        }),
+      // No id: removes items older than 30 days. With id: deletes that item for good.
+      purgeTrash: (id) =>
+        set((s) => {
+          const cutoff = Date.now() - TRASH_DAYS * 86400000;
+          const gone = s.trash.filter((t) => (id ? t.id === id : new Date(t.deletedAt ?? 0).getTime() < cutoff));
+          if (!gone.length) return {};
+          const ids = new Set(gone.map((t) => t.id));
+          return { trash: s.trash.filter((t) => !ids.has(t.id)), emis: s.emis.filter((e) => !e.transactionId || !ids.has(e.transactionId)) };
+        }),
+
+      ensurePeopleAccount: () =>
+        set((s) =>
+          s.accounts.some((a) => a.id === PEOPLE_ACCOUNT_ID)
+            ? {}
+            : { accounts: [...s.accounts, { id: PEOPLE_ACCOUNT_ID, name: 'Lent & borrowed', type: 'people', openingBalance: 0, createdAt: now() }] },
+        ),
+
+      saveItem: (key, item) => {
+        const id = item.id ?? uid();
+        set((s) => {
+          const list = s[key] as { id: string }[];
+          const next = list.some((x) => x.id === id) ? list.map((x) => (x.id === id ? { ...x, ...item, id } : x)) : [...list, { ...item, id }];
+          return { [key]: next } as Partial<Store>;
+        });
+        return id;
+      },
+      deleteItem: (key, id) => set((s) => ({ [key]: (s[key] as { id: string }[]).filter((x) => x.id !== id) }) as Partial<Store>),
 
       addCategory: (c) => {
         const id = `c_${uid()}`;
@@ -219,7 +275,7 @@ export const useStore = create<Store>()(
     {
       name: 'familyfin-data',
       version: 2,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => encryptedStorage),
       migrate: (persisted) => migrateData(persisted as Partial<AppData>) as unknown as Store,
     },
   ),
@@ -254,6 +310,13 @@ export function migrateData(raw: Partial<AppData>): AppData {
     bills,
     emis: raw.emis ?? [],
     documents: raw.documents ?? [],
+    trash: raw.trash ?? [],
+    events: raw.events ?? [],
+    policies: raw.policies ?? [],
+    vehicles: raw.vehicles ?? [],
+    claims: raw.claims ?? [],
+    vault: raw.vault ?? [],
+    challenges: raw.challenges ?? [],
     settings: { ...DEFAULT_SETTINGS, ...(raw.settings ?? {}) },
   } as AppData;
 }
@@ -271,6 +334,13 @@ export function selectData(s: Store): AppData {
     bills: s.bills,
     emis: s.emis,
     documents: s.documents,
+    trash: s.trash,
+    events: s.events,
+    policies: s.policies,
+    vehicles: s.vehicles,
+    claims: s.claims,
+    vault: s.vault,
+    challenges: s.challenges,
     group: s.group,
     google: s.google,
     settings: s.settings,

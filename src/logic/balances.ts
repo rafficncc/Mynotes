@@ -30,6 +30,8 @@ export function computeBalances(accounts: Account[], txns: Transaction[]): Recor
 
 /** Types whose balance is money you owe (stored as a negative balance). */
 export const LIABILITY_TYPES: AccountType[] = ['credit_card', 'loan'];
+/** Accounts you can pay from or receive into (not investments, loans or property). */
+export const SPENDABLE_TYPES: AccountType[] = ['cash', 'bank', 'debit_card', 'credit_card', 'wallet', 'other'];
 /** Money available to spend today. */
 export const LIQUID_TYPES: AccountType[] = ['cash', 'bank', 'wallet'];
 
@@ -68,6 +70,8 @@ export const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   investment: 'Stocks, funds & gold',
   loan: 'Loan',
   property: 'Property / real estate',
+  gold: 'Gold & jewellery',
+  people: 'Lent & borrowed',
   other: 'Other',
 };
 
@@ -81,6 +85,8 @@ export const ACCOUNT_TYPE_ICON: Record<AccountType, string> = {
   investment: 'trending-up-outline',
   loan: 'document-text-outline',
   property: 'home-outline',
+  gold: 'diamond-outline',
+  people: 'people-outline',
   other: 'wallet-outline',
 };
 
@@ -94,16 +100,18 @@ export const ACCOUNT_GROUP_OF: Record<AccountType, AccountGroup> = {
   credit_card: 'credit',
   loan: 'loan',
   property: 'real_estate',
+  gold: 'investment',
+  people: 'other',
   other: 'other',
 };
 
 export const ACCOUNT_GROUPS: { key: AccountGroup; label: string; icon: string; types: AccountType[] }[] = [
   { key: 'savings', label: 'Savings & cash', icon: 'wallet-outline', types: ['bank', 'cash', 'wallet', 'debit_card'] },
-  { key: 'investment', label: 'Investments', icon: 'trending-up-outline', types: ['investment', 'deposit'] },
+  { key: 'investment', label: 'Investments', icon: 'trending-up-outline', types: ['investment', 'deposit', 'gold'] },
   { key: 'credit', label: 'Credit cards', icon: 'card-outline', types: ['credit_card'] },
   { key: 'loan', label: 'Loans', icon: 'document-text-outline', types: ['loan'] },
   { key: 'real_estate', label: 'Real estate', icon: 'home-outline', types: ['property'] },
-  { key: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline', types: ['other'] },
+  { key: 'other', label: 'Other', icon: 'ellipsis-horizontal-outline', types: ['other', 'people'] },
 ];
 
 export function isLiability(type: AccountType): boolean {

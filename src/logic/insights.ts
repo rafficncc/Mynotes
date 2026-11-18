@@ -28,7 +28,7 @@ const SEVERITY_ORDER = { alert: 0, warning: 1, tip: 2, good: 3 } as const;
  */
 export function generateInsights(data: AppData, on: Date = new Date()): Insight[] {
   const { transactions: txns, categories, accounts, settings } = data;
-  const money = (n: number) => formatMoney(n, settings.currency, settings.locale);
+  const money = (n: number) => (settings.hideAmounts ? `${settings.currency}••••` : formatMoney(n, settings.currency, settings.locale));
   const out: Insight[] = [];
   const sd = settings.cycleStartDay ?? 1;
   const progress = cycleProgress(on, sd);

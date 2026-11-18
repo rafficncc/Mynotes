@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { t } from '../../i18n';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ScoreRing } from '../../components/charts';
@@ -8,11 +9,13 @@ import { computeNetWorth } from '../../logic/balances';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
 import { formatDate, formatShortDate } from '../../logic/dates';
 import { generateInsights, healthScore, noSplurgeStreak, totalPotentialSaving } from '../../logic/insights';
+import { useStore } from '../../store/useStore';
 import { useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
 export default function Home() {
   const data = useAppData();
+  const updateSettings = useStore((s) => s.updateSettings);
   const balances = useBalances();
   const { money, compact } = useMoney();
   const on = new Date();
@@ -54,7 +57,17 @@ export default function Home() {
   return (
     <Screen>
       <Card style={{ backgroundColor: colors.primary }}>
-        <Text style={{ color: '#ffffffcc', fontSize: 13 }}>Spent this cycle · {cycleText} · {progress.left} days left</Text>
+        <Row style={{ justifyContent: 'space-between' }}>
+          <Text style={{ color: '#ffffffcc', fontSize: 13, flex: 1 }}>{t('Spent this cycle')} · {cycleText} · {progress.left} days left</Text>
+          <Pressable
+            onPress={() => updateSettings({ hideAmounts: !data.settings.hideAmounts })}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={data.settings.hideAmounts ? 'Show amounts' : 'Hide amounts'}
+          >
+            <Icon name={data.settings.hideAmounts ? 'eye-off-outline' : 'eye-outline'} color="#fff" />
+          </Pressable>
+        </Row>
         <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.spent)}</Text>
         <Text style={{ color: '#ffffffcc', fontSize: 12 }}>
           Projected {money(view.projected)}
@@ -68,25 +81,25 @@ export default function Home() {
           </>
         ) : null}
         <Row style={{ marginTop: 8 }}>
-          <Stat label="Income" value={compact(view.earned)} color="#fff" labelColor="#ffffffcc" />
-          <Stat label="Net worth" value={compact(view.net.net)} color="#fff" labelColor="#ffffffcc" />
-          <Stat label="Cash & bank" value={compact(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label={t('Income')} value={compact(view.earned)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label={t('Net worth')} value={compact(view.net.net)} color="#fff" labelColor="#ffffffcc" />
+          <Stat label={t('Cash & bank')} value={compact(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
         </Row>
       </Card>
 
       <Row style={{ gap: 8 }}>
-        <View style={{ flex: 1 }}><Button title="Expense" icon="remove-circle-outline" onPress={() => router.push('/add?type=expense')} /></View>
-        <View style={{ flex: 1 }}><Button title="Income" variant="secondary" icon="add-circle-outline" onPress={() => router.push('/add?type=income')} /></View>
-        <View style={{ flex: 1 }}><Button title="Transfer" variant="secondary" icon="swap-horizontal" onPress={() => router.push('/add?type=transfer')} /></View>
+        <View style={{ flex: 1 }}><Button title={t('Expense')} icon="remove-circle-outline" onPress={() => router.push('/add?type=expense')} /></View>
+        <View style={{ flex: 1 }}><Button title={t('Income')} variant="secondary" icon="add-circle-outline" onPress={() => router.push('/add?type=income')} /></View>
+        <View style={{ flex: 1 }}><Button title={t('Transfer')} variant="secondary" icon="swap-horizontal" onPress={() => router.push('/add?type=transfer')} /></View>
       </Row>
-      <Button title="Scan a bill" variant="secondary" icon="scan-outline" onPress={() => router.push('/scan')} />
+      <Button title={t('Scan a bill')} variant="secondary" icon="scan-outline" onPress={() => router.push('/scan')} />
 
       <Pressable onPress={() => router.push('/insights')}>
         <Card>
           <Row style={{ gap: 16 }}>
             <ScoreRing score={view.health.score} label={view.health.label} />
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={styles.itemTitle}>Family money health</Text>
+              <Text style={styles.itemTitle}>{t('Family money health')}</Text>
               {view.health.parts.map((p) => (
                 <Text key={p.name} style={styles.itemSub}>
                   {p.name}: {p.score}/{p.max}
@@ -106,7 +119,7 @@ export default function Home() {
         <Card style={{ flex: 1 }}>
           <Icon name="flame" color={colors.accent} size={22} />
           <Text style={styles.statValue}>{view.streak} day{view.streak === 1 ? '' : 's'}</Text>
-          <Text style={styles.itemSub}>No-splurge streak</Text>
+          <Text style={styles.itemSub}>{t('No-splurge streak')}</Text>
         </Card>
         <Pressable style={{ flex: 1 }} onPress={() => router.push('/cards')}>
           <Card style={{ flex: 1 }}>
@@ -121,7 +134,7 @@ export default function Home() {
 
       {view.dues.length > 0 ? (
         <>
-          <SectionTitle title="Card bills due" />
+          <SectionTitle title={t('Card bills due')} />
           <Card>
             {view.dues.map((d) => (
               <ListItem
@@ -139,13 +152,13 @@ export default function Home() {
         </>
       ) : null}
 
-      <SectionTitle title="Top suggestions" action="All insights" onAction={() => router.push('/insights')} />
+      <SectionTitle title={t('Top suggestions')} action="All insights" onAction={() => router.push('/insights')} />
       {view.insights.slice(0, 3).map((i) => <InsightCard key={i.id} insight={i} money={money} />)}
       {view.insights.length === 0 ? (
         <Card><Text style={styles.itemSub}>Add a few transactions and suggestions will appear here.</Text></Card>
       ) : null}
 
-      <SectionTitle title="Recent" action="See all" onAction={() => router.push('/transactions')} />
+      <SectionTitle title={t('Recent')} action="See all" onAction={() => router.push('/transactions')} />
       <Card>
         {view.recent.length === 0 ? <Text style={styles.itemSub}>No transactions yet. Tap “Expense” to add your first one.</Text> : null}
         {view.recent.map((t) => {

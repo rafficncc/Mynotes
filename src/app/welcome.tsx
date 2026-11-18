@@ -1,8 +1,11 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
+import { ask } from '../components/Dialog';
+import { changeLanguage, lang, LANGUAGES, t } from '../i18n';
 import { Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleConnectButton } from '../components/GoogleBackup';
-import { Button, Card, Icon, Screen, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Icon, Screen, styles } from '../components/ui';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -18,13 +21,10 @@ const FEATURES: [string, string, string][] = [
 
 export default function Welcome() {
   const loadDemo = useStore((s) => s.loadDemo);
-  const updateSettings = useStore((s) => s.updateSettings);
 
-  const start = () => {
-    updateSettings({ onboarded: true });
-    router.replace('/');
-    router.push('/accounts');
-  };
+  const [, rerender] = useState(0);
+  // Guided first-time setup: salary account, salary day, cash, cards, rent.
+  const start = () => router.push('/setup');
   const demo = () => {
     loadDemo();
     router.replace('/');
@@ -33,7 +33,20 @@ export default function Welcome() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <Screen>
-        <View style={{ alignItems: 'center', gap: 8, marginTop: 24 }}>
+        <ChipRow>
+          {LANGUAGES.filter((l) => l.key !== 'auto').map((l) => (
+            <Chip
+              key={l.key}
+              label={l.label}
+              selected={lang === l.key}
+              onPress={() => {
+                if (changeLanguage(l.key)) ask(t('Close and reopen FamilyFin to apply.'));
+                rerender((n) => n + 1);
+              }}
+            />
+          ))}
+        </ChipRow>
+        <View style={{ alignItems: 'center', gap: 8, marginTop: 12 }}>
           <View style={{ backgroundColor: colors.primary, padding: 18, borderRadius: 24 }}>
             <Icon name="home" size={40} color="#fff" />
           </View>
@@ -54,8 +67,8 @@ export default function Welcome() {
           ))}
         </Card>
         <GoogleConnectButton onSignedIn={start} />
-        <Button title="Set up my accounts" icon="arrow-forward" onPress={start} />
-        <Button title="Explore with demo data" variant="secondary" icon="play-outline" onPress={demo} />
+        <Button title={t('Set up my accounts')} icon="arrow-forward" onPress={start} />
+        <Button title={t('Explore with demo data')} variant="secondary" icon="play-outline" onPress={demo} />
         <Text style={[styles.hint, { textAlign: 'center' }]}>You can clear demo data any time from Settings.</Text>
       </Screen>
     </SafeAreaView>

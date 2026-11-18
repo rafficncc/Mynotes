@@ -1,5 +1,8 @@
 import { ask } from '../components/Dialog';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { buyPremium, restorePremium, storePrice } from '../services/purchases';
 import { Text, View } from 'react-native';
 import { Button, Card, Icon, Row, Screen, styles } from '../components/ui';
 import { CURRENCIES, FREE_LIMITS, PREMIUM_PRICE_INR, currencyInfo, premiumPrice } from '../logic/region';
@@ -14,6 +17,9 @@ const PERKS: [string, string, string][] = [
   ['heart-outline', 'One payment, forever', 'No subscription. All future updates included.'],
 ];
 
+/** Test builds can unlock Premium without paying; set expo.extra.allowTestUnlock to false for the store release. */
+const allowTestUnlock = Constants.expoConfig?.extra?.allowTestUnlock !== false;
+
 export default function Premium() {
   const settings = useStore((s) => s.settings);
   const accounts = useStore((s) => s.accounts);
@@ -24,15 +30,44 @@ export default function Premium() {
   const cards = active.filter((a) => a.type === 'credit_card').length;
   const others = active.length - cards;
 
-  const buy = () =>
-    ask(
-      'Store payment not connected yet',
-      'Google Play / App Store billing is added before the app is published. For testing, you can unlock Premium on this device now.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Unlock for testing', onPress: () => { updateSettings({ premium: true }); router.back(); } },
-      ],
-    );
+  const [storeLabel, setStoreLabel] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    storePrice().then(setStoreLabel);
+  }, []);
+
+  const unlock = () => {
+    updateSettings({ premium: true });
+    router.back();
+  };
+
+  const buy = async () => {
+    setBusy(true);
+    const result = await buyPremium();
+    setBusy(false);
+    if (result === 'purchased') {
+      unlock();
+      return ask('Thank you!', 'Premium is now active on this phone.');
+    }
+    if (result === 'cancelled') return;
+    if (result === 'unavailable') {
+      // Store billing only works in builds installed from Google Play / TestFlight.
+      return ask(
+        'Store payment not available here',
+        'Purchases work in the app installed from Google Play or TestFlight.' + (allowTestUnlock ? ' For testing, you can unlock Premium on this phone.' : ''),
+        allowTestUnlock ? [{ text: 'Cancel', style: 'cancel' }, { text: 'Unlock for testing', onPress: unlock }] : undefined,
+      );
+    }
+    ask('Purchase failed', result);
+  };
+
+  const restore = async () => {
+    setBusy(true);
+    const owned = await restorePremium();
+    setBusy(false);
+    if (owned) return unlock();
+    ask(owned === null ? 'Store not available' : 'No purchase found', owned === null ? 'Open the app installed from Google Play or the App Store to restore.' : 'This store account hasn’t bought Premium yet.');
+  };
 
   return (
     <Screen>
@@ -77,9 +112,14 @@ export default function Premium() {
         <Text style={styles.hint}>Same value as ₹{PREMIUM_PRICE_INR.toLocaleString('en-IN')} everywhere. The store shows the final local price and taxes.</Text>
       </Card>
 
-      {!settings.premium ? <Button title={`Get lifetime Premium · ${price.label}`} icon="diamond-outline" onPress={buy} /> : (
+      {!settings.premium ? (
+        <>
+          <Button title={busy ? 'Please wait…' : `Get lifetime Premium · ${storeLabel ?? price.label}`} icon="diamond-outline" disabled={busy} onPress={buy} />
+          <Button title="Restore purchase" variant="secondary" icon="refresh-outline" disabled={busy} onPress={restore} />
+        </>
+      ) : allowTestUnlock ? (
         <Button title="Turn off Premium (testing)" variant="secondary" onPress={() => updateSettings({ premium: false })} />
-      )}
+      ) : null}
 
       <Card>
         <Text style={styles.label}>Price in other regions</Text>

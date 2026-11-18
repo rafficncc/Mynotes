@@ -15,10 +15,11 @@ export function useMoney() {
   const settings = useStore((s) => s.settings);
   return useMemo(
     () => ({
-      money: (n: number) => formatMoney(n, settings.currency, settings.locale, currencyInfo(settings.currencyCode).decimals ?? 0),
-      compact: (n: number) => formatCompact(n, settings.currency, ['IN', 'SA_ASIA'].includes(currencyInfo(settings.currencyCode).region)),
+      // "Hide amounts" privacy mode masks every amount on screen.
+      money: (n: number) => (settings.hideAmounts ? `${settings.currency}••••` : formatMoney(n, settings.currency, settings.locale, currencyInfo(settings.currencyCode).decimals ?? 0)),
+      compact: (n: number) => (settings.hideAmounts ? `${settings.currency}••••` : formatCompact(n, settings.currency, ['IN', 'SA_ASIA'].includes(currencyInfo(settings.currencyCode).region))),
     }),
-    [settings.currency, settings.locale, settings.currencyCode],
+    [settings.currency, settings.locale, settings.currencyCode, settings.hideAmounts],
   );
 }
 

@@ -146,3 +146,11 @@ describe('family group codes', () => {
     expect(again.added).toBe(0);
   });
 });
+
+describe('base64 text conversion used by encrypted storage', async () => {
+  const { base64ToUtf8, utf8ToBase64 } = await import('./familySync');
+  it('round-trips any language', () => {
+    const text = JSON.stringify({ note: 'दूध ₹60 · حليب · பால் · പാൽ · 🥛', n: 1 });
+    expect(base64ToUtf8(utf8ToBase64(text))).toBe(text);
+  });
+});

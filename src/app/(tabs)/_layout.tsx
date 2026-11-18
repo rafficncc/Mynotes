@@ -1,5 +1,7 @@
 import { Redirect } from 'expo-router';
+import { t } from '../../i18n';
 import { Tabs } from 'expo-router/js-tabs';
+import { useQuickActionRouting } from 'expo-quick-actions/router';
 import { useMemo } from 'react';
 import type { ColorValue } from 'react-native';
 import { Icon } from '../../components/ui';
@@ -14,6 +16,8 @@ const tab = (icon: string, title: string) => ({
 });
 
 export default function TabsLayout() {
+  // App-icon shortcuts (long-press the icon) open these screens.
+  useQuickActionRouting();
   const hydrated = useHydrated();
   const data = useAppData();
   const pending = useMemo(() => pendingCount(generateActions(data)), [data]);
@@ -28,15 +32,15 @@ export default function TabsLayout() {
         headerTitleStyle: { fontWeight: '700' },
       }}
     >
-      <Tabs.Screen name="index" options={tab('home-outline', 'Home')} />
-      <Tabs.Screen name="transactions" options={tab('list-outline', 'Transactions')} />
+      <Tabs.Screen name="index" options={tab('home-outline', t('Home'))} />
+      <Tabs.Screen name="transactions" options={tab('list-outline', t('Transactions'))} />
       <Tabs.Screen
         name="actions"
-        options={{ ...tab('checkbox-outline', 'Actions'), tabBarBadge: pending > 0 ? pending : undefined }}
+        options={{ ...tab('checkbox-outline', t('Actions')), tabBarBadge: pending > 0 ? pending : undefined }}
       />
-      <Tabs.Screen name="insights" options={tab('bulb-outline', 'Insights')} />
-      <Tabs.Screen name="cards" options={tab('card-outline', 'Cards')} />
-      <Tabs.Screen name="more" options={tab('grid-outline', 'More')} />
+      <Tabs.Screen name="insights" options={tab('bulb-outline', t('Insights'))} />
+      <Tabs.Screen name="cards" options={tab('card-outline', t('Cards'))} />
+      <Tabs.Screen name="more" options={tab('grid-outline', t('More'))} />
     </Tabs>
   );
 }

@@ -330,7 +330,7 @@ const CATEGORY_HINTS: [RegExp, string][] = [
   [/pharma|medical|chemist|drug|clinic|hospital|diagnostic|lab\b|health/i, 'health'],
   [/petrol|fuel|diesel|filling|service\s*station|indian\s*oil|iocl|bharat\s*petroleum|bpcl|hpcl|hindustan\s*petroleum|adnoc|enoc|eppco|shell|parking|toll|metro|uber|ola\b|careem|taxi/i, 'transport'],
   [/restaurant|cafe|caf[eé]|coffee|bakery|bakers|kitchen|dhaba|biryani|pizza|burger|food|eat|dine|grill|bistro|tea\b|juice|sweets|swiggy|zomato|talabat|deliveroo/i, 'dining'],
-  [/super\s*market|supermarket|hyper|mart\b|grocer|kirana|provision|fresh|vegetable|fruits|dairy|stores?\b|bazaar|lulu|carrefour|spinneys|dmart|reliance\s*fresh|more\b|nesto|choithrams|big\s*basket|blinkit|zepto|instamart|walmart|costco|tesco|aldi|lidl/i, 'groceries'],
+  [/super\s*market|supermarket|hyper|mart\b|grocer|kirana|provision|fresh|vegetable|fruits|dairy|milk|bread|eggs?\b|rice|atta|sugar|grocer(y|ies)|stores?\b|bazaar|lulu|carrefour|spinneys|dmart|reliance\s*fresh|more\b|nesto|choithrams|big\s*basket|blinkit|zepto|instamart|walmart|costco|tesco|aldi|lidl/i, 'groceries'],
   [/electric|power|water|gas\b|dewa|sewa|addc|kseb|bescom|tneb|msedcl/i, 'utilities'],
   [/airtel|jio|vodafone|vi\b|bsnl|etisalat|\bdu\b|telecom|mobile|broadband|internet|wifi/i, 'telecom'],
   [/cinema|movies|pvr|inox|vox|theatre|theater|gaming|amusement|park/i, 'entertainment'],

@@ -54,12 +54,12 @@ export default function Transactions() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ padding: 16, gap: 10, backgroundColor: colors.card }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable hitSlop={10} onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>
-          <Pressable onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Show calendar" onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="calendar-outline" color={colors.primary} />
             <Text style={styles.sectionTitle}>{day ? formatDate(day) : cycleLabel(month, cycle.startDay)}</Text>
           </Pressable>
-          <Pressable hitSlop={10} onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>
+          <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>
         </View>
         {calendar ? (
           <View style={{ gap: 6 }}>
@@ -118,6 +118,8 @@ export default function Transactions() {
         }}
       />
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add transaction"
         onPress={() => router.push('/add')}
         style={{ position: 'absolute', right: 20, bottom: 24, backgroundColor: colors.primary, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', elevation: 4 }}
       >
