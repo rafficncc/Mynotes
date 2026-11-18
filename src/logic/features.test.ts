@@ -154,3 +154,16 @@ describe('base64 text conversion used by encrypted storage', async () => {
     expect(base64ToUtf8(utf8ToBase64(text))).toBe(text);
   });
 });
+
+describe('free plan limits', async () => {
+  const { accountLimitReached } = await import('./region');
+  const a = (id: string, type: Account['type'], archived = false): Account => ({ id, name: id, type, openingBalance: 0, createdAt: '', archived });
+  it('allows 3 accounts and 3 credit cards, then asks for Premium', () => {
+    const three = [a('cash', 'cash'), a('bank', 'bank'), a('upi', 'wallet'), a('people', 'people'), a('old', 'bank', true)];
+    expect(accountLimitReached(three, 'bank', false)).toBe(true);
+    expect(accountLimitReached(three.slice(0, 2), 'bank', false)).toBe(false);
+    expect(accountLimitReached([a('c1', 'credit_card'), a('c2', 'credit_card')], 'credit_card', false)).toBe(false);
+    expect(accountLimitReached([a('c1', 'credit_card'), a('c2', 'credit_card'), a('c3', 'credit_card')], 'credit_card', false)).toBe(true);
+    expect(accountLimitReached(three, 'bank', true)).toBe(false);
+  });
+});

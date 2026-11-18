@@ -5,7 +5,8 @@ import { ask } from '../components/Dialog';
 import { Button, Card, Field, Icon, ListItem, ProgressBar, Row, Screen, styles } from '../components/ui';
 import { t } from '../i18n';
 import { toISODate } from '../logic/dates';
-import { accountLimitReached, useStore } from '../store/useStore';
+import { accountLimitReached, FREE_LIMITS } from '../logic/region';
+import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
 const STEPS = ['salary', 'payday', 'cash', 'cards', 'rent'] as const;
@@ -50,7 +51,12 @@ export default function Setup() {
     const b = parseInt(card.billingDay, 10);
     const d = parseInt(card.dueDay, 10);
     if (!card.name.trim() || !(b >= 1 && b <= 31) || !(d >= 1 && d <= 31)) return ask('Enter the card name, billing day and due day (1–31)', 'They are printed on your card statement.');
-    if (accountLimitReached(store.accounts, 'credit_card', store.settings.premium)) return ask('Free plan limit reached', 'The free plan includes 4 credit cards. You can add more with Premium later.');
+    if (accountLimitReached(store.accounts, 'credit_card', store.settings.premium)) {
+      return ask('Free plan limit reached', `The free plan includes ${FREE_LIMITS.creditCards} credit cards. Upgrade to Premium to add more.`, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'See Premium', onPress: () => router.push('/premium') },
+      ]);
+    }
     store.addAccount({ name: card.name.trim(), type: 'credit_card', billingDay: b, dueDay: d, creditLimit: parseFloat(card.limit) || undefined, openingBalance: -(parseFloat(card.outstanding) || 0), remindDaysBefore: 5 });
     setCards([...cards, card.name.trim()]);
     setCard({ name: '', billingDay: '', dueDay: '', limit: '', outstanding: '' });

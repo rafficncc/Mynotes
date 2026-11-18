@@ -5,11 +5,11 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Field, Row, Screen, styles } from '../components/ui';
 import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, isLiability } from '../logic/balances';
-import { FREE_LIMITS } from '../logic/region';
+import { accountLimitReached, FREE_LIMITS } from '../logic/region';
 import { interestFreeDays } from '../logic/creditCard';
 import { addDays, clampedDate } from '../logic/dates';
 import type { AccountType } from '../logic/types';
-import { accountLimitReached, useStore } from '../store/useStore';
+import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
 

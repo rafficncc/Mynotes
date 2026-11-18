@@ -6,7 +6,6 @@ import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '../logic/defaults';
 import { mergeTransactions } from '../logic/familySync';
 import { PEOPLE_ACCOUNT_ID } from '../logic/money2';
 import { uid } from '../logic/money';
-import { FREE_LIMITS } from '../logic/region';
 import type {
   Account,
   AppData,
@@ -94,13 +93,6 @@ export const emptyData = (): AppData => ({
   settings: DEFAULT_SETTINGS,
 });
 
-/** Free plan limits. Archived accounts don't count. */
-export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
-  if (premium) return false;
-  const active = accounts.filter((a) => !a.archived && a.type !== 'people');
-  if (type === 'credit_card') return active.filter((a) => a.type === 'credit_card').length >= FREE_LIMITS.creditCards;
-  return active.filter((a) => a.type !== 'credit_card').length >= FREE_LIMITS.accounts;
-}
 
 const FAMILY_WALLET_ID = 'family-wallet';
 

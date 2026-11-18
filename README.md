@@ -116,7 +116,7 @@ Add your own categories with an icon, a colour and a type (need/want/saving/inco
 Sign in with Google during onboarding or in Settings. Back up to and restore from the hidden app-data folder of your own Google Drive.
 
 ### Free plan and Premium
-Free: 4 accounts + 4 credit cards. **Premium: one-time lifetime price of ₹2,500**, shown converted to every supported
+Free: 3 accounts + 3 credit cards (adding more opens the Premium screen). **Premium: one-time lifetime price of ₹2,500**, shown converted to every supported
 currency (e.g. AED 109, $28.99, £21.99). Store billing (Google Play / App Store) still has to be connected before
 release. Until then the Premium screen offers a "unlock for testing" option.
 

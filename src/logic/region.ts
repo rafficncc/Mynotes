@@ -1,5 +1,5 @@
 import { expenses } from './analytics';
-import type { AppData, Insight, Transaction } from './types';
+import type { Account, AppData, Insight, Transaction } from './types';
 
 export type Region = 'IN' | 'GCC' | 'AE' | 'US' | 'UK' | 'EU' | 'CA' | 'AU' | 'SG' | 'SA_ASIA' | 'OTHER';
 
@@ -51,7 +51,16 @@ export function currencyInfo(code: string | undefined): CurrencyInfo {
 /* ------------------------------ Premium pricing ------------------------------ */
 
 export const PREMIUM_PRICE_INR = 2500;
-export const FREE_LIMITS = { accounts: 4, creditCards: 4 };
+export const FREE_LIMITS = { accounts: 3, creditCards: 3 };
+
+/** Free plan limits. Archived accounts don't count. */
+export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
+  if (premium) return false;
+  const active = accounts.filter((a) => !a.archived && a.type !== 'people');
+  if (type === 'credit_card') return active.filter((a) => a.type === 'credit_card').length >= FREE_LIMITS.creditCards;
+  return active.filter((a) => a.type !== 'credit_card').length >= FREE_LIMITS.accounts;
+}
+
 
 /** Rounds a converted price to a "shop" price, e.g. 28.75 → 28.99, 105.7 → 109, 4,650 → 4,699. */
 export function nicePrice(v: number): number {
