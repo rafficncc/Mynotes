@@ -1,5 +1,5 @@
 import { parseDate, toISODate } from './dates';
-import { normalize } from './priceBook';
+import { normalize } from './text';
 import type { AccountType, Transaction } from './types';
 
 /**

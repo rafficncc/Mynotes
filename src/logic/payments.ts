@@ -1,5 +1,5 @@
 import { addDays, addMonths, clampedDate, parseDate, toISODate } from './dates';
-import { normalize } from './priceBook';
+import { normalize } from './text';
 import { SPENDABLE_TYPES } from './balances';
 import type { Account, Bill, EmiPlan, InsurancePolicy, Transaction } from './types';
 

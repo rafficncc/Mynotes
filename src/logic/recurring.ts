@@ -1,5 +1,5 @@
 import { addDays, addMonths, diffDays, parseDate } from './dates';
-import { normalize } from './priceBook';
+import { normalize } from './text';
 import type { Bill, BillType, Frequency, Transaction } from './types';
 
 export interface DetectedSubscription {

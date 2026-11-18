@@ -15,7 +15,7 @@ import { emiAmount } from '../logic/emi';
 import { ACCOUNT_TYPE_ICON, SPENDABLE_TYPES } from '../logic/balances';
 import { recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
-import { normalize } from '../logic/priceBook';
+import { normalize } from '../logic/text';
 import { matchAccount } from '../logic/receipt';
 import { takeScanDraft } from '../store/scanDraft';
 import type { TxnType } from '../logic/types';
@@ -34,7 +34,6 @@ export default function AddTransaction() {
   // A bill scanned on the Scan screen becomes ONE expense for its total.
   const [scan] = useState(() => (params.scanned ? takeScanDraft() : null));
   const receipt = scan?.receipt;
-  const [savePrices, setSavePrices] = useState(false);
   const navigation = useNavigation();
   const store = useStore();
   const balances = useBalances();
@@ -75,7 +74,6 @@ export default function AddTransaction() {
   const [date, setDate] = useState(existing?.date ?? receipt?.date ?? toISODate(new Date()));
   const [note, setNote] = useState(existing?.note ?? (emiIsTransfer ? `${emi!.name} EMI` : receipt ? `Scanned bill${receipt.items.length ? ` · ${receipt.items.length} items` : ''}` : ''));
   const [item, setItem] = useState(existing?.item ?? '');
-  const [quantity, setQuantity] = useState(existing?.quantity ? String(existing.quantity) : '');
   const [showMore, setShowMore] = useState(!!(existing?.item || existing?.note || existing?.warrantyUntil));
   const [photo, setPhoto] = useState(existing?.photoUri ?? scan?.uri ?? '');
   const [viewPhoto, setViewPhoto] = useState(false);
@@ -121,18 +119,6 @@ export default function AddTransaction() {
       .slice(0, 6);
   }, [store.transactions, type, merchant]);
 
-  // Cheaper shop hint while typing an item that is in the price book.
-  const priceHint = useMemo(() => {
-    if (!item.trim()) return null;
-    const k = normalize(item);
-    const latest = new Map<string, { shop: string; price: number }>();
-    for (const p of [...store.prices].sort((a, b) => a.date.localeCompare(b.date))) {
-      if (normalize(p.item) === k) latest.set(normalize(p.shop), { shop: p.shop, price: p.price });
-    }
-    const list = [...latest.values()].sort((a, b) => a.price - b.price);
-    return list.length ? list : null;
-  }, [item, store.prices]);
-
   const cardTip = useMemo(() => {
     if (type !== 'expense') return null;
     const cards = store.accounts.filter((a) => a.type === 'credit_card' && !a.archived);
@@ -152,7 +138,6 @@ export default function AddTransaction() {
     if (!accountId) return ask('Choose an account');
     if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) return ask('Choose a different destination account');
     if (!date) return ask('Pick a date');
-    const qty = parseFloat(quantity) || undefined;
     // Splitting a bill: my share is the expense; each other share is money they owe me.
     const split = type === 'expense' && !existing && splitWith.length ? splitEqually(amt, splitWith) : null;
     let photoUri: string | undefined = existing?.photoUri;
@@ -182,7 +167,7 @@ export default function AddTransaction() {
       memberId: memberId || undefined,
       note: note.trim() || undefined,
       item: type === 'expense' ? item.trim() || undefined : undefined,
-      quantity: type === 'expense' && item.trim() ? qty : undefined,
+      quantity: existing?.quantity,
     };
     const txnId = existing ? existing.id : store.addTransaction(payload);
     if (existing) store.updateTransaction(existing.id, payload);
@@ -194,10 +179,6 @@ export default function AddTransaction() {
     }
     if (policy) store.saveItem('policies', { ...policy, lastPaid: date });
     else if (bill) store.saveBill({ ...bill, lastPaid: date });
-    // Optional: remember item prices from the scanned bill for "cheaper shop" tips
-    if (receipt && savePrices && merchant.trim()) {
-      for (const it of receipt.items) store.addPrice({ item: it.name, shop: merchant.trim(), price: it.unitPrice, date });
-    }
     if (emi) store.saveEmi({ ...emi, lastPaid: date });
 
     // Credit card purchase converted to EMI
@@ -264,12 +245,6 @@ export default function AddTransaction() {
               {currencyMismatch ? <Text style={[styles.insightText, { color: colors.warning }]}>This bill looks like it is in {receipt.currency}, not {store.settings.currencyCode}.</Text> : null}
             </View>
           </Row>
-          {receipt.items.length > 0 ? (
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={[styles.itemSub, { flex: 1 }]}>Also save the {receipt.items.length} item prices to the price book (for “cheaper shop” tips)</Text>
-              <Switch value={savePrices} onValueChange={setSavePrices} trackColor={{ true: colors.primary }} />
-            </Row>
-          ) : null}
         </Card>
       ) : !existing && type === 'expense' && !bill && !emi ? (
         <Chip label={t('Scan a bill instead')} icon="scan-outline" onPress={() => router.replace('/scan')} />
@@ -459,22 +434,7 @@ export default function AddTransaction() {
       ) : (
         <>
           {type === 'expense' ? (
-            <Row style={{ alignItems: 'flex-start' }}>
-              <View style={{ flex: 2 }}><Field label="Item (optional)" value={item} onChangeText={setItem} placeholder="e.g. Milk" /></View>
-              <View style={{ flex: 1 }}><Field label="Qty" value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="1" /></View>
-            </Row>
-          ) : null}
-          {priceHint ? (
-            <Card style={{ padding: 12 }}>
-              <Text style={styles.label}>Price book for “{item.trim()}”</Text>
-              {priceHint.slice(0, 4).map((p, i) => (
-                <Text key={p.shop} style={[styles.insightText, i === 0 && { color: colors.success, fontWeight: '700' }]}>
-                  {i === 0 ? '★ ' : ''}{p.shop}: {money(p.price)}
-                </Text>
-              ))}
-            </Card>
-          ) : type === 'expense' && item ? (
-            <Text style={styles.hint}>Adding item + qty + shop builds your price book, so the app can find cheaper shops.</Text>
+            <Field label="Item (optional)" value={item} onChangeText={setItem} placeholder="e.g. Washing machine" />
           ) : null}
           {type === 'expense' ? (
             <DateField label="Warranty until (optional)" value={warranty} onChange={setWarranty} optional quick={false} hint="You’ll be reminded a month before the warranty ends." />

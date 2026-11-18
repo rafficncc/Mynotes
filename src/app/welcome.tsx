@@ -13,7 +13,6 @@ const FEATURES: [string, string, string][] = [
   ['wallet-outline', 'Every rupee, every mode', 'Cash, bank, debit & credit cards, UPI wallets and transfers between them.'],
   ['card-outline', 'Smart Card picker', 'Tells you which credit card to swipe today for the most interest-free days.'],
   ['bulb-outline', 'Savings coach', 'Finds where money leaks and suggests how to cut it – with ₹ amounts.'],
-  ['storefront-outline', 'Cheaper shop finder', 'Compares prices across shops so you buy the same thing for less.'],
   ['people-outline', 'Built for families', 'Allowance per member, family group, bills, EMIs and goals.'],
   ['checkbox-outline', 'Never miss a due date', 'Reminders for bills, EMIs, card dues and passport/visa expiry.'],
   ['lock-closed-outline', 'Private by design', 'No bank login, no SMS reading. Data stays on your phone; optional backup to your own Google Drive.'],

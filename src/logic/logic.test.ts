@@ -13,7 +13,6 @@ import {
 import { parseDate, toISODate } from './dates';
 import { buildDemoData } from './demo';
 import { generateInsights, healthScore, noSplurgeStreak } from './insights';
-import { compareItems } from './priceBook';
 import { detectSubscriptions } from './recurring';
 import type { Account, Transaction } from './types';
 
@@ -114,22 +113,6 @@ describe('balances', () => {
   });
 });
 
-describe('price book', () => {
-  it('finds a cheaper shop than the usual one', () => {
-    const res = compareItems(
-      [
-        { id: '1', item: 'Milk', shop: 'A', price: 60, date: '2026-11-01' },
-        { id: '2', item: 'milk ', shop: 'A', price: 62, date: '2026-11-05' },
-        { id: '3', item: 'Milk', shop: 'B', price: 55, date: '2026-11-03' },
-      ],
-      d('2026-11-11'),
-    );
-    expect(res[0].usual.shop).toBe('A');
-    expect(res[0].cheapest.shop).toBe('B');
-    expect(res[0].savingPerUnit).toBe(7);
-  });
-});
-
 describe('subscriptions', () => {
   it('detects monthly charges of similar amount', () => {
     const subs = detectSubscriptions([
@@ -151,7 +134,7 @@ describe('insights on demo data', () => {
     const ins = generateInsights(data, on);
     const ids = ins.map((i) => i.id);
     expect(ids).toContain('subscriptions');
-    expect(ids.some((id) => id.startsWith('shop-'))).toBe(true);
+    expect(ids.some((id) => id.startsWith('shop-') || id.startsWith('merchant-'))).toBe(false); // shop price comparison removed
     expect(ids).toContain('best-card-today');
     for (const i of ins) expect(i.title.length).toBeGreaterThan(0);
   });

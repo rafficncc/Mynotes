@@ -43,7 +43,6 @@ const groups = (): [string, Item[]][] => [
       { icon: 'flag-outline', title: t('Savings goals'), subtitle: 'With automatic monthly saving', href: '/goals', color: colors.success },
       { icon: 'trophy-outline', title: t('Challenges & badges'), subtitle: 'No-spend weekend, 52-week challenge, streaks', href: '/challenges', color: colors.accent },
       { icon: 'options-outline', title: t('Cut-back simulator'), subtitle: 'What if we spend 20% less on dining?', href: '/simulator', color: '#7B1FA2' },
-      { icon: 'storefront-outline', title: t('Price book'), subtitle: 'Compare prices across shops – buy cheaper', href: '/prices', color: '#00838F' },
     ],
   ],
   [

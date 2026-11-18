@@ -117,20 +117,6 @@ export function buildDemoData(on: Date = new Date()): AppData {
     }
   }
 
-  const priceDays = [80, 60, 45, 30, 20, 10, 3];
-  const prices = priceDays.flatMap((ago, i) => {
-    const date = toISODate(addDays(on, -ago));
-    return [
-      { id: `p${i}a`, item: 'Milk', unit: 'litre', shop: 'FreshMart', price: 60, date },
-      { id: `p${i}b`, item: 'Rice (Sona Masoori)', unit: 'kg', shop: 'FreshMart', price: 68, date },
-      { id: `p${i}c`, item: 'Cooking oil', unit: 'litre', shop: 'FreshMart', price: 165, date },
-    ];
-  });
-  prices.push(
-    { id: 'pk1', item: 'Milk', unit: 'litre', shop: 'Kirana Corner', price: 54, date: toISODate(addDays(on, -12)) },
-    { id: 'pk2', item: 'Rice (Sona Masoori)', unit: 'kg', shop: 'Wholesale Bazaar', price: 56, date: toISODate(addDays(on, -15)) },
-    { id: 'pk3', item: 'Cooking oil', unit: 'litre', shop: 'Wholesale Bazaar', price: 148, date: toISODate(addDays(on, -15)) },
-  );
 
   return {
     accounts,
@@ -142,7 +128,6 @@ export function buildDemoData(on: Date = new Date()): AppData {
       { categoryId: 'shopping', monthlyLimit: 4000 },
       { categoryId: 'transport', monthlyLimit: 4000 },
     ],
-    prices,
     goals: [
       { id: 'g1', name: 'Emergency fund', target: 300000, saved: 85000 },
       { id: 'g2', name: 'Family vacation', target: 80000, saved: 22000, deadline: toISODate(addDays(on, 150)), autoAmount: 3000, autoDay: 2, fromAccountId: 'bank', lastAuto: toISODate(clampedDate(on.getFullYear(), on.getMonth() - (on.getDate() >= 2 ? 0 : 1), 2)) },

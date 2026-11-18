@@ -5,7 +5,7 @@ import { ask } from '../components/Dialog';
 import { Button, Card, Chip, ChipRow, Empty, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { formatDate, toISODate } from '../logic/dates';
 import { PEOPLE_ACCOUNT_ID, personBalances } from '../logic/money2';
-import { normalize } from '../logic/priceBook';
+import { normalize } from '../logic/text';
 import { SPENDABLE_TYPES } from '../logic/balances';
 import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';

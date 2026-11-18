@@ -82,7 +82,6 @@ function ReminderSync() {
 const screens: [string, string, boolean?][] = [
   ['accounts', t('Accounts')],
   ['budgets', 'Budgets'],
-  ['prices', t('Price book')],
   ['goals', t('Savings goals')],
   ['family', t('Family & allowances')],
   ['bills', t('Bills & reminders')],

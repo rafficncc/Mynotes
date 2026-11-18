@@ -19,7 +19,6 @@ import type {
   GoogleAccount,
   Goal,
   Member,
-  PriceEntry,
   Settings,
   Transaction,
 } from '../logic/types';
@@ -50,8 +49,6 @@ interface Actions {
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
   setBudget: (b: Budget) => void;
-  addPrice: (p: Omit<PriceEntry, 'id'>) => void;
-  deletePrice: (id: string) => void;
   addGoal: (g: Omit<Goal, 'id'>) => void;
   updateGoal: (id: string, patch: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
@@ -82,7 +79,6 @@ export const emptyData = (): AppData => ({
   transactions: [],
   categories: DEFAULT_CATEGORIES,
   budgets: [],
-  prices: [],
   goals: [],
   members: [{ id: 'me', name: 'Me', relation: 'Self' }],
   bills: [],
@@ -133,12 +129,7 @@ export const useStore = create<Store>()(
         const id = uid();
         set((s) => {
           const txn: Transaction = { ...t, id, createdAt: now() };
-          const prices = [...s.prices];
-          // Logging an item with a merchant automatically builds the price book.
-          if (txn.type === 'expense' && txn.item && txn.merchant && txn.quantity && txn.quantity > 0) {
-            prices.push({ id: uid(), item: txn.item, shop: txn.merchant, price: Math.round((txn.amount / txn.quantity) * 100) / 100, date: txn.date });
-          }
-          return { transactions: [txn, ...s.transactions], prices };
+          return { transactions: [txn, ...s.transactions] };
         });
         return id;
       },
@@ -211,8 +202,6 @@ export const useStore = create<Store>()(
             : s.budgets.filter((x) => x.categoryId !== b.categoryId),
         })),
 
-      addPrice: (p) => set((s) => ({ prices: [...s.prices, { ...p, id: uid() }] })),
-      deletePrice: (id) => set((s) => ({ prices: s.prices.filter((p) => p.id !== id) })),
 
       addGoal: (g) => set((s) => ({ goals: [...s.goals, { ...g, id: uid() }] })),
       updateGoal: (id, patch) => set((s) => ({ goals: s.goals.map((g) => (g.id === id ? { ...g, ...patch } : g)) })),
@@ -274,7 +263,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'familyfin-data',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => encryptedStorage),
       migrate: (persisted) => migrateData(persisted as Partial<AppData>) as unknown as Store,
     },
@@ -282,7 +271,9 @@ export const useStore = create<Store>()(
 );
 
 /** Upgrades data saved by older versions (and restored backups) to the current shape. */
-export function migrateData(raw: Partial<AppData>): AppData {
+export function migrateData(input: Partial<AppData>): AppData {
+  // The price book (shop price comparison) was removed: drop its saved data.
+  const { prices: _removed, ...raw } = input as Partial<AppData> & { prices?: unknown };
   const base = emptyData();
   const categories = [...(raw.categories ?? base.categories)];
   for (const c of DEFAULT_CATEGORIES) if (!categories.some((x) => x.id === c.id)) categories.push(c);
@@ -328,7 +319,6 @@ export function selectData(s: Store): AppData {
     transactions: s.transactions,
     categories: s.categories,
     budgets: s.budgets,
-    prices: s.prices,
     goals: s.goals,
     members: s.members,
     bills: s.bills,

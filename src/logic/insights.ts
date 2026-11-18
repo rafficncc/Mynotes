@@ -5,7 +5,6 @@ import {
   needsWantsSavings,
   projectMonthSpend,
   spendByCategory,
-  spendByMerchant,
   sum,
   weekdayVsWeekend,
 } from './analytics';
@@ -15,7 +14,6 @@ import { addDays, currentCycleKey, cycleBounds, cycleProgress, diffDays, formatS
 import { regionalTips } from './region';
 import { SMALL_SPEND_CATEGORIES } from './defaults';
 import { formatMoney } from './money';
-import { compareItems } from './priceBook';
 import { generateActions } from './actions';
 import { detectSubscriptions } from './recurring';
 import type { AppData, Insight } from './types';
@@ -101,42 +99,6 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
         title: `${small.length} small ${catName(cat).toLowerCase()} spends in 30 days`,
         detail: `They add up to ${money(total)} a month (${money(total * 12)} a year). Cutting half of them saves ${money(total / 2)} every month.`,
         monthlySaving: total / 2,
-      });
-    }
-  }
-
-  // 4. Cheaper shop for the same item (price book)
-  for (const c of compareItems(data.prices, on).slice(0, 5)) {
-    if (c.savingPerUnit <= 0 || c.cheapest.shop === c.usual.shop) continue;
-    if (c.savingPerUnit / c.usual.price < 0.03) continue;
-    const perMonth = (c.purchases90d / 3) * c.savingPerUnit;
-    out.push({
-      id: `shop-${c.item}`,
-      severity: 'tip',
-      icon: 'storefront',
-      title: `Buy ${c.item} at ${c.cheapest.shop}`,
-      detail: `${money(c.cheapest.price)} at ${c.cheapest.shop} vs ${money(c.usual.price)} at ${c.usual.shop} – save ${money(c.savingPerUnit)} per ${c.unit ?? 'unit'}${perMonth > 0 ? `, about ${money(perMonth)}/month at your usage` : ''}.`,
-      monthlySaving: perMonth || undefined,
-    });
-  }
-
-  // 5. Same category, a cheaper merchant the family already uses
-  for (const cat of thisByCat.slice(0, 6)) {
-    const catTxns = txns.filter((t) => t.type === 'expense' && t.categoryId === cat.key && diffDays(on, parseDate(t.date)) <= 90);
-    const merchants = spendByMerchant(catTxns, 20).filter((m) => m.count >= 3);
-    if (merchants.length < 2) continue;
-    const withAvg = merchants.map((m) => ({ ...m, avg: m.total / m.count })).sort((a, b) => a.avg - b.avg);
-    const cheap = withAvg[0];
-    const top = [...withAvg].sort((a, b) => b.total - a.total)[0];
-    if (top.merchant !== cheap.merchant && top.avg > cheap.avg * 1.2) {
-      const saving = ((top.avg - cheap.avg) * top.count) / 3;
-      out.push({
-        id: `merchant-${cat.key}`,
-        severity: 'tip',
-        icon: 'swap-horizontal',
-        title: `Try ${cheap.merchant} more for ${cat.label.toLowerCase()}`,
-        detail: `Your average bill at ${top.merchant} is ${money(top.avg)} vs ${money(cheap.avg)} at ${cheap.merchant}. Shifting your ${top.merchant} visits could save ~${money(saving)}/month.`,
-        monthlySaving: saving,
       });
     }
   }

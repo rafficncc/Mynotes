@@ -1,4 +1,4 @@
-import { normalize } from './priceBook';
+import { normalize } from './text';
 import type { Transaction } from './types';
 
 /* ------------------------- Lend & borrow ------------------------- */

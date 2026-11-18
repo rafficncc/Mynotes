@@ -67,7 +67,7 @@ export interface Transaction {
   merchant?: string;
   memberId?: string;
   note?: string;
-  /** Optional item bought – feeds the price book used for "cheaper shop" suggestions. */
+  /** Optional item bought (e.g. for the warranty reminder). */
   item?: string;
   quantity?: number;
   /** Set when this purchase was converted to an EMI plan (credit card EMI). */
@@ -108,16 +108,6 @@ export interface Category {
 export interface Budget {
   categoryId: string;
   monthlyLimit: number;
-}
-
-export interface PriceEntry {
-  id: string;
-  item: string;
-  shop: string;
-  /** Price per unit */
-  price: number;
-  unit?: string;
-  date: string;
 }
 
 export interface Goal {
@@ -356,7 +346,6 @@ export interface AppData {
   transactions: Transaction[];
   categories: Category[];
   budgets: Budget[];
-  prices: PriceEntry[];
   goals: Goal[];
   members: Member[];
   bills: Bill[];

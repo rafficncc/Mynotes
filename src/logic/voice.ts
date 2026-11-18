@@ -1,4 +1,4 @@
-import { normalize } from './priceBook';
+import { normalize } from './text';
 import { guessCategory } from './receipt';
 import type { Account, Transaction, TxnType } from './types';
 
