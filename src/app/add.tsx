@@ -247,7 +247,10 @@ export default function AddTransaction() {
           </Row>
         </Card>
       ) : !existing && type === 'expense' && !bill && !emi ? (
-        <Chip label={t('Scan a bill instead')} icon="scan-outline" onPress={() => router.replace('/scan')} />
+        <ChipRow>
+          <Chip label={t('Scan a bill instead')} icon="scan-outline" onPress={() => router.replace('/scan')} />
+          <Chip label={t('Speak it instead')} icon="mic-outline" onPress={() => router.replace('/voice')} />
+        </ChipRow>
       ) : null}
 
       <ChipRow>

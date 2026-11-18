@@ -92,7 +92,10 @@ export default function Home() {
         <View style={{ flex: 1 }}><Button title={t('Income')} variant="secondary" icon="add-circle-outline" onPress={() => router.push('/add?type=income')} /></View>
         <View style={{ flex: 1 }}><Button title={t('Transfer')} variant="secondary" icon="swap-horizontal" onPress={() => router.push('/add?type=transfer')} /></View>
       </Row>
-      <Button title={t('Scan a bill')} variant="secondary" icon="scan-outline" onPress={() => router.push('/scan')} />
+      <Row style={{ gap: 8 }}>
+        <View style={{ flex: 1 }}><Button title={t('Scan a bill')} variant="secondary" icon="scan-outline" onPress={() => router.push('/scan')} /></View>
+        <View style={{ flex: 1 }}><Button title={t('Voice entry')} variant="secondary" icon="mic-outline" onPress={() => router.push('/voice')} /></View>
+      </Row>
 
       <Pressable onPress={() => router.push('/insights')}>
         <Card>
