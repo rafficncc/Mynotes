@@ -1,4 +1,5 @@
 import { expenses } from './analytics';
+import { ACCOUNT_GROUP_OF } from './balances';
 import type { Account, AppData, Insight, Transaction } from './types';
 
 export type Region = 'IN' | 'GCC' | 'AE' | 'US' | 'UK' | 'EU' | 'CA' | 'AU' | 'SG' | 'SA_ASIA' | 'OTHER';
@@ -51,16 +52,33 @@ export function currencyInfo(code: string | undefined): CurrencyInfo {
 /* ------------------------------ Premium pricing ------------------------------ */
 
 export const PREMIUM_PRICE_INR = 2500;
-export const FREE_LIMITS = { accounts: 3, creditCards: 3 };
+/** Free plan: up to 3 accounts in each of these categories. */
+export const FREE_PER_CATEGORY = 3;
+export type LimitCategory = 'savings' | 'credit' | 'investment' | 'other';
+export const LIMIT_CATEGORIES: { key: LimitCategory; label: string }[] = [
+  { key: 'savings', label: 'savings & cash accounts' },
+  { key: 'credit', label: 'credit cards' },
+  { key: 'investment', label: 'investments & gold' },
+  { key: 'other', label: 'loans, property & other' },
+];
 
-/** Free plan limits. Archived accounts don't count. */
-export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
-  if (premium) return false;
-  const active = accounts.filter((a) => !a.archived && a.type !== 'people');
-  if (type === 'credit_card') return active.filter((a) => a.type === 'credit_card').length >= FREE_LIMITS.creditCards;
-  return active.filter((a) => a.type !== 'credit_card').length >= FREE_LIMITS.accounts;
+export function limitCategoryOf(type: Account['type']): LimitCategory {
+  const g = ACCOUNT_GROUP_OF[type];
+  return g === 'savings' || g === 'credit' || g === 'investment' ? g : 'other';
 }
 
+/** Accounts counted in a category. Archived accounts, debit cards linked to a bank and the lend/borrow ledger don't count. */
+export function limitUsage(accounts: Account[], cat: LimitCategory): number {
+  return accounts.filter((a) => !a.archived && a.type !== 'people' && !(a.type === 'debit_card' && a.linkedBankId) && limitCategoryOf(a.type) === cat).length;
+}
+
+export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {
+  return !premium && limitUsage(accounts, limitCategoryOf(type)) >= FREE_PER_CATEGORY;
+}
+
+export function limitLabel(type: Account['type']): string {
+  return LIMIT_CATEGORIES.find((c) => c.key === limitCategoryOf(type))!.label;
+}
 
 /** Rounds a converted price to a "shop" price, e.g. 28.75 → 28.99, 105.7 → 109, 4,650 → 4,699. */
 export function nicePrice(v: number): number {

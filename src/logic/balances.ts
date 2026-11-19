@@ -43,7 +43,11 @@ export interface NetWorth {
   byGroup: Record<AccountGroup, number>;
 }
 
-export function computeNetWorth(accounts: Account[], balances: Record<string, number>): NetWorth {
+/**
+ * `people` (from personBalances) splits the lend & borrow ledger: money others owe you is an asset,
+ * money you owe them a liability. Without it the ledger counts as one net amount.
+ */
+export function computeNetWorth(accounts: Account[], balances: Record<string, number>, people?: { balance: number }[]): NetWorth {
   let assets = 0;
   let liabilities = 0;
   let liquid = 0;
@@ -51,11 +55,17 @@ export function computeNetWorth(accounts: Account[], balances: Record<string, nu
   for (const a of accounts) {
     if (a.archived) continue;
     if (a.type === 'debit_card' && a.linkedBankId) continue; // counted in the bank
+    if (a.type === 'people' && people) continue;
     const b = balances[a.id] ?? 0;
     if (b >= 0) assets += b;
     else liabilities += -b;
     if (LIQUID_TYPES.includes(a.type) && b > 0) liquid += b;
     byGroup[ACCOUNT_GROUP_OF[a.type]] += b;
+  }
+  for (const p of people ?? []) {
+    if (p.balance > 0) assets += p.balance;
+    else liabilities += -p.balance;
+    byGroup.other += p.balance;
   }
   return { assets, liabilities, net: assets - liabilities, liquid, byGroup };
 }

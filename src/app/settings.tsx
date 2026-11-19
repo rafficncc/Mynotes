@@ -1,7 +1,9 @@
 import { ask } from '../components/Dialog';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Share, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Share, Switch, Text, TextInput, View } from 'react-native';
+import { PinPad } from '../components/LockScreen';
+import { pinLength } from '../services/appLock';
 import { GoogleBackupPanel } from '../components/GoogleBackup';
 import { Button, Card, Chip, ChipRow, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { transactionsToCsv } from '../logic/csv';
@@ -26,6 +28,33 @@ export default function Settings() {
   const [langPref, setLangPrefState] = useState<LangPref>(getLangPref());
   const [themePref, setThemePrefState] = useState<ThemePref>(getThemePref());
   const cur = currencyInfo(s.currencyCode);
+  const [pinFor, setPinFor] = useState<'erase' | 'demo' | null>(null);
+
+  // Wiping data needs the app PIN, so someone else holding the phone can't erase it.
+  const withPin = async (action: 'erase' | 'demo') => {
+    if (!(await pinLength())) {
+      return ask('Set a PIN first', 'To protect your data, erasing or replacing it needs your app PIN. Set one in Security & privacy.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Set PIN', onPress: () => router.push('/security') },
+      ]);
+    }
+    setPinFor(action);
+  };
+  const afterPin = () => {
+    const action = pinFor;
+    setPinFor(null);
+    if (action === 'demo') {
+      ask('Load demo data?', 'This replaces everything in the app with sample family data.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Load', onPress: () => { loadDemo(); router.replace('/'); } },
+      ]);
+    } else {
+      ask('Erase everything?', 'All accounts, transactions, budgets and goals will be deleted. This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Erase', style: 'destructive', onPress: () => { resetAll(); router.replace('/'); } },
+      ]);
+    }
+  };
 
   const currencies = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -193,30 +222,17 @@ export default function Settings() {
         </Text>
         <Button title="Export transactions (CSV)" variant="secondary" icon="download-outline" onPress={() => share('FamilyFin transactions', transactionsToCsv(data))} />
         <Button title="Share backup file (JSON)" variant="secondary" icon="share-outline" onPress={() => share('FamilyFin backup', JSON.stringify({ ...data, google: undefined }))} />
-        <Button
-          title="Load demo data"
-          variant="secondary"
-          icon="play-outline"
-          onPress={() =>
-            ask('Load demo data?', 'This replaces everything in the app with sample family data.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Load', onPress: () => { loadDemo(); router.replace('/'); } },
-            ])
-          }
-        />
-        <Button
-          title="Erase all data"
-          variant="danger"
-          icon="trash-outline"
-          onPress={() =>
-            ask('Erase everything?', 'All accounts, transactions, budgets and goals will be deleted. This cannot be undone.', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Erase', style: 'destructive', onPress: () => { resetAll(); router.replace('/'); } },
-            ])
-          }
-        />
+        <Button title="Load demo data" variant="secondary" icon="play-outline" onPress={() => withPin('demo')} />
+        <Button title="Erase all data" variant="danger" icon="trash-outline" onPress={() => withPin('erase')} />
+        <Text style={styles.hint}>Both replace everything in the app, so they ask for your app PIN.</Text>
       </Card>
-      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.1</Text>
+      <Modal visible={!!pinFor} animationType="slide" onRequestClose={() => setPinFor(null)}>
+        <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center' }}>
+          {pinFor ? <PinPad title={pinFor === 'erase' ? 'Enter your PIN to erase all data' : 'Enter your PIN to replace your data'} onUnlock={afterPin} /> : null}
+          <Button title="Cancel" variant="secondary" onPress={() => setPinFor(null)} />
+        </View>
+      </Modal>
+      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.2</Text>
     </Screen>
   );
 }

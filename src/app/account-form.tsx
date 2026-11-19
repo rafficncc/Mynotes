@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Field, Row, Screen, styles } from '../components/ui';
 import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, isLiability } from '../logic/balances';
-import { accountLimitReached, FREE_LIMITS } from '../logic/region';
+import { accountLimitReached, FREE_PER_CATEGORY, limitLabel } from '../logic/region';
 import { interestFreeDays } from '../logic/creditCard';
 import { addDays, clampedDate } from '../logic/dates';
 import type { AccountType } from '../logic/types';
@@ -61,7 +61,7 @@ export default function AccountForm() {
     if (!existing && accountLimitReached(store.accounts, type, store.settings.premium)) {
       return ask(
         'Free plan limit reached',
-        `The free plan includes ${FREE_LIMITS.accounts} accounts and ${FREE_LIMITS.creditCards} credit cards. Upgrade to Premium for unlimited.`,
+        `The free plan includes ${FREE_PER_CATEGORY} ${limitLabel(type)}. Upgrade to Premium for unlimited accounts in every category.`,
         [{ text: 'Not now', style: 'cancel' }, { text: 'See Premium', onPress: () => router.push('/premium') }],
       );
     }

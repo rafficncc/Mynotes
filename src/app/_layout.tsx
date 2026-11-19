@@ -93,6 +93,7 @@ const screens: [string, string, boolean?][] = [
   ['premium', 'FamilyFin Premium', true],
   ['trash', t('Recycle bin')],
   ['people', t('Lend & borrow')],
+  ['person', t('Lend & borrow')],
   ['remittance', t('Money sent home')],
   ['events', t('Events & trips')],
   ['policies', t('Insurance policies')],

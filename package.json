@@ -55,7 +55,9 @@
     "build:apk": "npx eas-cli@latest build -p android --profile preview",
     "build:ios-sim": "npx eas-cli@latest build -p ios --profile preview-simulator",
     "build:ios": "npx eas-cli@latest build -p ios --profile preview",
-    "build:testflight": "npx eas-cli@latest build -p ios --profile production --auto-submit"
+    "build:testflight": "npx eas-cli@latest build -p ios --profile production --auto-submit",
+    "build:aab": "npx eas-cli@latest build -p android --profile production",
+    "submit:android": "npx eas-cli@latest submit -p android --profile production"
   },
   "private": true
 }

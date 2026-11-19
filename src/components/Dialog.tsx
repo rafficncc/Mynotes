@@ -26,6 +26,11 @@ export function ask(title: string, message?: string, buttons?: DialogButton[]) {
   if (show) show({ title, message, buttons: list });
 }
 
+/** Like ask, but always the in-app dialog, so it can offer more than three choices (e.g. one per account). */
+export function choose(title: string, message: string | undefined, buttons: DialogButton[]) {
+  if (show) show({ title, message, buttons });
+}
+
 /** Mount once near the root. */
 export function DialogHost() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -46,7 +51,7 @@ export function DialogHost() {
         <View style={s.box} accessibilityRole="alert">
           <Text style={s.title}>{dialog.title}</Text>
           {dialog.message ? <Text style={s.message}>{dialog.message}</Text> : null}
-          <View style={s.row}>
+          <View style={[s.row, dialog.buttons.length > 3 && { flexDirection: 'column', alignItems: 'stretch' }]}>
             {dialog.buttons.map((b) => (
               <Pressable key={b.text} onPress={() => close(b)} style={[s.btn, b.style === 'destructive' && { backgroundColor: colors.dangerSoft }, b.style !== 'cancel' && b.style !== 'destructive' && { backgroundColor: colors.primarySoft }]}>
                 <Text style={[s.btnText, b.style === 'destructive' && { color: colors.danger }, b.style === 'cancel' && { color: colors.muted }]}>{b.text}</Text>

@@ -13,7 +13,7 @@ import { pickImage } from '../services/scanReceipt';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
 import { emiAmount } from '../logic/emi';
 import { ACCOUNT_TYPE_ICON, SPENDABLE_TYPES } from '../logic/balances';
-import { recommendCards } from '../logic/creditCard';
+import { cardCycleInfo, recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { normalize } from '../logic/text';
 import { matchAccount } from '../logic/receipt';
@@ -47,7 +47,7 @@ export default function AddTransaction() {
   // Paying a loan EMI = transfer into the loan account; other EMIs are expenses.
   const emiIsTransfer = !!emi && !!emi.accountId && store.accounts.find((a) => a.id === emi.accountId)?.type === 'loan';
   // The internal "Lent & borrowed" account is managed from the People screen, not picked here.
-  const accounts = store.accounts.filter((a) => a.type !== 'people' && (!a.archived || a.id === existing?.accountId || a.id === existing?.toAccountId));
+  const accounts = store.accounts.filter((a) => a.id === existing?.accountId || a.id === existing?.toAccountId || (a.type !== 'people' && !a.archived));
 
   const bank = accounts.find((a) => a.type === 'bank')?.id;
   const [type, setType] = useState<TxnType>(existing?.type ?? (emi ? (emiIsTransfer ? 'transfer' : 'expense') : params.type ?? 'expense'));
@@ -224,6 +224,23 @@ export default function AddTransaction() {
     </ChipRow>
   );
 
+  // Credit card bills to pay: a transfer to the card, so the purchases (already counted) aren't counted again as spending.
+  const cardBills = type === 'transfer' && !existing
+    ? store.accounts
+        .filter((a) => a.type === 'credit_card' && !a.archived)
+        .map((c) => {
+          const info = cardCycleInfo(c, store.transactions, balances[c.id] ?? 0, new Date(), store.emis);
+          return { card: c, due: Math.round(info.amountDue), outstanding: Math.round(info.outstanding), dueDate: info.dueDate };
+        })
+        .filter((b) => b.outstanding > 0)
+    : [];
+  const payCard = (cardId: string, amt: number) => {
+    setToAccountId(cardId);
+    setAmount(String(amt));
+    if (!accountId || accountId === cardId || store.accounts.find((a) => a.id === accountId)?.type === 'credit_card') setAccountId(bank ?? '');
+    if (!note) setNote('Credit card bill payment');
+  };
+
   const currencyMismatch = receipt?.currency && receipt.currency !== store.settings.currencyCode;
 
   return (
@@ -293,6 +310,19 @@ export default function AddTransaction() {
 
       {type === 'transfer' ? (
         <>
+          {cardBills.length ? (
+            <Card style={{ padding: 12 }}>
+              <Text style={styles.itemTitle}>Pay a credit card bill</Text>
+              {cardBills.map((b) => (
+                <ChipRow key={b.card.id}>
+                  <Text style={[styles.itemSub, { alignSelf: 'center' }]}>{b.card.name}:</Text>
+                  {b.due > 0 ? <Chip label={`Bill ${money(b.due)} · due ${formatShortDate(b.dueDate)}`} icon="card" selected={toAccountId === b.card.id && amt === b.due} onPress={() => payCard(b.card.id, b.due)} /> : null}
+                  <Chip label={`Full ${money(b.outstanding)}`} selected={toAccountId === b.card.id && amt === b.outstanding && b.outstanding !== b.due} onPress={() => payCard(b.card.id, b.outstanding)} />
+                </ChipRow>
+              ))}
+              <Text style={styles.hint}>Card bill payments are not counted in “Spent this cycle”: the purchases on the card were already counted when you made them.</Text>
+            </Card>
+          ) : null}
           <Text style={styles.label}>{t('To')}</Text>
           {accountChips(toAccountId, setToAccountId, accountId)}
           <Text style={styles.hint}>Use transfers for ATM withdrawals, paying credit card bills, or moving money to a wallet.</Text>

@@ -5,7 +5,7 @@ import { ask } from '../components/Dialog';
 import { Button, Card, Field, Icon, ListItem, ProgressBar, Row, Screen, styles } from '../components/ui';
 import { t } from '../i18n';
 import { toISODate } from '../logic/dates';
-import { accountLimitReached, FREE_LIMITS } from '../logic/region';
+import { accountLimitReached, FREE_PER_CATEGORY } from '../logic/region';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -52,7 +52,7 @@ export default function Setup() {
     const d = parseInt(card.dueDay, 10);
     if (!card.name.trim() || !(b >= 1 && b <= 31) || !(d >= 1 && d <= 31)) return ask('Enter the card name, billing day and due day (1–31)', 'They are printed on your card statement.');
     if (accountLimitReached(store.accounts, 'credit_card', store.settings.premium)) {
-      return ask('Free plan limit reached', `The free plan includes ${FREE_LIMITS.creditCards} credit cards. Upgrade to Premium to add more.`, [
+      return ask('Free plan limit reached', `The free plan includes ${FREE_PER_CATEGORY} credit cards. Upgrade to Premium to add more.`, [
         { text: 'Not now', style: 'cancel' },
         { text: 'See Premium', onPress: () => router.push('/premium') },
       ]);

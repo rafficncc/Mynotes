@@ -7,8 +7,10 @@ import { Card, Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle, styles } f
 import { generateActions, type ActionItem, type ActionStatus } from '../../logic/actions';
 import { diffDays, formatShortDate, toISODate } from '../../logic/dates';
 import { toast } from '../../components/Toast';
+import { ask, choose } from '../../components/Dialog';
+import { SPENDABLE_TYPES } from '../../logic/balances';
 import { alreadyPaid, billPayment, emiPayment, premiumPayment } from '../../logic/payments';
-import { notifyBalance, useAppData, useCycle, useMoney } from '../../store/hooks';
+import { notifyBalance, useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
 import { colors } from '../../theme';
 
@@ -33,6 +35,7 @@ export default function Actions() {
   const data = useAppData();
   const cycle = useCycle();
   const { money } = useMoney();
+  const balances = useBalances();
   const saveBill = useStore((s) => s.saveBill);
   const saveEmi = useStore((s) => s.saveEmi);
   const saveItem = useStore((s) => s.saveItem);
@@ -52,34 +55,49 @@ export default function Actions() {
     if (a.kind === 'document') return router.push(`/documents?edit=${a.documentId}`);
     if (a.kind === 'warranty') return router.push(`/add?id=${a.transactionId}`);
   };
-  // Records the payment from the account (so balances follow), unless it was already logged.
+  // Asks which account paid, then records the payment there (so balances follow), unless it was already logged.
   const markDone = (a: ActionItem) => {
     const today = toISODate(new Date());
     let txn: Parameters<typeof addTransaction>[0] | null = null;
     let name = '';
+    let markPaid = () => {};
     if (a.kind === 'bill' && a.billId?.startsWith('policy:')) {
       const p = data.policies.find((x) => x.id === a.billId!.slice(7));
       if (!p) return;
-      saveItem('policies', { ...p, lastPaid: today });
+      markPaid = () => saveItem('policies', { ...p, lastPaid: today });
       name = `${p.name} premium`;
       txn = premiumPayment(p, data.accounts, today);
     } else if (a.kind === 'bill' && a.billId) {
       const b = data.bills.find((x) => x.id === a.billId);
       if (!b) return;
-      saveBill({ ...b, lastPaid: today });
+      markPaid = () => saveBill({ ...b, lastPaid: today });
       name = b.name;
       txn = billPayment(b, data.accounts, today);
     } else if (a.kind === 'emi' && a.emiId) {
       const e = data.emis.find((x) => x.id === a.emiId);
       if (!e) return;
-      saveEmi({ ...e, lastPaid: today });
+      markPaid = () => saveEmi({ ...e, lastPaid: today });
       name = `${e.name} EMI`;
       txn = emiPayment(e, data.accounts, today);
     }
-    if (!txn) return;
-    if (alreadyPaid(name, data.transactions, new Date())) return toast(`${name} marked paid (payment was already recorded)`);
-    addTransaction(txn);
-    notifyBalance(txn.accountId, `${name} paid`);
+    if (alreadyPaid(name, data.transactions, new Date())) {
+      markPaid();
+      return toast(`${name} marked paid (payment was already recorded)`);
+    }
+    if (!txn) return ask('Add an account first', 'Add the bank, cash or card account you pay bills from.');
+    // A card EMI is charged to its card, so there is nothing to choose.
+    const charged = txn.type === 'expense' && data.accounts.find((x) => x.id === txn!.accountId)?.type === 'credit_card' && a.kind === 'emi';
+    const record = (accountId: string) => {
+      markPaid();
+      addTransaction({ ...txn!, accountId });
+      notifyBalance(accountId, `${name} paid`);
+    };
+    if (charged) return record(txn.accountId);
+    const payable = data.accounts.filter((x) => !x.archived && SPENDABLE_TYPES.includes(x.type) && !(x.type === 'debit_card' && x.linkedBankId));
+    choose(`Paid ${name} from?`, `${money(txn.amount)} will be taken from the account you choose.`, [
+      ...payable.map((x) => ({ text: `${x.name} (${money(balances[x.id] ?? 0)})`, onPress: () => record(x.id) })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
   };
 
   return (
@@ -90,7 +108,7 @@ export default function Actions() {
         points={[
           'Everything to pay or renew in your spending cycle is listed here: card bills, bills, EMIs, insurance, documents and warranties.',
           'Red = overdue, orange = the reminder date has come, blue = later this cycle.',
-          '“Pay & record” lets you choose the account and details; “Mark paid” records it from your bank in one tap (skipped if you already logged it).',
+          '“Pay & record” lets you choose the account and details; “Mark paid” asks which account you paid from and records it (skipped if you already logged it).',
           'Set how many days before you want a reminder on each bill, EMI, card or document.',
         ]}
       />

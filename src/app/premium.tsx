@@ -5,19 +5,19 @@ import { useEffect, useState } from 'react';
 import { buyPremium, restorePremium, storePrice } from '../services/purchases';
 import { Text, View } from 'react-native';
 import { Button, Card, Icon, Row, Screen, styles } from '../components/ui';
-import { CURRENCIES, FREE_LIMITS, PREMIUM_PRICE_INR, currencyInfo, premiumPrice } from '../logic/region';
+import { CURRENCIES, FREE_PER_CATEGORY, LIMIT_CATEGORIES, limitUsage, PREMIUM_PRICE_INR, currencyInfo, premiumPrice } from '../logic/region';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
 const PERKS: [string, string, string][] = [
-  ['infinite-outline', 'Unlimited accounts & cards', `Free plan: ${FREE_LIMITS.accounts} accounts and ${FREE_LIMITS.creditCards} credit cards.`],
+  ['infinite-outline', 'Unlimited accounts & cards', `Free plan: ${FREE_PER_CATEGORY} each of savings accounts, credit cards, investments and other accounts.`],
   ['people-outline', 'Family group', 'Everyone logs spends against their own allowance.'],
   ['cloud-upload-outline', 'Google Drive backup', 'Back up and restore on a new phone.'],
   ['notifications-outline', 'All reminders', 'Bills, EMIs, card dues and document expiries.'],
   ['heart-outline', 'One payment, forever', 'No subscription. All future updates included.'],
 ];
 
-/** Test builds can unlock Premium without paying; set expo.extra.allowTestUnlock to false for the store release. */
+/** Test builds can unlock Premium without paying; app.config.js turns this off for production (store) builds. */
 const allowTestUnlock = Constants.expoConfig?.extra?.allowTestUnlock !== false;
 
 export default function Premium() {
@@ -26,9 +26,6 @@ export default function Premium() {
   const updateSettings = useStore((s) => s.updateSettings);
   const price = premiumPrice(settings.currencyCode);
   const c = currencyInfo(settings.currencyCode);
-  const active = accounts.filter((a) => !a.archived);
-  const cards = active.filter((a) => a.type === 'credit_card').length;
-  const others = active.length - cards;
 
   const [storeLabel, setStoreLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,7 +86,7 @@ export default function Premium() {
       ) : (
         <Card>
           <Text style={styles.itemSub}>
-            You are using {others}/{FREE_LIMITS.accounts} accounts and {cards}/{FREE_LIMITS.creditCards} credit cards on the free plan.
+            Free plan use: {LIMIT_CATEGORIES.map((c) => `${limitUsage(accounts, c.key)}/${FREE_PER_CATEGORY} ${c.label}`).join(' · ')}.
           </Text>
         </Card>
       )}

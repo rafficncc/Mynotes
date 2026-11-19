@@ -157,12 +157,16 @@ describe('base64 text conversion used by encrypted storage', async () => {
 
 describe('free plan limits', async () => {
   const { accountLimitReached } = await import('./region');
-  const a = (id: string, type: Account['type'], archived = false): Account => ({ id, name: id, type, openingBalance: 0, createdAt: '', archived });
-  it('allows 3 accounts and 3 credit cards, then asks for Premium', () => {
-    const three = [a('cash', 'cash'), a('bank', 'bank'), a('upi', 'wallet'), a('people', 'people'), a('old', 'bank', true)];
+  const a = (id: string, type: Account['type'], extra: Partial<Account> = {}): Account => ({ id, name: id, type, openingBalance: 0, createdAt: '', ...extra });
+  it('allows 3 accounts in each category, then asks for Premium', () => {
+    const three = [a('cash', 'cash'), a('bank', 'bank'), a('upi', 'wallet'), a('people', 'people'), a('old', 'bank', { archived: true }), a('dc', 'debit_card', { linkedBankId: 'bank' })];
     expect(accountLimitReached(three, 'bank', false)).toBe(true);
     expect(accountLimitReached(three.slice(0, 2), 'bank', false)).toBe(false);
-    expect(accountLimitReached([a('c1', 'credit_card'), a('c2', 'credit_card')], 'credit_card', false)).toBe(false);
+    // other categories have their own 3
+    expect(accountLimitReached(three, 'investment', false)).toBe(false);
+    expect(accountLimitReached(three, 'credit_card', false)).toBe(false);
+    expect(accountLimitReached([a('f', 'deposit'), a('m', 'investment'), a('g', 'gold')], 'investment', false)).toBe(true);
+    expect(accountLimitReached([a('l', 'loan'), a('p', 'property'), a('o', 'other')], 'loan', false)).toBe(true);
     expect(accountLimitReached([a('c1', 'credit_card'), a('c2', 'credit_card'), a('c3', 'credit_card')], 'credit_card', false)).toBe(true);
     expect(accountLimitReached(three, 'bank', true)).toBe(false);
   });

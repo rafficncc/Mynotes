@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { HBars } from '../components/charts';
 import { DateField } from '../components/DateField';
-import { ask } from '../components/Dialog';
+import { ask, choose } from '../components/Dialog';
 import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { formatDate, toISODate } from '../logic/dates';
 import type { ClaimStatus, MedicalClaim } from '../logic/types';
 import { defaultPayAccount } from '../logic/payments';
+import { SPENDABLE_TYPES } from '../logic/balances';
 import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
@@ -51,10 +52,22 @@ export default function Claims() {
     const amount = parseFloat(f.amount);
     if (!f.title.trim() || !amount) return ask('Enter what the claim is for and the amount');
     const old = data.claims.find((c) => c.id === editing);
+    if (f.status === 'paid' && !old?.paidTxnId) {
+      const payable = data.accounts.filter((a) => !a.archived && SPENDABLE_TYPES.includes(a.type) && a.type !== 'credit_card' && !(a.type === 'debit_card' && a.linkedBankId));
+      if (!payable.length) return commit(defaultPayAccount(data.accounts));
+      return choose('Claim money received in?', 'The claim payout is added to this account.', [
+        ...payable.map((a) => ({ text: a.name, onPress: () => commit(a.id) })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    }
+    commit();
+  };
+  const commit = (accountId?: string) => {
+    const amount = parseFloat(f.amount);
+    const old = data.claims.find((c) => c.id === editing);
     const payout = parseFloat(f.approvedAmount) || amount;
     let paidTxnId = old?.paidTxnId;
     if (f.status === 'paid' && !paidTxnId) {
-      const accountId = defaultPayAccount(data.accounts);
       if (accountId) {
         paidTxnId = addTransaction({ type: 'income', amount: payout, date: toISODate(new Date()), accountId, categoryId: 'other_income', merchant: 'Insurance claim', note: f.title.trim(), memberId: f.memberId || undefined });
         setTimeout(() => notifyBalance(accountId, 'Claim money received'), 0);

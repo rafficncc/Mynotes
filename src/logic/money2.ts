@@ -74,3 +74,15 @@ export function remittanceStats(txns: Transaction[]): RemittanceStats {
     currency: list[0]?.fx?.currency,
   };
 }
+
+/**
+ * How a transaction moves your money, for lists: -1 money out (red), +1 money in (green), 0 a move between your own accounts.
+ * Lending or repaying someone is money out; borrowing or being repaid is money in.
+ */
+export function txnSign(t: Transaction): -1 | 0 | 1 {
+  if (t.type === 'expense') return -1;
+  if (t.type === 'income') return 1;
+  if (t.toAccountId === PEOPLE_ACCOUNT_ID) return -1;
+  if (t.accountId === PEOPLE_ACCOUNT_ID) return 1;
+  return 0;
+}

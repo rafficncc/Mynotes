@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { Calendar } from '../../components/DateField';
-import { Chip, Empty, Icon, ListItem, styles } from '../../components/ui';
+import { TxnRow } from '../../components/TxnRow';
+import { Chip, Empty, Icon, styles } from '../../components/ui';
 import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey } from '../../logic/dates';
 import type { TxnType } from '../../logic/types';
 import { useAppData, useCycle, useMoney } from '../../store/hooks';
@@ -30,7 +31,7 @@ export default function Transactions() {
       .filter((t) => !accountId || t.accountId === accountId || t.toAccountId === accountId)
       .filter((t) => {
         if (!q) return true;
-        const hay = [t.merchant, t.note, t.item, cat(t.categoryId)?.name, acc(t.accountId)?.name].join(' ').toLowerCase();
+        const hay = [t.merchant, t.note, t.item, t.person, cat(t.categoryId)?.name, acc(t.accountId)?.name].join(' ').toLowerCase();
         return hay.includes(q);
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
@@ -100,22 +101,7 @@ export default function Transactions() {
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this month and filter." />}
-        renderItem={({ item: t }) => {
-          const c = cat(t.categoryId);
-          const isTransfer = t.type === 'transfer';
-          const member = data.members.find((m) => m.id === t.memberId);
-          return (
-            <ListItem
-              icon={isTransfer ? 'swap-horizontal' : c?.icon ?? 'pricetag-outline'}
-              iconColor={isTransfer ? colors.info : c?.color}
-              title={isTransfer ? `${acc(t.accountId)?.name} → ${acc(t.toAccountId)?.name}` : t.merchant || c?.name || 'Transaction'}
-              subtitle={[formatDate(t.date), isTransfer ? t.note : c?.name, acc(t.accountId)?.name, member?.name].filter(Boolean).join(' · ')}
-              right={`${t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}${money(t.amount)}`}
-              rightColor={t.type === 'income' ? colors.success : isTransfer ? colors.info : undefined}
-              onPress={() => router.push(`/add?id=${t.id}`)}
-            />
-          );
-        }}
+        renderItem={({ item: t }) => <TxnRow t={t} accounts={data.accounts} categories={data.categories} members={data.members} money={money} detailed />}
       />
       <Pressable
         accessibilityRole="button"

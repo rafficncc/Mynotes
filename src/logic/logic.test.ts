@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { projectMonth } from './analytics';
 import { computeBalances, computeNetWorth } from './balances';
 import { DEFAULT_CATEGORIES } from './defaults';
+import { personBalances, txnSign } from './money2';
 import {
   cardCycleInfo,
   dueDateFor,
@@ -165,5 +166,24 @@ describe('projection & golden window', () => {
     const c = card({ billingDay: 5, dueDay: 25 });
     expect(iso(goldenWindow(c, d('2026-11-07'))!.start)).toBe('2026-11-06');
     expect(iso(goldenWindow(c, d('2026-11-11'))!.start)).toBe('2026-12-06');
+  });
+});
+
+describe('net worth with lend & borrow', () => {
+  it('counts money lent as owned and money borrowed as owed', () => {
+    const accounts: Account[] = [
+      { id: 'bank', name: 'Bank', type: 'bank', openingBalance: 10000, createdAt: '' },
+      { id: 'people', name: 'Lent & borrowed', type: 'people', openingBalance: 0, createdAt: '' },
+    ];
+    const txns: Transaction[] = [
+      { id: '1', type: 'transfer', amount: 5000, date: '2026-01-01', accountId: 'bank', toAccountId: 'people', person: 'Ravi', createdAt: '' },
+      { id: '2', type: 'transfer', amount: 1500, date: '2026-01-02', accountId: 'people', toAccountId: 'bank', person: 'Anu', createdAt: '' },
+    ];
+    const nw = computeNetWorth(accounts, computeBalances(accounts, txns), personBalances(txns));
+    expect(nw.assets).toBe(6500 + 5000);
+    expect(nw.liabilities).toBe(1500);
+    expect(nw.net).toBe(10000);
+    expect(txnSign(txns[0])).toBe(-1);
+    expect(txnSign(txns[1])).toBe(1);
   });
 });

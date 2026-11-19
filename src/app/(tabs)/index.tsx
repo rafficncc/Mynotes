@@ -3,11 +3,14 @@ import { t } from '../../i18n';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ScoreRing } from '../../components/charts';
+import { TxnRow } from '../../components/TxnRow';
 import { Button, Card, Icon, InsightCard, ListItem, ProgressBar, Row, Screen, SectionTitle, Stat, styles } from '../../components/ui';
 import { expenses, inMonth, incomes, projectMonth, sum } from '../../logic/analytics';
 import { computeNetWorth } from '../../logic/balances';
+import { personBalances } from '../../logic/money2';
+import { BalanceList } from '../../components/BalanceList';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
-import { formatDate, formatShortDate } from '../../logic/dates';
+import { formatShortDate } from '../../logic/dates';
 import { generateInsights, healthScore, noSplurgeStreak, totalPotentialSaving } from '../../logic/insights';
 import { useStore } from '../../store/useStore';
 import { useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
@@ -29,6 +32,7 @@ export default function Home() {
     const budgeted = new Set(data.budgets.map((b) => b.categoryId));
     const budgetSpent = sum(expenses(month).filter((t) => budgeted.has(t.categoryId ?? '')));
     const insights = generateInsights(data, on);
+    const people = personBalances(data.transactions);
     const cards = data.accounts.filter((a) => isCreditCardConfigured(a) && !a.archived);
     return {
       spent,
@@ -36,7 +40,8 @@ export default function Home() {
       projected: projectMonth(month, data.categories, on, startDay),
       budgetTotal,
       budgetSpent,
-      net: computeNetWorth(data.accounts, balances),
+      net: computeNetWorth(data.accounts, balances, people),
+      people,
       insights,
       potential: totalPotentialSaving(insights),
       health: healthScore(data, on),
@@ -51,8 +56,6 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, balances, key, startDay]);
 
-  const cat = (id?: string) => data.categories.find((c) => c.id === id);
-  const acc = (id?: string) => data.accounts.find((a) => a.id === id);
 
   return (
     <Screen>
@@ -80,11 +83,13 @@ export default function Home() {
             <ProgressBar value={view.budgetSpent / view.budgetTotal} color="#fff" />
           </>
         ) : null}
+        <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="See all account balances">
         <Row style={{ marginTop: 8 }}>
           <Stat label={t('Income')} value={compact(view.earned)} color="#fff" labelColor="#ffffffcc" />
           <Stat label={t('Net worth')} value={compact(view.net.net)} color="#fff" labelColor="#ffffffcc" />
           <Stat label={t('Cash & bank')} value={compact(view.net.liquid)} color="#fff" labelColor="#ffffffcc" />
         </Row>
+        </Pressable>
       </Card>
 
       <Row style={{ gap: 8 }}>
@@ -161,25 +166,13 @@ export default function Home() {
         <Card><Text style={styles.itemSub}>Add a few transactions and suggestions will appear here.</Text></Card>
       ) : null}
 
+      <SectionTitle title={t('Balances')} action="Manage" onAction={() => router.push('/accounts')} />
+      <BalanceList accounts={data.accounts} balances={balances} nw={view.net} people={view.people} money={money} />
+
       <SectionTitle title={t('Recent')} action="See all" onAction={() => router.push('/transactions')} />
       <Card>
         {view.recent.length === 0 ? <Text style={styles.itemSub}>No transactions yet. Tap “Expense” to add your first one.</Text> : null}
-        {view.recent.map((t) => {
-          const c = cat(t.categoryId);
-          const isTransfer = t.type === 'transfer';
-          return (
-            <ListItem
-              key={t.id}
-              icon={isTransfer ? 'swap-horizontal' : c?.icon ?? 'pricetag-outline'}
-              iconColor={isTransfer ? colors.info : c?.color}
-              title={isTransfer ? `${acc(t.accountId)?.name} → ${acc(t.toAccountId)?.name}` : t.merchant || c?.name || 'Transaction'}
-              subtitle={`${formatDate(t.date)} · ${acc(t.accountId)?.name ?? ''}`}
-              right={`${t.type === 'expense' ? '-' : t.type === 'income' ? '+' : ''}${money(t.amount)}`}
-              rightColor={t.type === 'income' ? colors.success : undefined}
-              onPress={() => router.push(`/add?id=${t.id}`)}
-            />
-          );
-        })}
+        {view.recent.map((t) => <TxnRow key={t.id} t={t} accounts={data.accounts} categories={data.categories} money={money} />)}
       </Card>
     </Screen>
   );
