@@ -197,7 +197,7 @@ You need this to sell Premium. Have ready:
 - Product ID: **`familyfin_premium_lifetime`** (must match exactly)
 - Name: `FamilyFin Premium (Lifetime)`
 - Description: `Unlimited accounts and cards, forever. One-time payment.`
-- Price: **₹2,500.** Use "Update exchange rates" or set local prices (e.g. AED 105, SAR 109, USD 28.99, which is what the in-app Premium screen shows).
+- Price: **₹2,500.** Use "Update exchange rates" or set local prices (e.g. AED 109, SAR 109, USD 28.99, which is what the in-app Premium screen shows).
 - Status: **Active**
 
 Then **Settings → License testing**: add your Gmail and your testers' Gmail addresses so test purchases are free.
