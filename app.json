@@ -3,7 +3,7 @@
     "name": "FamilyFin",
     "slug": "familyfin",
     "scheme": "familyfin",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -18,13 +18,13 @@
     "android": {
       "package": "com.familyfin.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0B6E4F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 3,
+      "versionCode": 4,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -72,9 +72,9 @@
     ],
     "extra": {
       "google": {
-        "androidClientId": "",
+        "androidClientId": "735673334181-930sk0mp8mspqi2kikuo5b8autf0hidl.apps.googleusercontent.com",
         "iosClientId": "",
-        "webClientId": ""
+        "webClientId": "735673334181-c5ephpm3vutle2ea1db8nedgid4scib4.apps.googleusercontent.com"
       }
     }
   }
