@@ -1,7 +1,7 @@
 import { ask } from './Dialog';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { formatDate, toISODate } from '../logic/dates';
 import {
@@ -24,25 +24,28 @@ WebBrowser.maybeCompleteAuthSession();
 function GoogleSignInButton({ title, onSignedIn }: { title: string; onSignedIn?: () => void }) {
   const setGoogle = useStore((s) => s.setGoogle);
   const [busy, setBusy] = useState(false);
-  const [request, , promptAsync] = Google.useAuthRequest({ ...googleIds, scopes: GOOGLE_SCOPES, selectAccount: true });
+  // On Android, Google returns a code first; the library swaps it for a token and only then fills `response`.
+  const [request, response, promptAsync] = Google.useAuthRequest({ ...googleIds, scopes: GOOGLE_SCOPES, selectAccount: true });
 
-  const signIn = async () => {
-    const result = await promptAsync();
-    if (result.type !== 'success' || !result.authentication?.accessToken) return;
-    setBusy(true);
-    try {
-      const g = await fetchGoogleProfile(result.authentication.accessToken, result.authentication.expiresIn);
-      const prev = useStore.getState().google;
-      setGoogle({ ...g, lastBackup: prev?.email === g.email ? prev.lastBackup : undefined });
-      onSignedIn?.();
-    } catch (e) {
-      ask('Google sign-in failed', (e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
+  useEffect(() => {
+    if (response?.type === 'error') ask('Google sign-in failed', response.error?.message ?? 'Please try again.');
+    const auth = response?.type === 'success' ? response.authentication : null;
+    if (!auth?.accessToken) return;
+    Promise.resolve()
+      .then(() => {
+        setBusy(true);
+        return fetchGoogleProfile(auth.accessToken, auth.expiresIn);
+      })
+      .then((g) => {
+        const prev = useStore.getState().google;
+        setGoogle({ ...g, lastBackup: prev?.email === g.email ? prev.lastBackup : undefined });
+        onSignedIn?.();
+      })
+      .catch((e: Error) => ask('Google sign-in failed', e.message))
+      .finally(() => setBusy(false));
+  }, [response]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return busy ? <ActivityIndicator color={colors.primary} /> : <Button title={title} icon="logo-google" disabled={!request} onPress={signIn} />;
+  return busy ? <ActivityIndicator color={colors.primary} /> : <Button title={title} icon="logo-google" disabled={!request} onPress={() => promptAsync()} />;
 }
 
 export function GoogleConnectButton({ title = 'Continue with Google', onSignedIn }: { title?: string; onSignedIn?: () => void }) {
