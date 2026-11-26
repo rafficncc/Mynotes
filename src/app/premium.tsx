@@ -3,7 +3,8 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ask } from '../components/Dialog';
-import { Button, Card, Icon, Row, Screen, styles } from '../components/ui';
+import { Button, Card, Field, Icon, Row, Screen, styles } from '../components/ui';
+import * as Crypto from 'expo-crypto';
 import { FREE_PER_CATEGORY, LIMIT_CATEGORIES, limitUsage, premiumPrice } from '../logic/region';
 import { FREE_MONTHLY } from '../logic/premium';
 import { buyPremium, ownedPlan, storePrices, type Plan, type StorePrices } from '../services/purchases';
@@ -21,6 +22,8 @@ const PERKS: [string, string, string][] = [
 ];
 
 /** Test builds can unlock Premium without paying; app.config.js turns this off for production (store) builds. */
+const DEV_CODE_HASH = '0c5d20d6c9bc7136f6df2d40d48127ac8fdafdb4b12903132f7074f91ea025a7';
+
 const allowTestUnlock = Constants.expoConfig?.extra?.allowTestUnlock !== false;
 
 export default function Premium() {
@@ -30,12 +33,29 @@ export default function Premium() {
   const [prices, setPrices] = useState<StorePrices | null>(null);
   const [plan, setPlan] = useState<Plan>('yearly');
   const [busy, setBusy] = useState(false);
+  const [taps, setTaps] = useState(0);
+  const [devCode, setDevCode] = useState('');
+
+  // Only the SHA-256 of the code ships in the app, so the code can't be read from it.
+  // shortcut: a determined person could patch the app to skip this; fine for a developer unlock.
+  const devUnlock = async () => {
+    const hash = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `familyfin-dev:${devCode.trim().toUpperCase()}`);
+    if (hash !== DEV_CODE_HASH) return ask('Wrong code');
+    updateSettings({ premium: true, premiumPlan: undefined });
+    ask('Premium unlocked', 'Developer access is on for this phone.');
+    router.back();
+  };
   useEffect(() => {
     storePrices().then(setPrices);
   }, []);
 
   // Google Play's price in the buyer's own currency; an estimate only where the store isn't available.
-  const label = (p: Plan) => (p === 'yearly' ? prices?.yearly : prices?.lifetime) ?? `≈ ${premiumPrice(settings.currencyCode, p).label}`;
+  const label = (p: Plan) => {
+    const store = p === 'yearly' ? prices?.yearly : prices?.lifetime;
+    if (store) return store;
+    // Store reachable but this product isn't live in Play yet
+    return prices ? 'Coming soon' : `≈ ${premiumPrice(settings.currencyCode, p).label}`;
+  };
 
   const unlock = (p: Plan) => {
     updateSettings({ premium: true, premiumPlan: p });
@@ -43,6 +63,9 @@ export default function Premium() {
   };
 
   const buy = async () => {
+    if (prices && !(plan === 'yearly' ? prices.yearly : prices.lifetime)) {
+      return ask('This plan isn’t available yet', 'It will appear once it is active on Google Play. Please choose the other plan or try again later.');
+    }
     setBusy(true);
     const result = await buyPremium(plan);
     setBusy(false);
@@ -59,7 +82,7 @@ export default function Premium() {
         allowTestUnlock ? [{ text: 'Cancel', style: 'cancel' }, { text: 'Unlock for testing', onPress: () => unlock(plan) }] : undefined,
       );
     }
-    ask('Purchase failed', result);
+    ask('Purchase failed', /query the product/i.test(result) ? 'Google Play couldn’t find this plan. Please try again later.' : result);
   };
 
   const restore = async () => {
@@ -83,9 +106,16 @@ export default function Premium() {
   return (
     <Screen>
       <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-        <View style={{ backgroundColor: colors.accent, padding: 14, borderRadius: 20 }}>
+        {/* Tapping the icon 7 times opens the developer code box. */}
+        <Pressable onPress={() => setTaps((n) => n + 1)} accessible={false} style={{ backgroundColor: colors.accent, padding: 14, borderRadius: 20 }}>
           <Icon name="diamond" size={34} color="#fff" />
-        </View>
+        </Pressable>
+        {taps >= 7 && !settings.premium ? (
+          <Row style={{ alignSelf: 'stretch' }}>
+            <View style={{ flex: 1 }}><Field label="" value={devCode} onChangeText={setDevCode} placeholder="Developer code" autoCapitalize="characters" /></View>
+            <Button title="Unlock" variant="secondary" onPress={devUnlock} />
+          </Row>
+        ) : null}
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text }}>FamilyFin Premium</Text>
         <Text style={[styles.itemSub, { fontSize: 14 }]}>One plan covers your whole family on this phone</Text>
       </View>
