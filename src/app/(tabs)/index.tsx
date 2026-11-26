@@ -8,6 +8,8 @@ import { Button, Card, Icon, InsightCard, ListItem, ProgressBar, Row, Screen, Se
 import { expenses, inMonth, incomes, projectMonth, sum } from '../../logic/analytics';
 import { computeNetWorth } from '../../logic/balances';
 import { personBalances } from '../../logic/money2';
+import { savingsThisYear } from '../../logic/savings';
+import { ask } from '../../components/Dialog';
 import { BalanceList } from '../../components/BalanceList';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
 import { formatShortDate } from '../../logic/dates';
@@ -42,6 +44,7 @@ export default function Home() {
       budgetSpent,
       net: computeNetWorth(data.accounts, balances, people),
       people,
+      saved: savingsThisYear(data, on),
       insights,
       potential: totalPotentialSaving(insights),
       health: healthScore(data, on),
@@ -91,6 +94,28 @@ export default function Home() {
         </Row>
         </Pressable>
       </Card>
+
+      {view.saved.total > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            ask(
+              `FamilyFin saved your family ${money(view.saved.total)} this year`,
+              `• Card rewards & cashback: ${money(view.saved.rewards)}\n• Interest kept by paying with cards on interest-free days: ${money(view.saved.cardFloat)}\n• Left unspent in your budgets: ${money(view.saved.underBudget)}\n\nWorked out from your own entries since 1 January.`,
+            )
+          }
+        >
+          <Card style={{ backgroundColor: colors.successSoft, padding: 12 }}>
+            <Row>
+              <Text style={{ fontSize: 26 }}>💰</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.itemTitle, { color: colors.success }]}>FamilyFin saved your family {money(view.saved.total)} this year</Text>
+                <Text style={styles.hint}>Tap to see how</Text>
+              </View>
+            </Row>
+          </Card>
+        </Pressable>
+      ) : null}
 
       <Row style={{ gap: 8 }}>
         <View style={{ flex: 1 }}><Button title={t('Expense')} icon="remove-circle-outline" onPress={() => router.push('/add?type=expense')} /></View>

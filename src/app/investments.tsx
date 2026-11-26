@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -9,7 +10,7 @@ import { useAppData, useBalances, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
-export default function Investments() {
+function Investments() {
   const data = useAppData();
   const balances = useBalances();
   const updateAccount = useStore((s) => s.updateAccount);
@@ -97,3 +98,5 @@ export default function Investments() {
     </Screen>
   );
 }
+
+export default premiumOnly(Investments, 'Investments & gold', 'Track fixed deposits, SIPs and gold, with automatic SIP entries.');

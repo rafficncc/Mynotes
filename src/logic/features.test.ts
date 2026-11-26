@@ -114,9 +114,11 @@ describe('actions & reminders on demo data', () => {
 
 describe('region & premium', () => {
   it('prices premium per currency', () => {
-    expect(premiumPrice('INR').amount).toBe(2500);
-    expect(premiumPrice('USD').label).toBe('$28.99');
-    expect(premiumPrice('AED').amount).toBe(109);
+    expect(premiumPrice('INR').amount).toBe(1999);
+    expect(premiumPrice('INR', 'yearly').amount).toBe(499);
+    expect(premiumPrice('USD').label).toBe('$22.99');
+    expect(premiumPrice('AED').amount).toBe(84.99);
+    expect(premiumPrice('AED', 'yearly').amount).toBe(21.99);
     expect(nicePrice(4650)).toBe(4699);
   });
 
@@ -169,5 +171,17 @@ describe('free plan limits', async () => {
     expect(accountLimitReached([a('l', 'loan'), a('p', 'property'), a('o', 'other')], 'loan', false)).toBe(true);
     expect(accountLimitReached([a('c1', 'credit_card'), a('c2', 'credit_card'), a('c3', 'credit_card')], 'credit_card', false)).toBe(true);
     expect(accountLimitReached(three, 'bank', true)).toBe(false);
+  });
+});
+
+describe('free monthly uses', async () => {
+  const { countUse, usesLeft, FREE_MONTHLY } = await import('./premium');
+  it('counts scans per month and resets next month', () => {
+    const nov = new Date(2026, 10, 20);
+    let u = countUse(undefined, 'scans', nov);
+    u = countUse(u, 'scans', nov);
+    expect(usesLeft(u, 'scans', nov)).toBe(FREE_MONTHLY - 2);
+    expect(usesLeft(u, 'voice', nov)).toBe(FREE_MONTHLY);
+    expect(usesLeft(u, 'scans', new Date(2026, 11, 1))).toBe(FREE_MONTHLY);
   });
 });

@@ -71,7 +71,7 @@ export default function AccountForm() {
       name: name.trim(),
       type,
       openingBalance: owed ? -Math.abs(amt) : amt,
-      interestRate: type === 'loan' || type === 'deposit' ? parseFloat(interest) || undefined : undefined,
+      interestRate: type === 'loan' || type === 'deposit' || isCard ? parseFloat(interest) || undefined : undefined,
       maturityDate: type === 'deposit' ? maturityDate || undefined : undefined,
       maturityAmount: type === 'deposit' ? parseFloat(maturityAmount) || undefined : undefined,
       sipAmount: type === 'investment' ? parseFloat(sipAmount) || undefined : undefined,
@@ -189,6 +189,7 @@ export default function AccountForm() {
               <Field label="Reward rate %" value={reward} onChangeText={setReward} keyboardType="decimal-pad" placeholder="e.g. 1.5" />
             </View>
           </Row>
+          <Field label="Interest % per year (if a balance is carried)" value={interest} onChangeText={setInterest} keyboardType="decimal-pad" placeholder="e.g. 42" hint="Printed on your card statement. Used by the debt payoff planner." />
           {preview ? <Text style={[styles.insightText, { color: colors.success }]}>{preview}</Text> : null}
           <Row style={{ alignItems: 'flex-start' }}>
             <View style={{ flex: 1 }}><Field label="Reward points balance" value={points} onChangeText={setPoints} keyboardType="number-pad" /></View>

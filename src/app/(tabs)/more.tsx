@@ -2,6 +2,8 @@ import { router, type Href } from 'expo-router';
 import { Card, ListItem, Screen, SectionTitle } from '../../components/ui';
 import { t } from '../../i18n';
 import { colors } from '../../theme';
+import { PREMIUM_ROUTES } from '../../logic/premium';
+import { useStore } from '../../store/useStore';
 
 type Item = { icon: string; title: string; subtitle: string; href: Href; color: string };
 
@@ -22,6 +24,7 @@ const groups = (): [string, Item[]][] => [
       { icon: 'paper-plane-outline', title: t('Money sent home'), subtitle: 'Remittances, rates and fees', href: '/remittance', color: colors.info },
       { icon: 'flag-outline', title: t('Events & trips'), subtitle: 'Budget for a wedding, trip or festival', href: '/events', color: colors.accent },
       { icon: 'trending-up-outline', title: t('Investments'), subtitle: 'Fixed deposits, SIPs, gold', href: '/investments', color: colors.success },
+      { icon: 'trending-down-outline', title: t('Debt payoff planner'), subtitle: 'Which debt to clear first, debt-free date', href: '/debts', color: colors.danger },
       { icon: 'calculator-outline', title: t('Loan prepayment'), subtitle: 'How much interest a prepayment saves', href: '/prepay', color: colors.warning },
     ],
   ],
@@ -60,20 +63,21 @@ const groups = (): [string, Item[]][] => [
       { icon: 'finger-print-outline', title: t('Security & privacy'), subtitle: 'App lock, hide amounts', href: '/security', color: colors.text },
       { icon: 'pricetags-outline', title: t('Categories'), subtitle: 'Add your own spending categories', href: '/categories', color: '#AD1457' },
       { icon: 'trash-outline', title: t('Recycle bin'), subtitle: 'Restore deleted transactions', href: '/trash', color: colors.muted },
-      { icon: 'diamond-outline', title: t('Premium'), subtitle: 'Unlimited accounts & cards – one-time payment', href: '/premium', color: colors.accent },
+      { icon: 'diamond-outline', title: t('Premium'), subtitle: 'Yearly or lifetime · 7-day free trial', href: '/premium', color: colors.accent },
       { icon: 'settings-outline', title: t('Settings & export'), subtitle: 'Cycle, currency, language, theme, reminders, backup', href: '/settings', color: colors.muted },
     ],
   ],
 ];
 
 export default function More() {
+  const premium = useStore((st) => st.settings.premium);
   return (
     <Screen>
       {groups().map(([title, items]) => (
         <Card key={title} style={{ gap: 0 }}>
           <SectionTitle title={title} />
           {items.map((i) => (
-            <ListItem key={i.href as string} icon={i.icon} iconColor={i.color} title={i.title} subtitle={i.subtitle} onPress={() => router.push(i.href)} />
+            <ListItem key={i.href as string} icon={i.icon} iconColor={i.color} title={!premium && PREMIUM_ROUTES.includes(i.href as string) ? `${i.title}  👑` : i.title} subtitle={i.subtitle} onPress={() => router.push(i.href)} />
           ))}
         </Card>
       ))}

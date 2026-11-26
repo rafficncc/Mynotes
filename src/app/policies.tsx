@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -23,7 +24,7 @@ const TYPES: { key: PolicyType; label: string; icon: string }[] = [
 ];
 const FREQS: Frequency[] = ['monthly', 'quarterly', 'half_yearly', 'yearly', 'once'];
 
-export default function Policies() {
+function Policies() {
   const data = useAppData();
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
@@ -147,3 +148,5 @@ export default function Policies() {
     </Screen>
   );
 }
+
+export default premiumOnly(Policies, 'Insurance policies', 'Premiums, cover, nominees and renewal reminders in one place.');

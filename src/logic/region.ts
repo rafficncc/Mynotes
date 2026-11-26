@@ -51,7 +51,8 @@ export function currencyInfo(code: string | undefined): CurrencyInfo {
 
 /* ------------------------------ Premium pricing ------------------------------ */
 
-export const PREMIUM_PRICE_INR = 2500;
+/** Premium prices in India. Elsewhere Google Play sets local prices; this is only the offline estimate. */
+export const PREMIUM_PRICES_INR = { lifetime: 1999, yearly: 499 };
 /** Free plan: up to 3 accounts in each of these categories. */
 export const FREE_PER_CATEGORY = 3;
 export type LimitCategory = 'savings' | 'credit' | 'investment' | 'other';
@@ -88,9 +89,10 @@ export function nicePrice(v: number): number {
   return Math.round(v / step) * step - 1;
 }
 
-export function premiumPrice(code: string): { amount: number; label: string } {
+export function premiumPrice(code: string, plan: keyof typeof PREMIUM_PRICES_INR = 'lifetime'): { amount: number; label: string } {
   const c = currencyInfo(code);
-  const amount = c.code === 'INR' ? PREMIUM_PRICE_INR : nicePrice(PREMIUM_PRICE_INR * c.perInr);
+  const inr = PREMIUM_PRICES_INR[plan];
+  const amount = c.code === 'INR' ? inr : nicePrice(inr * c.perInr);
   const decimals = amount % 1 === 0 ? 0 : 2;
   return { amount, label: `${c.symbol}${amount.toLocaleString(c.locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}` };
 }

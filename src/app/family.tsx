@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { ask } from '../components/Dialog';
 import { useMemo, useState } from 'react';
 import { Share, Text, TextInput, View } from 'react-native';
@@ -10,7 +11,7 @@ import { useAppData, useCycle, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
-export default function Family() {
+function Family() {
   const data = useAppData();
   const cycle = useCycle();
   const { addMember, updateMember, deleteMember, setGroup, importFamilySpends, updateSettings } = useStore();
@@ -186,3 +187,5 @@ export default function Family() {
     </Screen>
   );
 }
+
+export default premiumOnly(Family, 'Family group & allowances', 'Give each member an allowance and let everyone log their spending from their own phone.');

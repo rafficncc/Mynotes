@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { router } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -14,7 +15,7 @@ import { colors } from '../theme';
 
 type Preset = 'cycle' | 'last_cycle' | 'year' | 'last_year' | 'custom';
 
-export default function Reports() {
+function Reports() {
   const data = useAppData();
   const { money, compact } = useMoney();
   const { width } = useWindowDimensions();
@@ -136,3 +137,5 @@ export default function Reports() {
     </Screen>
   );
 }
+
+export default premiumOnly(Reports, 'Reports', 'Any date range, month vs month, and share as PDF.');

@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import * as Sharing from 'expo-sharing';
 import { useRef, useState, type ComponentRef } from 'react';
 import { Platform, Share, Text, View } from 'react-native';
@@ -6,18 +7,21 @@ import { ask } from '../components/Dialog';
 import { Button, Chip, ChipRow, Icon, Screen } from '../components/ui';
 import { formatDate, monthLabel } from '../logic/dates';
 import { yearReview } from '../logic/reports';
+import { savingsThisYear } from '../logic/savings';
 import { useAppData, useMoney } from '../store/hooks';
 import { colors } from '../theme';
 
-export default function Year() {
+function Year() {
   const data = useAppData();
   const { money } = useMoney();
   const now = new Date();
   const [year, setYear] = useState(now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear());
   const r = yearReview(data, year, now);
+  const meter = savingsThisYear(data, year < now.getFullYear() ? new Date(year, 11, 31) : now);
   const card = useRef<ComponentRef<typeof View>>(null);
 
   const lines: [string, string, string][] = [
+    ...(meter.total > 0 ? [['sparkles-outline', 'FamilyFin saved your family', money(meter.total)] as [string, string, string]] : []),
     ['wallet-outline', 'Spent', money(r.spent)],
     ['trending-up-outline', 'Saved', `${money(Math.max(0, r.saved))} (${r.savingsRate}% of income)`],
     ['flame-outline', 'No-splurge days', `${r.noSpendDays} days`],
@@ -33,7 +37,7 @@ export default function Year() {
         const uri = await captureRef(card, { format: 'png', quality: 1 });
         return await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your year' });
       }
-      await Share.share({ message: `Our ${year} with FamilyFin: saved ${r.savingsRate}% of income and had ${r.noSpendDays} no-splurge days! 💚` });
+      await Share.share({ message: `Our ${year} with FamilyFin: ${meter.total > 0 ? `FamilyFin saved us ${money(meter.total)}, ` : ''}saved ${r.savingsRate}% of income and had ${r.noSpendDays} no-splurge days! 💚` });
     } catch {
       ask('Could not share', 'Please try again.');
     }
@@ -67,3 +71,5 @@ export default function Year() {
     </Screen>
   );
 }
+
+export default premiumOnly(Year, 'Year in review', 'Your family’s year in one card, including how much FamilyFin saved you.');

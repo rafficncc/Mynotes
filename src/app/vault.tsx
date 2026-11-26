@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { useState } from 'react';
 import { t } from '../i18n';
 import { Share, Text, View } from 'react-native';
@@ -17,7 +18,7 @@ const SECTIONS: { key: VaultSection; label: string; icon: string; hint: string }
   { key: 'other', label: 'Other', icon: 'folder-outline', hint: 'Anything else the family should know' },
 ];
 
-export default function Vault() {
+function Vault() {
   const data = useAppData();
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
@@ -109,3 +110,5 @@ export default function Vault() {
     </Screen>
   );
 }
+
+export default premiumOnly(Vault, 'Money Vault', 'Keep accounts, nominees and emergency contacts ready, so your family knows what to do if something happens to you.');

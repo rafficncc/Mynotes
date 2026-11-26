@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
@@ -14,7 +15,7 @@ import { colors } from '../theme';
 
 const HOME_CURRENCIES = ['INR', 'PKR', 'BDT', 'LKR', 'NPR', 'PHP', 'EGP', 'KES', 'NGN'];
 
-export default function Remittance() {
+function Remittance() {
   const data = useAppData();
   const addTransaction = useStore((s) => s.addTransaction);
   const { money } = useMoney();
@@ -126,3 +127,5 @@ export default function Remittance() {
     </Screen>
   );
 }
+
+export default premiumOnly(Remittance, 'Money sent home', 'Track remittances, exchange rates and fees.');

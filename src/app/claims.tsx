@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { HBars } from '../components/charts';
@@ -20,7 +21,7 @@ const STATUS: { key: ClaimStatus; label: string; color: string }[] = [
   { key: 'rejected', label: 'Rejected', color: colors.danger },
 ];
 
-export default function Claims() {
+function Claims() {
   const data = useAppData();
   const { saveItem, deleteItem, addTransaction, deleteTransaction, updateTransaction } = useStore();
   const { money } = useMoney();
@@ -168,3 +169,5 @@ export default function Claims() {
     </Screen>
   );
 }
+
+export default premiumOnly(Claims, 'Medical claims', 'Track claims and medical spending for each family member.');

@@ -1,3 +1,4 @@
+import { FreeUsesLeft, takeFreeUse } from '../components/PremiumGate';
 import { getLocales } from 'expo-localization';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -19,6 +20,7 @@ export default function Voice() {
   const [error, setError] = useState('');
 
   const go = (said: string) => {
+    if (!takeFreeUse('voice')) return;
     const e = parseSpoken(said, accounts, transactions);
     const q = new URLSearchParams({ type: e.type, voice: '1' });
     if (e.amount) q.set('amount', String(e.amount));
@@ -71,6 +73,7 @@ export default function Voice() {
 
   return (
     <Screen>
+      <FreeUsesLeft kind="voice" />
       <Card style={{ alignItems: 'center', gap: 12, paddingVertical: 28 }}>
         <Pressable
           onPress={listen}

@@ -1,14 +1,16 @@
 import { ask } from '../components/Dialog';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, Share, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { pickTextFile, shareTextFile } from '../services/files';
+import type { AppData } from '../logic/types';
 import { PinPad } from '../components/LockScreen';
 import { pinLength } from '../services/appLock';
 import { GoogleBackupPanel } from '../components/GoogleBackup';
 import { Button, Card, Chip, ChipRow, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { transactionsToCsv } from '../logic/csv';
 import { cycleLabel, currentCycleKey } from '../logic/dates';
-import { CURRENCIES, currencyInfo, premiumPrice } from '../logic/region';
+import { CURRENCIES, currencyInfo } from '../logic/region';
 import { notificationsSupported, requestReminderPermission, syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
@@ -21,7 +23,7 @@ const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 export default function Settings() {
   const data = useAppData();
   const { money } = useMoney();
-  const { updateSettings, loadDemo, resetAll } = useStore();
+  const { updateSettings, loadDemo, resetAll, replaceAll } = useStore();
   const [query, setQuery] = useState('');
   const [showAll, setShowAll] = useState(false);
   const s = data.settings;
@@ -62,12 +64,34 @@ export default function Settings() {
     return showAll || q ? list : list.slice(0, 8);
   }, [query, showAll]);
 
-  const share = async (title: string, message: string) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const shareFile = async (name: string, text: string, mime: string) => {
     try {
-      await Share.share({ title, message });
+      await shareTextFile(name, text, mime);
     } catch {
-      ask('Could not open the share sheet');
+      ask('Could not share the file');
     }
+  };
+
+  const restoreFromFile = async () => {
+    let text: string | null;
+    try {
+      text = await pickTextFile();
+    } catch {
+      return ask('Could not open the file');
+    }
+    if (!text) return;
+    let backup: AppData & { savedAt?: string };
+    try {
+      backup = JSON.parse(text);
+    } catch {
+      return ask('Not a FamilyFin backup', 'Choose the .json file made with “Share backup file”.');
+    }
+    if (!Array.isArray(backup?.accounts) || !Array.isArray(backup?.transactions)) return ask('Not a FamilyFin backup', 'Choose the .json file made with “Share backup file”.');
+    ask('Restore this backup?', `${backup.transactions.length} transactions${backup.savedAt ? ` from ${backup.savedAt.slice(0, 10)}` : ''}. Everything on this phone will be replaced.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Restore', style: 'destructive', onPress: () => { replaceAll({ ...backup, google: data.google }); router.replace('/'); } },
+    ]);
   };
 
   const toggleReminders = async (on: boolean) => {
@@ -204,7 +228,7 @@ export default function Settings() {
 
       <SectionTitle title={t('More')} />
       <Card>
-        <ListItem icon="diamond-outline" iconColor={colors.accent} title={s.premium ? 'Premium – active' : 'FamilyFin Premium'} subtitle={s.premium ? 'Thank you!' : `Lifetime · ${premiumPrice(s.currencyCode).label}`} onPress={() => router.push('/premium')} />
+        <ListItem icon="diamond-outline" iconColor={colors.accent} title={s.premium ? 'Premium – active' : 'FamilyFin Premium'} subtitle={s.premium ? 'Thank you!' : 'Yearly or lifetime plan'} onPress={() => router.push('/premium')} />
         <ListItem icon="pricetags-outline" title={t('Categories')} subtitle="Add your own categories" onPress={() => router.push('/categories')} />
         <Row>
           <View style={{ flex: 1 }}>
@@ -220,8 +244,13 @@ export default function Settings() {
         <Text style={styles.itemSub}>
           {data.transactions.length} transactions · {data.accounts.length} accounts. Stored on this phone{data.google?.lastBackup ? ' and in your Google Drive backup' : ''}.
         </Text>
-        <Button title="Export transactions (CSV)" variant="secondary" icon="download-outline" onPress={() => share('FamilyFin transactions', transactionsToCsv(data))} />
-        <Button title="Share backup file (JSON)" variant="secondary" icon="share-outline" onPress={() => share('FamilyFin backup', JSON.stringify({ ...data, google: undefined }))} />
+        <Button title="Export transactions (CSV)" variant="secondary" icon="download-outline" onPress={() => shareFile(`familyfin-transactions-${today}.csv`, transactionsToCsv(data), 'text/csv')} />
+        <Text style={styles.hint}>Opens in Excel or Google Sheets. Good for tax time or your accountant.</Text>
+        <Button title="Share backup file (JSON)" variant="secondary" icon="share-outline" onPress={() => shareFile(`familyfin-backup-${today}.json`, JSON.stringify({ ...data, google: undefined, app: 'FamilyFin', savedAt: new Date().toISOString() }), 'application/json')} />
+        <Button title="Restore from backup file" variant="secondary" icon="folder-open-outline" onPress={restoreFromFile} />
+        <Text style={styles.hint}>
+          The backup file is a full copy of everything in FamilyFin. Keep it on Drive, email or WhatsApp. To move to a new phone without Google sign-in, install FamilyFin there and tap “Restore from backup file”.
+        </Text>
         <Button title="Load demo data" variant="secondary" icon="play-outline" onPress={() => withPin('demo')} />
         <Button title="Erase all data" variant="danger" icon="trash-outline" onPress={() => withPin('erase')} />
         <Text style={styles.hint}>Both replace everything in the app, so they ask for your app PIN.</Text>
@@ -232,7 +261,7 @@ export default function Settings() {
           <Button title="Cancel" variant="secondary" onPress={() => setPinFor(null)} />
         </View>
       </Modal>
-      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.2</Text>
+      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.3</Text>
     </Screen>
   );
 }

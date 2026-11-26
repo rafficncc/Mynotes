@@ -1,3 +1,4 @@
+import { ownedPlan } from '../services/purchases';
 import * as QuickActions from 'expo-quick-actions';
 import { t } from '../i18n';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
@@ -30,6 +31,12 @@ function StartupTasks() {
       { id: 'scan', title: t('Scan a bill'), icon: Platform.OS === 'ios' ? 'symbol:doc.viewfinder' : null, params: { href: '/scan' } },
       { id: 'add', title: 'Add expense', icon: Platform.OS === 'ios' ? 'add' : null, params: { href: '/add?type=expense' } },
     ]).catch(() => undefined);
+    // Yearly plans end when not renewed; a reinstall gets Premium back from the store.
+    ownedPlan().then((owned) => {
+      const st = useStore.getState();
+      if (owned === 'none' && st.settings.premiumPlan === 'yearly') st.updateSettings({ premium: false, premiumPlan: undefined });
+      else if ((owned === 'lifetime' || owned === 'yearly') && !st.settings.premium) st.updateSettings({ premium: true, premiumPlan: owned });
+    });
     const cutoff = Date.now() - 30 * 86400000;
     useStore.getState().trash.filter((t) => new Date(t.deletedAt ?? 0).getTime() < cutoff).forEach((t) => deletePhoto(t.photoUri));
     useStore.getState().purgeTrash();
@@ -102,6 +109,7 @@ const screens: [string, string, boolean?][] = [
   ['claims', t('Medical claims')],
   ['vault', t('Money vault')],
   ['prepay', t('Loan prepayment')],
+  ['debts', t('Debt payoff planner')],
   ['reports', t('Reports')],
   ['year', t('Year in review')],
   ['challenges', t('Challenges & badges')],

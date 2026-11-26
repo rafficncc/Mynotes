@@ -339,6 +339,10 @@ export interface Settings {
   /** If the user always pays card bills in full, using credit cards is "free float" and the app can recommend it. */
   payCardsInFull: boolean;
   onboarded: boolean;
+  /** How Premium was bought: a yearly plan is re-checked with the store, lifetime is kept. */
+  premiumPlan?: 'lifetime' | 'yearly';
+  /** Free-plan monthly counters for scans and voice entries. */
+  usage?: { month: string; scans: number; voice: number };
 }
 
 export interface AppData {

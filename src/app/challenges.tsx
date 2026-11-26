@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ask } from '../components/Dialog';
@@ -16,7 +17,7 @@ const NEW: { type: ChallengeType; label: string; icon: string; hint: string }[] 
   { type: 'save_target', label: 'Save an amount this month', icon: 'cash-outline', hint: 'Income minus spending over the next month.' },
 ];
 
-export default function Challenges() {
+function Challenges() {
   const data = useAppData();
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
@@ -129,3 +130,5 @@ export default function Challenges() {
     </Screen>
   );
 }
+
+export default premiumOnly(Challenges, 'Challenges & badges', 'No-spend weekends, the 52-week challenge and streaks for the family.');

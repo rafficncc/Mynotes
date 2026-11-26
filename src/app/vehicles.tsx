@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -11,7 +12,7 @@ import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
-export default function Vehicles() {
+function Vehicles() {
   const data = useAppData();
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
@@ -103,3 +104,5 @@ export default function Vehicles() {
     </Screen>
   );
 }
+
+export default premiumOnly(Vehicles, 'Vehicles', 'Fuel mileage, service, insurance and PUC reminders.');

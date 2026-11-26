@@ -1,3 +1,4 @@
+import { FreeUsesLeft, takeFreeUse } from '../components/PremiumGate';
 import { router } from 'expo-router';
 import { t } from '../i18n';
 import { useState } from 'react';
@@ -22,6 +23,7 @@ export default function Scan() {
   const [error, setError] = useState<string | null>(null);
 
   const run = async (source: ScanSource) => {
+    if (!takeFreeUse('scans')) return;
     setError(null);
     setBusy(true);
     try {
@@ -42,6 +44,7 @@ export default function Scan() {
 
   return (
     <Screen>
+      <FreeUsesLeft kind="scans" />
       <Card style={{ alignItems: 'center', gap: 10, paddingVertical: 24 }}>
         <View style={{ backgroundColor: colors.primarySoft, padding: 16, borderRadius: 40 }}>
           <Icon name="scan-outline" size={40} color={colors.primary} />

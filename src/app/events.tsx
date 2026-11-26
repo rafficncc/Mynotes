@@ -1,3 +1,4 @@
+import { premiumOnly } from '../components/PremiumGate';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { HBars } from '../components/charts';
@@ -20,7 +21,7 @@ const KINDS: { key: EventBudget['kind']; label: string; icon: string }[] = [
   { key: 'other', label: 'Other', icon: 'flag-outline' },
 ];
 
-export default function Events() {
+function Events() {
   const data = useAppData();
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
@@ -126,3 +127,5 @@ export default function Events() {
     </Screen>
   );
 }
+
+export default premiumOnly(Events, 'Events & trips', 'Set a budget for a wedding, trip or festival and track every spend.');
