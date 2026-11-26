@@ -64,7 +64,7 @@ export default function Premium() {
 
   const buy = async () => {
     if (prices && !(plan === 'yearly' ? prices.yearly : prices.lifetime)) {
-      return ask('This plan isn’t available yet', 'It will appear once it is active on Google Play. Please choose the other plan or try again later.');
+      return ask('This plan isn’t available yet', 'This plan isn’t on sale in your country yet. Please choose the other plan or try again later.');
     }
     setBusy(true);
     const result = await buyPremium(plan);

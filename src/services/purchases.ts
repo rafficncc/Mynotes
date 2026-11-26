@@ -54,7 +54,8 @@ export async function storePrices(): Promise<StorePrices | null> {
     const year = (subs as { displayPrice: string; subscriptionOffers?: Offer[] }[] | null)?.[0];
     const offers = (year?.subscriptionOffers ?? []).filter((o) => o.offerTokenAndroid);
     yearlyOffer = offers.find((o) => o.paymentMode === 'free-trial') ?? offers[0];
-    return { lifetime: life?.displayPrice, yearly: year?.displayPrice, trial: yearlyOffer?.paymentMode === 'free-trial' };
+    // A subscription with no active base plan for this country comes back with no offers and a blank price.
+    return { lifetime: life?.displayPrice || undefined, yearly: offers.length ? year?.displayPrice || undefined : undefined, trial: yearlyOffer?.paymentMode === 'free-trial' };
   } catch {
     return null;
   }
