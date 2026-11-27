@@ -1,6 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { AreaChart, BarChart, DonutChart, Gauge } from '../../components/charts';
 import { ask } from '../../components/Dialog';
 import { Card, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
@@ -87,7 +88,18 @@ export default function Home() {
 
       {/* Net worth and how it grew */}
       <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
-        <Card style={{ backgroundColor: colors.primary, gap: 4, overflow: 'hidden' }}>
+        <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden' }}>
+          {/* indigo → emerald background */}
+          <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="nwbg" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#1B1F5E" />
+                <Stop offset="0.55" stopColor="#0E4D64" />
+                <Stop offset="1" stopColor="#0B6E4F" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#nwbg)" />
+          </Svg>
           {/* soft circles for depth */}
           <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
           <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0d', bottom: -60, left: -40 }} />
@@ -104,20 +116,22 @@ export default function Home() {
           </Row>
           <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.net.net)}</Text>
           {view.netChange !== null ? (
-            <View style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>
+            <View style={{ alignSelf: 'flex-start', backgroundColor: '#F5B84133', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+              <Text style={{ color: '#FFD978', fontWeight: '700', fontSize: 12 }}>
                 {view.netChange >= 0 ? '↑' : '↓'} {Math.abs(view.netChange)}% vs last month
               </Text>
             </View>
           ) : null}
-          <AreaChart values={view.history.map((h) => h.net)} labels={view.history.map((h) => h.label.slice(0, 3))} width={chartW} height={96} light />
+          <View>
+            <AreaChart values={view.history.map((h) => h.net)} labels={view.history.map((h) => h.label.slice(0, 3))} width={chartW} height={100} light lineColor="#FFD978" />
+          </View>
           {/* What we own vs what we owe */}
           <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#ffffff33', marginTop: 4 }}>
-            <View style={{ flex: Math.max(view.net.assets, 1), backgroundColor: '#fff' }} />
-            <View style={{ flex: view.net.liabilities, backgroundColor: '#FFB4A2' }} />
+            <View style={{ flex: Math.max(view.net.assets, 1), backgroundColor: '#7EE3B5' }} />
+            <View style={{ flex: view.net.liabilities, backgroundColor: '#FF9E8A' }} />
           </View>
           <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={{ color: '#ffffffdd', fontSize: 12 }}>● Own {compact(view.net.assets)}   <Text style={{ color: '#FFB4A2' }}>●</Text> Owe {compact(view.net.liabilities)}</Text>
+            <Text style={{ color: '#ffffffdd', fontSize: 12 }}><Text style={{ color: '#7EE3B5' }}>●</Text> Own {compact(view.net.assets)}   <Text style={{ color: '#FF9E8A' }}>●</Text> Owe {compact(view.net.liabilities)}</Text>
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>All balances ›</Text>
           </Row>
         </Card>

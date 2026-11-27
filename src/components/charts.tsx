@@ -217,10 +217,10 @@ function smoothPath(pts: { x: number; y: number }[]): string {
 }
 
 /** Smooth line with a fading fill, e.g. net worth growth. `light` draws white for coloured backgrounds. */
-export function AreaChart({ values, labels, width, height = 90, color = colors.primary, light }: { values: number[]; labels?: string[]; width: number; height?: number; color?: string; light?: boolean }) {
+export function AreaChart({ values, labels, width, height = 90, color = colors.primary, light, lineColor }: { values: number[]; labels?: string[]; width: number; height?: number; color?: string; light?: boolean; lineColor?: string }) {
   const id = useId().replace(/:/g, '');
   if (values.length < 2) return null;
-  const stroke = light ? '#fff' : color;
+  const stroke = lineColor ?? (light ? '#fff' : color);
   const pad = 8;
   const labelH = labels ? 16 : 0;
   const h = height - labelH;
@@ -248,7 +248,7 @@ export function AreaChart({ values, labels, width, height = 90, color = colors.p
       <Path d={line} stroke={stroke} strokeWidth={labels ? 3 : 2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       {/* Today: a soft glow around the latest point */}
       <Circle cx={last.x} cy={last.y} r={labels ? 9 : 6} fill={stroke} opacity={0.25} />
-      <Circle cx={last.x} cy={last.y} r={labels ? 4.5 : 3} fill={light ? colors.primary : '#fff'} stroke={stroke} strokeWidth={2} />
+      <Circle cx={last.x} cy={last.y} r={labels ? 4.5 : 3} fill={light ? '#1B1F5E' : '#fff'} stroke={stroke} strokeWidth={2} />
       {labels?.map((l, i) => (
         <SvgText key={l + i} x={i === 0 ? 0 : i === labels.length - 1 ? width : x(i)} y={height - 3} fontSize={10} fill={light ? '#ffffffcc' : colors.muted} textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}>
           {l}
