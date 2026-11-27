@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { Calendar } from '../../components/DateField';
@@ -16,7 +16,14 @@ export default function Transactions() {
   const [month, setMonth] = useState(cycle.key);
   const [calendar, setCalendar] = useState(false);
   const [day, setDay] = useState('');
-  const [type, setType] = useState<TxnType | 'all'>('all');
+  const params = useLocalSearchParams<{ type?: TxnType }>();
+  const [type, setType] = useState<TxnType | 'all'>(params.type ?? 'all');
+  // Opened again from a Home tile with another filter: follow it (tabs stay mounted).
+  const [lastParam, setLastParam] = useState(params.type);
+  if (params.type !== lastParam) {
+    setLastParam(params.type);
+    if (params.type) setType(params.type);
+  }
   const [accountId, setAccountId] = useState<string>('');
   const [query, setQuery] = useState('');
 

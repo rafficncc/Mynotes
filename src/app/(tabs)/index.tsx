@@ -67,10 +67,10 @@ export default function Home() {
   }, [data, balances, key, startDay]);
 
   const tiles: { label: string; value: number; pct: number | null; icon: string; bg: string; fg: string; good: 'up' | 'down'; href: Href; trend: number[] }[] = [
-    { label: t('Income'), value: view.earned, pct: view.changes.income, icon: 'wallet-outline', bg: colors.successSoft, fg: colors.success, good: 'up', href: '/transactions', trend: view.months.map((m) => m.income) },
-    { label: t('Expenses'), value: view.spent, pct: view.changes.spent, icon: 'cart-outline', bg: colors.dangerSoft, fg: colors.danger, good: 'down', href: '/transactions', trend: view.months.map((m) => m.expense) },
-    { label: 'Savings', value: view.savings, pct: view.changes.savings, icon: 'leaf-outline', bg: colors.infoSoft, fg: colors.info, good: 'up', href: '/reports', trend: view.months.map((m) => m.income - m.expense) },
-    { label: 'Debt', value: view.net.liabilities, pct: view.changes.debt, icon: 'trending-down-outline', bg: colors.warningSoft, fg: colors.warning, good: 'down', href: '/debts', trend: view.history.map((h) => h.liabilities) },
+    { label: t('Income'), value: view.earned, pct: view.changes.income, icon: 'wallet-outline', bg: colors.successSoft, fg: colors.success, good: 'up', href: '/transactions?type=income', trend: view.months.map((m) => m.income) },
+    { label: t('Expenses'), value: view.spent, pct: view.changes.spent, icon: 'cart-outline', bg: colors.dangerSoft, fg: colors.danger, good: 'down', href: '/transactions?type=expense', trend: view.months.map((m) => m.expense) },
+    { label: 'Savings', value: view.savings, pct: view.changes.savings, icon: 'leaf-outline', bg: colors.infoSoft, fg: colors.info, good: 'up', href: '/goals', trend: view.months.map((m) => m.income - m.expense) },
+    { label: 'Debt', value: view.net.liabilities, pct: view.changes.debt, icon: 'trending-down-outline', bg: colors.warningSoft, fg: colors.warning, good: 'down', href: data.settings.premium ? '/debts' : '/accounts', trend: view.history.map((h) => h.liabilities) },
   ];
   const tileChartW = Math.floor((Math.min(width, 760) - 42) / 2) - 24;
   const budgetPct = view.budgetTotal ? Math.round((view.budgetSpent / view.budgetTotal) * 100) : 0;
