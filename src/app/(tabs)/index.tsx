@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { AreaChart, BarChart, DonutChart } from '../../components/charts';
 import { ask } from '../../components/Dialog';
@@ -28,6 +28,7 @@ export default function Home() {
   const chartW = Math.min(width, 760) - 64;
   const on = new Date();
   const { key, startDay, label: cycleText, progress } = useCycle();
+  const [chart, setChart] = useState<'flow' | 'spend'>('flow');
 
   const view = useMemo(() => {
     const month = inMonth(data.transactions, key, startDay);
@@ -105,6 +106,21 @@ export default function Home() {
         </Card>
       </Pressable>
 
+      {view.saved.total > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() =>
+            ask(
+              `FamilyFin saved your family ${money(view.saved.total)} this year`,
+              `• Card rewards & cashback: ${money(view.saved.rewards)}\n• Interest kept by paying with cards on interest-free days: ${money(view.saved.cardFloat)}\n• Left unspent in your budgets: ${money(view.saved.underBudget)}\n\nWorked out from your own entries since 1 January.`,
+            )
+          }
+          style={{ backgroundColor: colors.successSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}
+        >
+          <Text style={{ color: colors.success, fontWeight: '700', fontSize: 13 }}>💰 FamilyFin saved you {money(view.saved.total)} this year ›</Text>
+        </Pressable>
+      ) : null}
+
       {/* Quick add */}
       <Row style={{ justifyContent: 'space-between' }}>
         {(
@@ -126,9 +142,7 @@ export default function Home() {
       </Row>
 
       {/* This cycle at a glance */}
-      <Text style={styles.hint}>
-        {cycleText} · {progress.left} days left
-      </Text>
+      <SectionTitle title={`${cycleText} · ${progress.left} days left`} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {tiles.map((x) => {
           const good = x.pct === null ? null : x.good === 'up' ? x.pct >= 0 : x.pct <= 0;
@@ -190,48 +204,43 @@ export default function Home() {
         </Card>
       ) : null}
 
-      <SectionTitle title="Income vs expenses" action="Reports" onAction={() => router.push('/reports')} />
-      <Card>
-        <BarChart
-          labels={view.months.map((m) => monthLabel(m.key).slice(0, 3))}
-          series={[
-            { name: t('Income'), color: colors.success, values: view.months.map((m) => m.income) },
-            { name: t('Expenses'), color: colors.danger, values: view.months.map((m) => m.expense) },
-            { name: 'Savings', color: colors.info, values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
-          ]}
-          width={chartW}
-          height={170}
-          format={compact}
-        />
+      <Card style={{ gap: 10 }}>
+        <Row>
+          {(
+            [
+              ['flow', 'Income vs expenses'],
+              ['spend', 'Spending'],
+            ] as const
+          ).map(([k, label]) => (
+            <Pressable
+              key={k}
+              onPress={() => setChart(k)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: chart === k }}
+              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: chart === k ? colors.primary : colors.bg }}
+            >
+              <Text style={{ fontWeight: '700', fontSize: 13, color: chart === k ? '#fff' : colors.text }}>{label}</Text>
+            </Pressable>
+          ))}
+        </Row>
+        {chart === 'flow' ? (
+          <BarChart
+            labels={view.months.map((m) => monthLabel(m.key).slice(0, 3))}
+            series={[
+              { name: t('Income'), color: colors.success, values: view.months.map((m) => m.income) },
+              { name: t('Expenses'), color: colors.danger, values: view.months.map((m) => m.expense) },
+              { name: 'Savings', color: colors.info, values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
+            ]}
+            width={chartW}
+            height={160}
+            format={compact}
+          />
+        ) : view.byCat.length ? (
+          <DonutChart data={view.byCat} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} />
+        ) : (
+          <Text style={styles.hint}>No spending yet this cycle.</Text>
+        )}
       </Card>
-
-      {view.byCat.length ? (
-        <>
-          <SectionTitle title="Where the money went" action="Insights" onAction={() => router.push('/insights')} />
-          <Card>
-            <DonutChart data={view.byCat} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} />
-          </Card>
-        </>
-      ) : null}
-
-      {view.saved.total > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            ask(
-              `FamilyFin saved your family ${money(view.saved.total)} this year`,
-              `• Card rewards & cashback: ${money(view.saved.rewards)}\n• Interest kept by paying with cards on interest-free days: ${money(view.saved.cardFloat)}\n• Left unspent in your budgets: ${money(view.saved.underBudget)}\n\nWorked out from your own entries since 1 January.`,
-            )
-          }
-        >
-          <Card style={{ backgroundColor: colors.successSoft, padding: 12 }}>
-            <Row>
-              <Text style={{ fontSize: 24 }}>💰</Text>
-              <Text style={[styles.itemTitle, { color: colors.success, flex: 1 }]}>FamilyFin saved your family {money(view.saved.total)} this year</Text>
-            </Row>
-          </Card>
-        </Pressable>
-      ) : null}
     </Screen>
   );
 }
