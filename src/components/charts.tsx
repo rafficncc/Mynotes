@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useId } from 'react';
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { Slice } from '../logic/analytics';
@@ -18,12 +18,18 @@ export function DonutChart({
   centerValue,
   format,
   maxSlices = 6,
+  selected,
+  onSelect,
 }: {
   data: Slice[];
   centerLabel: string;
   centerValue: string;
   format: (n: number) => string;
   maxSlices?: number;
+  /** Key of the highlighted slice ('_rest' = Others). */
+  selected?: string | null;
+  /** Makes slices and legend rows tappable; `keys` are the categories in that slice (several for Others). */
+  onSelect?: (key: string, keys: string[]) => void;
 }) {
   const size = 170;
   const stroke = 26;
@@ -32,6 +38,9 @@ export function DonutChart({
   const shown = data.slice(0, maxSlices);
   const rest = data.slice(maxSlices).reduce((s, d) => s + d.value, 0);
   const slices = rest > 0 ? [...shown, { key: '_rest', label: 'Others', value: rest, color: '#B0BEC5' }] : shown;
+  const keysOf = (k: string) => (k === '_rest' ? data.slice(maxSlices).map((d) => d.key) : [k]);
+  const pick = onSelect ? (k: string) => onSelect(k, keysOf(k)) : undefined;
+  const dim = (k: string) => (selected && selected !== k ? 0.25 : 1);
 
   let angle = -Math.PI / 2;
   const gap = slices.length > 1 ? 0.02 : 0;
@@ -47,9 +56,19 @@ export function DonutChart({
               const end = angle + Math.max(sweep - gap / 2, start - angle + 0.001);
               angle += sweep;
               if (sweep >= Math.PI * 2 - 0.0001) {
-                return <Circle key={s.key} cx={size / 2} cy={size / 2} r={r} stroke={s.color} strokeWidth={stroke} fill="none" />;
+                return <Circle key={s.key} cx={size / 2} cy={size / 2} r={r} stroke={s.color} strokeWidth={stroke} fill="none" opacity={dim(s.key)} onPress={pick && (() => pick(s.key))} />;
               }
-              return <Path key={s.key} d={arcPath(size / 2, size / 2, r, start, end)} stroke={s.color} strokeWidth={stroke} fill="none" />;
+              return (
+                <Path
+                  key={s.key}
+                  d={arcPath(size / 2, size / 2, r, start, end)}
+                  stroke={s.color}
+                  strokeWidth={selected === s.key ? stroke + 6 : stroke}
+                  fill="none"
+                  opacity={dim(s.key)}
+                  onPress={pick && (() => pick(s.key))}
+                />
+              );
             })}
         </Svg>
         <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
@@ -59,15 +78,22 @@ export function DonutChart({
       </View>
       <View style={{ flex: 1, gap: 6 }}>
         {slices.map((s) => (
-          <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Pressable
+            key={s.key}
+            disabled={!pick}
+            onPress={pick && (() => pick(s.key))}
+            accessibilityRole={pick ? 'button' : undefined}
+            accessibilityState={pick ? { selected: selected === s.key } : undefined}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: dim(s.key), paddingVertical: pick ? 2 : 0 }}
+          >
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }} />
-            <Text style={{ flex: 1, fontSize: 12, color: colors.text }} numberOfLines={1}>
+            <Text style={{ flex: 1, fontSize: 12, color: colors.text, fontWeight: selected === s.key ? '800' : '400' }} numberOfLines={1}>
               {s.label}
             </Text>
             <Text style={{ fontSize: 12, color: colors.muted }}>
               {total > 0 ? Math.round((s.value / total) * 100) : 0}%
             </Text>
-          </View>
+          </Pressable>
         ))}
         {slices.length === 0 ? <Text style={{ color: colors.muted, fontSize: 12 }}>No spending yet</Text> : null}
         {total > 0 ? <Text style={{ fontSize: 11, color: colors.muted }}>Total {format(total)}</Text> : null}

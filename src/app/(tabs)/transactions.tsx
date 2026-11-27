@@ -39,7 +39,7 @@ export default function Transactions() {
   const cat = (id?: string) => data.categories.find((c) => c.id === id);
   const acc = (id?: string) => data.accounts.find((a) => a.id === id);
 
-  const list = useMemo(() => {
+  const base = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.transactions
       .filter((t) => (day ? t.date === day : range ? t.date >= range[0] && t.date <= range[1] : cycleKeyOf(t.date, cycle.startDay) === month))
@@ -65,11 +65,16 @@ export default function Transactions() {
   }, [data.transactions]);
 
   // Spending by category for whatever is shown: the cycle (or day), account and search
-  const byCat = useMemo(() => spendByCategory(list, data.categories), [list, data.categories]);
+  const byCat = useMemo(() => spendByCategory(base, data.categories), [base, data.categories]);
   const [showChart, setShowChart] = useState(true);
+  // Tapping a chart slice lists only that category (several categories for "Others").
+  const [picked, setPicked] = useState<{ key: string; keys: string[] } | null>(null);
+  const active = picked && (picked.key === '_rest' || byCat.some((c) => c.key === picked.key)) ? picked : null;
+  const list = active ? base.filter((t) => t.type === 'expense' && active.keys.includes(t.categoryId ?? 'other')) : base;
+  const pickedLabel = active ? (active.key === '_rest' ? 'Others' : byCat.find((c) => c.key === active.key)?.label) : null;
 
-  const totalOut = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const totalIn = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalOut = base.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const totalIn = base.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -148,7 +153,27 @@ export default function Transactions() {
                 <Text style={styles.itemTitle}>Where the money went</Text>
                 <Text style={{ color: colors.primary, fontWeight: '700' }}>{showChart ? 'Hide' : 'Show'}</Text>
               </Pressable>
-              {showChart ? <DonutChart data={byCat} centerLabel="Spent" centerValue={compact(totalOut)} format={money} maxSlices={5} /> : null}
+              {showChart ? (
+                <DonutChart
+                  data={byCat}
+                  centerLabel="Spent"
+                  centerValue={compact(totalOut)}
+                  format={money}
+                  maxSlices={5}
+                  selected={active?.key}
+                  onSelect={(key, keys) => setPicked(active?.key === key ? null : { key, keys })}
+                />
+              ) : null}
+              {active ? (
+                <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.primarySoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 }}>
+                  <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                    Showing {pickedLabel}: {list.length} · {money(list.reduce((s, t) => s + t.amount, 0))}
+                  </Text>
+                  <Text style={{ color: colors.primary, fontWeight: '700' }}>Clear ✕</Text>
+                </Pressable>
+              ) : showChart ? (
+                <Text style={[styles.hint, { marginTop: 6 }]}>Tap a category to see only its transactions.</Text>
+              ) : null}
             </Card>
           ) : undefined
         }
