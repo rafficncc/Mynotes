@@ -1,13 +1,58 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { BarChart, HBars } from '../../components/charts';
+import { inMonth } from '../../logic/analytics';
 import { TipCard } from '../../components/TipCard';
 import { Button, Card, Chip, ChipRow, Empty, Field, Icon, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import { cardCycleInfo, goldenWindow, isCreditCardConfigured, recommendCards } from '../../logic/creditCard';
 import { addDays, formatShortDate, toISODate } from '../../logic/dates';
 import { estimatedRewards } from '../../logic/trackers';
-import { useAppData, useBalances, useMoney } from '../../store/hooks';
+import { useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
+
+/** Each card gets its own look, like a real card. */
+const CARD_LOOKS: [string, string][] = [
+  ['#1B1F5E', '#0B6E4F'],
+  ['#5B247A', '#1BCEDF'],
+  ['#3A1C71', '#D76D77'],
+  ['#0F2027', '#2C5364'],
+  ['#C33764', '#1D2671'],
+  ['#134E5E', '#71B280'],
+];
+
+/** Small ring for use on a coloured card. */
+function MiniRing({ value, size = 46 }: { value: number; size?: number }) {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, value));
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#ffffff40" strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={v > 0.3 ? '#FFD978' : '#7EE3B5'} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeDasharray={`${c * v} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      </Svg>
+      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{Math.round(value * 100)}%</Text>
+    </View>
+  );
+}
+
+/** Gradient background filling its parent. */
+function GradientBg({ id, from, to }: { id: string; from: string; to: string }) {
+  return (
+    <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
+      <Defs>
+        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor={from} />
+          <Stop offset="1" stopColor={to} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+    </Svg>
+  );
+}
 
 const WHEN = [
   { label: 'Today', days: 0 },
@@ -19,7 +64,10 @@ const WHEN = [
 export default function SmartCard() {
   const data = useAppData();
   const balances = useBalances();
-  const { money } = useMoney();
+  const { money, compact } = useMoney();
+  const { width } = useWindowDimensions();
+  const chartW = Math.min(width, 760) - 64;
+  const cycle = useCycle();
   const [amount, setAmount] = useState('');
   const [whenDays, setWhenDays] = useState(0);
   const on = new Date();
@@ -35,6 +83,17 @@ export default function SmartCard() {
     () => cards.map((c) => cardCycleInfo(c, data.transactions, balances[c.id] ?? 0, on, data.emis)),
     [cards, data.transactions, balances], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Totals across all cards, and this cycle's spending on each card
+  const totals = useMemo(() => {
+    const outstanding = infos.reduce((s, i) => s + i.outstanding, 0);
+    const due = infos.reduce((s, i) => s + i.amountDue, 0);
+    const limit = infos.reduce((s, i) => s + (i.account.creditLimit ?? 0), 0);
+    const available = infos.reduce((s, i) => s + (i.available ?? 0), 0);
+    const cycleTxns = inMonth(data.transactions, cycle.key, cycle.startDay);
+    const spend = allCards.map((c, idx) => ({ label: c.name, value: Math.round(cycleTxns.filter((t) => t.type === 'expense' && t.accountId === c.id).reduce((s2, t) => s2 + t.amount, 0)), color: CARD_LOOKS[idx % CARD_LOOKS.length][1] }));
+    return { outstanding, due, limit, available, util: limit ? outstanding / limit : null, spend };
+  }, [infos, data.transactions, cycle.key, cycle.startDay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (allCards.length === 0) {
     return (
@@ -61,6 +120,19 @@ export default function SmartCard() {
           'Always pay the full bill by the due date to keep it interest-free.',
         ]}
       />
+      <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+        <GradientBg id="cardsum" from="#1B1F5E" to="#0B6E4F" />
+        <Row style={{ padding: 16, gap: 16 }}>
+          {totals.util !== null ? <MiniRing value={totals.util} size={84} /> : null}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: '#ffffffaa', fontSize: 12 }}>Total on {allCards.length} card{allCards.length === 1 ? '' : 's'}</Text>
+            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>{money(totals.outstanding)}</Text>
+            <Text style={{ color: '#FFD978', fontSize: 13, fontWeight: '700' }}>{totals.due > 0 ? `${money(totals.due)} due soon` : 'No bills due'}</Text>
+            {totals.limit ? <Text style={{ color: '#ffffffcc', fontSize: 12 }}>{compact(totals.available)} available of {compact(totals.limit)} · keep use under 30%</Text> : null}
+          </View>
+        </Row>
+      </View>
+
       <Card>
         <Text style={styles.itemTitle}>Which card should I use?</Text>
         <Row style={{ alignItems: 'flex-end' }}>
@@ -115,19 +187,42 @@ export default function SmartCard() {
 
       <SectionTitle title="Your cards" action="Add card" onAction={() => router.push('/account-form?type=credit_card')} />
       {infos.map((info) => {
+        const look = CARD_LOOKS[allCards.findIndex((c) => c.id === info.account.id) % CARD_LOOKS.length];
         const gw = goldenWindow(info.account, on);
         const earned = estimatedRewards(info.account, data.transactions, toISODate(info.lastStatement));
         const pointsWorth = (info.account.rewardPoints ?? 0) * (info.account.pointValue ?? 0);
         const overdue = info.amountDue > 0 && info.daysToDue < 0;
         return (
           <Card key={info.account.id}>
+            {/* The card itself */}
+            <Pressable onPress={() => router.push(`/account-form?id=${info.account.id}`)} accessibilityRole="button" accessibilityLabel={`Edit ${info.account.name}`} style={{ borderRadius: 18, overflow: 'hidden', aspectRatio: 1.75 }}>
+              <GradientBg id={`cg${info.account.id}`} from={look[0]} to={look[1]} />
+              <View style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: '#ffffff14', top: -60, right: -50 }} />
+              <View style={{ flex: 1, padding: 16, justifyContent: 'space-between' }}>
+                <Row style={{ justifyContent: 'space-between' }}>
+                  <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }} numberOfLines={1}>{info.account.name}</Text>
+                  <Icon name="wifi" color="#ffffffcc" size={20} />
+                </Row>
+                <View style={{ width: 38, height: 28, borderRadius: 6, backgroundColor: '#FFD978cc' }} />
+                <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <View>
+                    <Text style={{ color: '#ffffffaa', fontSize: 11 }}>{overdue ? 'Overdue' : 'Amount due'}</Text>
+                    <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>{money(info.amountDue)}</Text>
+                    <Text style={{ color: overdue ? '#FF9E8A' : '#ffffffcc', fontSize: 11, fontWeight: '600' }}>
+                      {info.amountDue > 0 ? (overdue ? `was due ${formatShortDate(info.dueDate)}` : `pay by ${formatShortDate(info.dueDate)}`) : 'All paid ✓'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'center', gap: 2 }}>
+                    {info.utilization !== null ? <MiniRing value={info.utilization} /> : null}
+                    <Text style={{ color: '#ffffffaa', fontSize: 10 }}>limit used</Text>
+                  </View>
+                </Row>
+              </View>
+            </Pressable>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={styles.sectionTitle}>{info.account.name}</Text>
+              <Text style={styles.itemSub}>Bill day {info.account.billingDay} · due day {info.account.dueDay}</Text>
               <Chip label="Edit" icon="create-outline" onPress={() => router.push(`/account-form?id=${info.account.id}`)} />
             </Row>
-            <Text style={styles.itemSub}>
-              Bill generated on day {info.account.billingDay} · due on day {info.account.dueDay}
-            </Text>
             <Row style={{ marginTop: 6 }}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.statLabel}>{overdue ? 'Overdue' : 'Amount due'}</Text>
@@ -181,6 +276,25 @@ export default function SmartCard() {
           </Card>
         );
       })}
+
+      {totals.spend.some((x) => x.value > 0) ? (
+        <>
+          <SectionTitle title="Spending by card · this cycle" />
+          <Card>
+            <HBars rows={totals.spend.filter((x) => x.value > 0).sort((a, b) => b.value - a.value)} format={money} />
+          </Card>
+        </>
+      ) : null}
+
+      {infos.length > 1 ? (
+        <>
+          <SectionTitle title="Interest-free days if you swipe today" />
+          <Card>
+            <BarChart labels={infos.map((i) => i.account.name.split(' ')[0])} series={[{ name: 'Days', color: colors.success, values: infos.map((i) => i.freeDaysToday) }]} width={chartW} height={150} format={(n) => `${Math.round(n)}d`} />
+            <Text style={styles.hint}>Taller bar = more days before you have to pay.</Text>
+          </Card>
+        </>
+      ) : null}
     </Screen>
   );
 }
