@@ -88,8 +88,8 @@ function Vault() {
       setSharing(false);
       setPassword('');
       toast('Family file shared. Tell them the password separately.');
-    } catch {
-      ask('Could not create the file', 'Please try again.');
+    } catch (e) {
+      ask('Could not create the file', `Please try again.\n\n(${(e as Error).message})`);
     }
   };
 

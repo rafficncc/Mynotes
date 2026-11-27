@@ -1,4 +1,5 @@
 import { PDFDocument } from '@cantoo/pdf-lib';
+import { getRandomValues } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -10,6 +11,9 @@ import { Platform } from 'react-native';
  */
 export async function shareLockedPdf(html: string, password: string, name = 'FamilyFin-Family-File.pdf'): Promise<boolean> {
   if (Platform.OS === 'web') return false;
+  // PDF encryption needs secure random bytes; Hermes has no Web Crypto, so lend it Expo's.
+  const g = globalThis as { crypto?: { getRandomValues?: unknown } };
+  if (typeof g.crypto?.getRandomValues !== 'function') g.crypto = { ...g.crypto, getRandomValues };
   const { uri } = await Print.printToFileAsync({ html });
   const printed = new File(uri);
   const doc = await PDFDocument.load(await printed.bytes());
