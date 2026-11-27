@@ -48,6 +48,7 @@ export default function Transactions() {
     period === 'year' ? [`${thisYear}-01-01`, `${thisYear}-12-31`] : period === 'lastyear' ? [`${thisYear - 1}-01-01`, `${thisYear - 1}-12-31`] : period === 'custom' ? (from <= to ? [from, to] : [to, from]) : null;
   const [accountId, setAccountId] = useState<string>('');
   const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
 
   const cat = (id?: string) => data.categories.find((c) => c.id === id);
   const acc = (id?: string) => data.accounts.find((a) => a.id === id);
@@ -128,6 +129,18 @@ export default function Transactions() {
           </Pressable>
           {range ? null : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" size={20} /></Pressable>}
           <View style={{ flex: 1 }} />
+          <Pressable
+            hitSlop={8}
+            onPress={() => {
+              if (searching) setQuery('');
+              setSearching((v) => !v);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={searching ? 'Close search' : 'Search transactions'}
+            style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: searching || query ? colors.primary : colors.primarySoft }}
+          >
+            <Icon name={searching ? 'close' : 'search'} size={16} color={searching || query ? '#fff' : colors.primary} />
+          </Pressable>
           <Pressable onPress={() => setPeriodMenu((m) => !m)} accessibilityRole="button" accessibilityLabel="Choose period" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: periodMenu ? colors.primary : colors.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
             <Text style={{ fontSize: 12, fontWeight: '700', color: periodMenu ? '#fff' : colors.primary }}>{PERIODS.find(([k]) => k === period)![1]} ▾</Text>
           </Pressable>
@@ -189,7 +202,7 @@ export default function Transactions() {
             ))}
           </View>
         </View>
-        <TextInput value={query} onChangeText={setQuery} placeholder="Search shop, note, category…" placeholderTextColor={colors.muted} style={styles.input} />
+        {searching ? <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Search shop, note, category…" placeholderTextColor={colors.muted} style={styles.input} /> : null}
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -219,7 +232,7 @@ export default function Transactions() {
                 <Pressable onPress={() => setShowChart((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showChart }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Where the money went</Text>
-                    <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{byCat.length} categories · tap one to filter</Text>
+                    <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{byCat.length} categor{byCat.length === 1 ? 'y' : 'ies'} · tap one to filter</Text>
                   </View>
                   <View style={{ backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
                     <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{showChart ? 'Hide ▴' : 'Show ▾'}</Text>
@@ -267,7 +280,7 @@ export default function Transactions() {
                                 <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: '#ffffff1f', overflow: 'hidden' }}>
                                   <View style={{ width: `${Math.max(2, Math.round(pct * 100))}%`, height: '100%', borderRadius: 3, backgroundColor: c.color }} />
                                 </View>
-                                <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 28, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
+                                <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 34, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
                               </View>
                             </View>
                           </Pressable>
