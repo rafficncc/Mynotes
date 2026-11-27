@@ -11,6 +11,14 @@ import type { TxnType } from '../../logic/types';
 import { useAppData, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
 
+type Period = 'cycle' | 'year' | 'lastyear' | 'custom';
+const PERIODS: [Period, string][] = [
+  ['cycle', 'This cycle'],
+  ['year', 'This year'],
+  ['lastyear', 'Last year'],
+  ['custom', 'Custom dates'],
+];
+
 export default function Transactions() {
   const data = useAppData();
   const { money, compact } = useMoney();
@@ -27,7 +35,8 @@ export default function Transactions() {
     if (params.type) setType(params.type);
   }
   // Period shown: a spending cycle (with arrows), a calendar year, or any start–end dates.
-  const [period, setPeriod] = useState<'cycle' | 'year' | 'lastyear' | 'custom'>('cycle');
+  const [period, setPeriod] = useState<Period>('cycle');
+  const [periodMenu, setPeriodMenu] = useState(false);
   const thisYear = new Date().getFullYear();
   const [from, setFrom] = useState(`${thisYear}-01-01`);
   const [to, setTo] = useState(toISODate(new Date()));
@@ -89,17 +98,25 @@ export default function Transactions() {
           </Pressable>
           {range ? <View style={{ width: 24 }} /> : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>}
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          {(
-            [
-              ['cycle', 'Cycle'],
-              ['year', 'This year'],
-              ['lastyear', 'Last year'],
-              ['custom', 'Custom'],
-            ] as const
-          ).map(([k, label]) => (
-            <Chip key={k} label={label} selected={period === k} onPress={() => { setPeriod(k); setDay(''); }} />
-          ))}
+        {/* One small button; the period choices open only when needed */}
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Chip label={`${PERIODS.find(([k]) => k === period)![1]} ▾`} icon="time-outline" selected={periodMenu} onPress={() => setPeriodMenu((m) => !m)} />
+          {periodMenu ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+              {PERIODS.map(([k, label]) => (
+                <Chip
+                  key={k}
+                  label={label}
+                  selected={period === k}
+                  onPress={() => {
+                    setPeriod(k);
+                    setDay('');
+                    setPeriodMenu(false);
+                  }}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
         {period === 'custom' ? (
           <View style={{ flexDirection: 'row', gap: 8 }}>
