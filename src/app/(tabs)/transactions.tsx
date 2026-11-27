@@ -215,10 +215,10 @@ export default function Transactions() {
             <View style={{ marginBottom: 12, borderRadius: 20, overflow: 'hidden' }}>
               <GradientBg id="wherebg" />
               <View pointerEvents="none" style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: '#ffffff10', top: -80, right: -60 }} />
-              <View style={{ padding: 16, gap: 14 }}>
+              <View style={{ padding: 14, gap: 10 }}>
                 <Pressable onPress={() => setShowChart((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showChart }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>Where the money went</Text>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Where the money went</Text>
                     <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{byCat.length} categories · tap one to filter</Text>
                   </View>
                   <View style={{ backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
@@ -237,11 +237,11 @@ export default function Transactions() {
                         selected={active?.key}
                         onSelect={pickSlice}
                         light
-                        size={190}
+                        size={150}
                         legend={false}
                       />
                     </View>
-                    <View style={{ gap: 4 }}>
+                    <View style={{ gap: 0 }}>
                       {slices.map((c) => {
                         const on = active?.key === c.key;
                         const pct = totalOut > 0 ? c.value / totalOut : 0;
@@ -251,20 +251,20 @@ export default function Transactions() {
                             onPress={() => pickSlice(c.key, c.keys)}
                             accessibilityRole="button"
                             accessibilityState={{ selected: on }}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, backgroundColor: on ? '#ffffff26' : 'transparent', opacity: active && !on ? 0.5 : 1 }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10, backgroundColor: on ? '#ffffff26' : 'transparent', opacity: active && !on ? 0.5 : 1 }}
                           >
-                            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.color + '40', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.color }}>
-                              <Icon name={c.icon} size={16} color="#fff" />
+                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.color + '40', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.color }}>
+                              <Icon name={c.icon} size={14} color="#fff" />
                             </View>
-                            <View style={{ flex: 1, gap: 5 }}>
+                            <View style={{ flex: 1, gap: 3 }}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                                <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                                <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
                                   {c.label}
                                 </Text>
-                                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{money(c.value)}</Text>
+                                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{money(c.value)}</Text>
                               </View>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: '#ffffff1f', overflow: 'hidden' }}>
+                                <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: '#ffffff1f', overflow: 'hidden' }}>
                                   <View style={{ width: `${Math.max(2, Math.round(pct * 100))}%`, height: '100%', borderRadius: 3, backgroundColor: c.color }} />
                                 </View>
                                 <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 32, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
