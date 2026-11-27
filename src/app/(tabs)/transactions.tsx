@@ -83,6 +83,25 @@ export default function Transactions() {
   const list = active ? base.filter((t) => t.type === 'expense' && active.keys.includes(t.categoryId ?? 'other')) : base;
   const pickedLabel = active ? (active.key === '_rest' ? 'Others' : byCat.find((c) => c.key === active.key)?.label) : null;
 
+  // The list grouped by day: a heading with the day's spend, then that day's rows in one card.
+  type Item = { kind: 'day'; date: string; out: number } | { kind: 'txn'; t: (typeof list)[number]; first: boolean; last: boolean };
+  const items = useMemo(() => {
+    const out: Item[] = [];
+    list.forEach((t, i) => {
+      if (t.date !== list[i - 1]?.date) out.push({ kind: 'day', date: t.date, out: list.filter((x) => x.date === t.date && x.type === 'expense').reduce((s, x) => s + x.amount, 0) });
+      out.push({ kind: 'txn', t, first: t.date !== list[i - 1]?.date, last: t.date !== list[i + 1]?.date });
+    });
+    return out;
+  }, [list]);
+  const dayLabel = (iso: string) => {
+    const today = toISODate(new Date());
+    const yesterday = toISODate(new Date(Date.parse(today) - 86400000));
+    if (iso === today) return 'Today';
+    if (iso === yesterday) return 'Yesterday';
+    const d = new Date(`${iso}T00:00:00`);
+    return d.toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) });
+  };
+
   const totalOut = base.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const totalIn = base.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
 
@@ -188,8 +207,8 @@ export default function Transactions() {
         />
       </View>
       <FlatList
-        data={list}
-        keyExtractor={(t) => t.id}
+        data={items}
+        keyExtractor={(x) => (x.kind === 'day' ? `day-${x.date}` : x.t.id)}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         ListHeaderComponent={
           byCat.length ? (
@@ -223,7 +242,28 @@ export default function Transactions() {
           ) : undefined
         }
         ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this period and filter." />}
-        renderItem={({ item: t }) => <TxnRow t={t} accounts={data.accounts} categories={data.categories} members={data.members} money={money} detailed />}
+        renderItem={({ item: x }) =>
+          x.kind === 'day' ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: 14, paddingBottom: 6 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.muted }}>{dayLabel(x.date)}</Text>
+              {x.out ? <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted }}>−{money(x.out)}</Text> : null}
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: colors.card,
+                paddingHorizontal: 14,
+                borderTopLeftRadius: x.first ? 16 : 0,
+                borderTopRightRadius: x.first ? 16 : 0,
+                borderBottomLeftRadius: x.last ? 16 : 0,
+                borderBottomRightRadius: x.last ? 16 : 0,
+              }}
+            >
+              <TxnRow t={x.t} accounts={data.accounts} categories={data.categories} members={data.members} money={money} detailed hideDate />
+              {x.last ? null : <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 52 }} />}
+            </View>
+          )
+        }
       />
       <Pressable
         accessibilityRole="button"
