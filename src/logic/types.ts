@@ -341,6 +341,8 @@ export interface Settings {
   onboarded: boolean;
   /** How Premium was bought: a yearly plan is re-checked with the store, lifetime is kept. */
   premiumPlan?: 'lifetime' | 'yearly';
+  /** Hour of day (0–23) for bill and document reminders. Default 9. */
+  reminderHour?: number;
   /** Free-plan monthly counters for scans and voice entries. */
   usage?: { month: string; scans: number; voice: number };
 }

@@ -100,10 +100,11 @@ describe('actions & reminders on demo data', () => {
     expect(actions.some((a) => a.title.includes('Driving licence'))).toBe(false);
   });
 
-  it('schedules future reminders only', () => {
+  it('schedules reminders for today or later, never the past', () => {
     const rem = upcomingReminders(data, on);
     expect(rem.length).toBeGreaterThan(3);
-    for (const r of rem) expect(r.date.getTime()).toBeGreaterThan(on.getTime());
+    const startOfToday = new Date(on.getFullYear(), on.getMonth(), on.getDate()).getTime();
+    for (const r of rem) expect(r.date.getTime()).toBeGreaterThanOrEqual(startOfToday);
   });
 
   it('insights include member allowance and regional tips', () => {

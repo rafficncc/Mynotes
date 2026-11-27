@@ -215,19 +215,20 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
   const push = (id: string, what: string, due: Date, remind: number, amount?: number) => {
     const amt = amount ? ` – ${money(amount)}` : '';
     const remindOn = addDays(due, -remind);
-    if (remind > 0 && diffDays(remindOn, on) > 0) {
+    // Today counts too: a reminder set after the usual time still goes out (see notifications.ts).
+    if (remind > 0 && diffDays(remindOn, on) >= 0) {
       out.push({ id: `${id}-r`, title: `${what} due in ${remind} day${remind === 1 ? '' : 's'}`, body: `Due on ${toISODate(due)}${amt}`, date: remindOn });
     }
-    if (diffDays(due, on) > 0) out.push({ id: `${id}-d`, title: `${what} is due today`, body: `Pay today${amt} to avoid late fees.`, date: due });
+    if (diffDays(due, on) >= 0) out.push({ id: `${id}-d`, title: `${what} is due today`, body: `Pay today${amt} to avoid late fees.`, date: due });
   };
   for (const bill of [...data.bills, ...policyBills(data.policies)]) {
-    const occ = bill.frequency === 'once' ? (bill.lastPaid ? [] : [parseDate(bill.dueDate)]) : billOccurrences(bill, until).filter((d) => diffDays(d, on) > 0);
+    const occ = bill.frequency === 'once' ? (bill.lastPaid ? [] : [parseDate(bill.dueDate)]) : billOccurrences(bill, until).filter((d) => diffDays(d, on) >= 0);
     const next = nextBillDate(bill, on);
     for (const d of occ.slice(0, 3)) if (!next || diffDays(d, next) >= 0) push(`bill-${bill.id}-${toISODate(d)}`, bill.name, d, bill.remindDaysBefore, bill.amount);
   }
   for (const plan of data.emis) {
     if (plan.kind === 'card_emi' && plan.transactionId) continue;
-    for (const d of instalmentDates(plan).filter((x) => diffDays(x, on) > 0 && diffDays(x, until) <= 0).slice(0, 3)) {
+    for (const d of instalmentDates(plan).filter((x) => diffDays(x, on) >= 0 && diffDays(x, until) <= 0).slice(0, 3)) {
       push(`emi-${plan.id}-${toISODate(d)}`, `${plan.name} EMI`, d, plan.remindDaysBefore, plan.monthlyAmount);
     }
   }
@@ -247,14 +248,14 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
     if (!doc.expiryDate) continue;
     const exp = parseDate(doc.expiryDate);
     const remindOn = addDays(exp, -doc.remindDaysBefore);
-    if (diffDays(remindOn, on) > 0 && diffDays(remindOn, until) <= 0) {
+    if (diffDays(remindOn, on) >= 0 && diffDays(remindOn, until) <= 0) {
       out.push({ id: `doc-${doc.id}-r`, title: `${doc.name} expires in ${doc.remindDaysBefore} days`, body: `Expiry date ${doc.expiryDate}. Start the renewal now.`, date: remindOn });
     }
   }
   for (const t of data.transactions) {
     if (!t.warrantyUntil) continue;
     const remindOn = addDays(parseDate(t.warrantyUntil), -WARRANTY_REMIND_DAYS);
-    if (diffDays(remindOn, on) > 0 && diffDays(remindOn, until) <= 0) {
+    if (diffDays(remindOn, on) >= 0 && diffDays(remindOn, until) <= 0) {
       out.push({ id: `warranty-${t.id}`, title: `Warranty ends in ${WARRANTY_REMIND_DAYS} days`, body: `${t.item || t.merchant || 'Purchase'}: warranty until ${t.warrantyUntil}.`, date: remindOn });
     }
   }

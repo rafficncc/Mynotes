@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -5,7 +6,8 @@ import { upcomingReminders } from '../logic/actions';
 import { weeklySummary } from '../logic/reports';
 import type { AppData } from '../logic/types';
 
-const REMINDER_HOUR = 9;
+export const DEFAULT_REMINDER_HOUR = 9;
+const LATE_KEY = 'familyfin-late-reminders';
 const MAX_SCHEDULED = 60; // iOS allows 64 pending local notifications
 
 let handlerSet = false;
@@ -30,7 +32,7 @@ export async function requestReminderPermission(): Promise<boolean> {
 
 /**
  * Replaces all scheduled reminders with fresh ones for the next 90 days
- * (bills, EMIs, card dues, document expiries) at 9 AM local time.
+ * (bills, EMIs, card dues, document expiries) at the chosen reminder hour (9 AM by default).
  */
 export async function syncReminders(data: AppData, money: (n: number) => string): Promise<number> {
   if (!notificationsSupported) return 0;
@@ -43,17 +45,31 @@ export async function syncReminders(data: AppData, money: (n: number) => string)
     await Notifications.setNotificationChannelAsync('reminders', { name: 'Payment & renewal reminders', importance: AndroidImportance.HIGH });
   }
   const now = Date.now();
+  const today = new Date().toDateString();
+  // Reminders for today whose time already passed go out once, a minute from now.
+  let late: { day: string; ids: string[] } = { day: today, ids: [] };
+  try {
+    const saved = JSON.parse((await AsyncStorage.getItem(LATE_KEY)) ?? 'null');
+    if (saved?.day === today) late = saved;
+  } catch {
+    // start a fresh list for today
+  }
   let count = 0;
   for (const r of upcomingReminders(data, new Date(), 90, money)) {
     const at = new Date(r.date);
-    at.setHours(REMINDER_HOUR, 0, 0, 0);
-    if (at.getTime() <= now) continue;
+    at.setHours(data.settings.reminderHour ?? DEFAULT_REMINDER_HOUR, 0, 0, 0);
+    if (at.getTime() <= now) {
+      if (at.toDateString() !== today || late.ids.includes(r.id)) continue;
+      late.ids.push(r.id);
+      at.setTime(now + 60_000);
+    }
     await Notifications.scheduleNotificationAsync({
       content: { title: r.title, body: r.body, data: { route: '/actions' } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: 'reminders' },
     });
     if (++count >= MAX_SCHEDULED) break;
   }
+  await AsyncStorage.setItem(LATE_KEY, JSON.stringify(late)).catch(() => undefined);
   // Weekly summary every Sunday 7 PM. Re-scheduled on every data change, so the numbers stay current.
   if (data.settings.weeklySummary !== false) {
     const sunday = new Date();

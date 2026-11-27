@@ -82,7 +82,7 @@ function ReminderSync() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [hydrated, data.bills, data.emis, data.documents, data.accounts, data.transactions, data.settings.notificationsEnabled, data.settings.weeklySummary, data.policies, data.vehicles]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hydrated, data.bills, data.emis, data.documents, data.accounts, data.transactions, data.settings.notificationsEnabled, data.settings.weeklySummary, data.settings.reminderHour, data.policies, data.vehicles]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 

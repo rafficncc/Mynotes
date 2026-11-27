@@ -11,7 +11,7 @@ import { Button, Card, Chip, ChipRow, ListItem, Row, Screen, SectionTitle, style
 import { transactionsToCsv } from '../logic/csv';
 import { cycleLabel, currentCycleKey } from '../logic/dates';
 import { CURRENCIES, currencyInfo } from '../logic/region';
-import { notificationsSupported, requestReminderPermission, syncReminders } from '../services/notifications';
+import { DEFAULT_REMINDER_HOUR, notificationsSupported, requestReminderPermission, syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { changeLanguage, LANGUAGES, t } from '../i18n';
@@ -204,6 +204,13 @@ export default function Settings() {
           </View>
           <Switch value={s.weeklySummary !== false} onValueChange={(v) => updateSettings({ weeklySummary: v })} trackColor={{ true: colors.primary }} accessibilityLabel="Weekly summary" />
         </Row>
+        <Text style={styles.label}>Remind me at</Text>
+        <ChipRow>
+          {[7, 8, 9, 12, 18, 20].map((h) => (
+            <Chip key={h} label={h === 12 ? '12 PM' : h < 12 ? `${h} AM` : `${h - 12} PM`} selected={(s.reminderHour ?? DEFAULT_REMINDER_HOUR) === h} onPress={() => updateSettings({ reminderHour: h })} />
+          ))}
+        </ChipRow>
+        <Text style={styles.hint}>A reminder set for today after this time still arrives within a minute.</Text>
         {notificationsSupported ? (
           <Button title="Schedule reminders now" variant="secondary" icon="notifications-outline" onPress={testReminders} />
         ) : (
