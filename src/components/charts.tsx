@@ -322,3 +322,47 @@ export function CompareLines({ current, previous, width, height = 150, format, l
     </View>
   );
 }
+
+/** Half-circle score gauge (0–100) on a red → orange → green band, with the score in large type. */
+export function HealthGauge({ score, label, size = 240 }: { score: number; label: string; size?: number }) {
+  const id = useId().replace(/:/g, '');
+  const stroke = 18;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = r + stroke / 2;
+  const pt = (f: number) => ({ x: cx + r * Math.cos(Math.PI + Math.PI * f), y: cy + r * Math.sin(Math.PI + Math.PI * f) });
+  const arc = (f: number) => {
+    const s = pt(0);
+    const e = pt(Math.max(0.001, Math.min(1, f)));
+    return `M ${s.x} ${s.y} A ${r} ${r} 0 0 1 ${e.x} ${e.y}`;
+  };
+  const f = Math.max(0, Math.min(100, score)) / 100;
+  const tip = pt(f);
+  const color = score >= 80 ? colors.success : score >= 60 ? colors.primary : score >= 40 ? colors.warning : colors.danger;
+  const h = cy + stroke / 2 + 4;
+  return (
+    <View style={{ width: size, alignItems: 'center' }} accessibilityRole="image" accessibilityLabel={`Financial health ${score} out of 100, ${label}`}>
+      <View style={{ width: size, height: h }}>
+      <Svg width={size} height={h}>
+        <Defs>
+          <LinearGradient id={`hg${id}`} gradientUnits="userSpaceOnUse" x1={stroke / 2} y1="0" x2={size - stroke / 2} y2="0">
+            <Stop offset="0" stopColor={colors.danger} />
+            <Stop offset="0.5" stopColor={colors.warning} />
+            <Stop offset="1" stopColor={colors.success} />
+          </LinearGradient>
+        </Defs>
+        <Path d={arc(1)} stroke={colors.border} strokeWidth={stroke} strokeLinecap="round" fill="none" />
+        {f > 0 ? <Path d={arc(f)} stroke={`url(#hg${id})`} strokeWidth={stroke} strokeLinecap="round" fill="none" /> : null}
+        <Circle cx={tip.x} cy={tip.y} r={stroke / 2 + 3} fill="#fff" stroke={color} strokeWidth={4} />
+      </Svg>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
+        <Text style={{ fontSize: 48, fontWeight: '800', color: colors.text, lineHeight: 52 }}>{score}</Text>
+        <Text style={{ fontSize: 12, color: colors.muted }}>out of 100</Text>
+      </View>
+      </View>
+      <View style={{ marginTop: 10, backgroundColor: color + '22', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 5 }}>
+        <Text style={{ color, fontWeight: '800', fontSize: 15 }}>{label}</Text>
+      </View>
+    </View>
+  );
+}

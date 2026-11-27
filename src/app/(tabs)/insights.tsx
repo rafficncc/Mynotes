@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { AreaChart, BarChart, CompareLines, HBars, ScoreRing } from '../../components/charts';
+import { AreaChart, BarChart, CompareLines, HBars, HealthGauge } from '../../components/charts';
+import { t } from '../../i18n';
 import { Button, Card, Chip, ChipRow, Icon, InsightCard, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import {
   categoryChanges,
@@ -78,26 +79,27 @@ export default function Insights() {
 
   return (
     <Screen>
-      {/* Money health */}
-      <Card>
-        <Row style={{ gap: 16 }}>
-          <ScoreRing score={v.health.score} label={v.health.label} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={styles.itemTitle}>Family money health</Text>
-            {v.health.parts.map((p) => {
-              const ok = p.score / p.max >= 0.6;
-              return (
-                <Row key={p.name} style={{ gap: 6 }}>
-                  <Icon name={ok ? 'checkmark-circle' : 'alert-circle'} size={16} color={ok ? colors.success : colors.warning} />
-                  <Text style={[styles.itemSub, { flex: 1 }]}>{p.name}</Text>
-                  <Text style={[styles.itemSub, { fontWeight: '700' }]}>
+      {/* Financial health */}
+      <Card style={{ alignItems: 'center', gap: 12 }}>
+        <Text style={[styles.sectionTitle, { alignSelf: 'flex-start' }]}>{t('Financial health')}</Text>
+        <HealthGauge score={v.health.score} label={v.health.label} size={Math.min(260, chartW)} />
+        <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 4 }}>
+          {v.health.parts.map((p) => {
+            const ok = p.score / p.max >= 0.6;
+            return (
+              <View key={p.name} style={{ gap: 4 }}>
+                <Row style={{ gap: 8 }}>
+                  <Icon name={ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={ok ? colors.success : colors.warning} />
+                  <Text style={[styles.insightText, { flex: 1 }]}>{p.name}</Text>
+                  <Text style={[styles.insightText, { fontWeight: '700' }]}>
                     {p.score}/{p.max}
                   </Text>
                 </Row>
-              );
-            })}
-          </View>
-        </Row>
+                <ProgressBar value={p.score / p.max} color={ok ? colors.success : colors.warning} plain />
+              </View>
+            );
+          })}
+        </View>
       </Card>
 
       {/* Suggestions */}
