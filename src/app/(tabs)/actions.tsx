@@ -1,9 +1,10 @@
 import { router, type Href } from 'expo-router';
 import { t } from '../../i18n';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { GradientBg } from '../../components/GradientBg';
 import { TipCard } from '../../components/TipCard';
-import { Card, Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
+import { Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle } from '../../components/ui';
 import { generateActions, type ActionItem, type ActionStatus } from '../../logic/actions';
 import { diffDays, formatShortDate, toISODate } from '../../logic/dates';
 import { toast } from '../../components/Toast';
@@ -112,17 +113,35 @@ export default function Actions() {
           'Set how many days before you want a reminder on each bill, EMI, card or document.',
         ]}
       />
-      <Card style={{ backgroundColor: colors.primary }}>
-        <Text style={{ color: '#ffffffcc', fontSize: 13 }}>This cycle · {cycle.label}</Text>
-        <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>{money(toPay)} to pay</Text>
-        <Row style={{ gap: 14, flexWrap: 'wrap' }}>
-          <Text style={{ color: '#fff' }}>{counts('overdue')} overdue</Text>
-          <Text style={{ color: '#fff' }}>{counts('due')} due soon</Text>
-          <Text style={{ color: '#fff' }}>{counts('upcoming')} upcoming</Text>
-          <Text style={{ color: '#fff' }}>{counts('done')} done</Text>
-        </Row>
-        <Text style={{ color: '#ffffffcc', fontSize: 12 }}>{cycle.progress.left} days left in this cycle</Text>
-      </Card>
+      {/* What's left to pay, in the app's hero colours */}
+      <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+        <GradientBg id="actbg" />
+        <View style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: '#ffffff12', top: -80, right: -60 }} />
+        <View style={{ padding: 16, gap: 12 }}>
+          <View>
+            <Text style={{ color: '#ffffffaa', fontSize: 13 }}>
+              This cycle · {cycle.label} · {cycle.progress.left} days left
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>{money(toPay)}</Text>
+            <Text style={{ color: '#FFD978', fontSize: 13, fontWeight: '700' }}>still to pay</Text>
+          </View>
+          <Row style={{ gap: 8 }}>
+            {(
+              [
+                ['overdue', 'Overdue', '#FF9E8A'],
+                ['due', 'Due soon', '#FFD978'],
+                ['upcoming', 'Later', '#9CC3FF'],
+                ['done', 'Done', '#7EE3B5'],
+              ] as const
+            ).map(([k, label, c]) => (
+              <View key={k} style={{ flex: 1, backgroundColor: '#ffffff1a', borderRadius: 12, paddingVertical: 8, alignItems: 'center' }}>
+                <Text style={{ color: c, fontSize: 20, fontWeight: '800' }}>{counts(k)}</Text>
+                <Text style={{ color: '#ffffffcc', fontSize: 11 }}>{label}</Text>
+              </View>
+            ))}
+          </Row>
+        </View>
+      </View>
 
       <ChipRow>
         {FILTERS.map((f) => (
@@ -138,38 +157,68 @@ export default function Actions() {
         const items = shown.filter((a) => a.status === sec.key);
         if (!items.length) return null;
         return (
-          <View key={sec.key} style={{ gap: 8 }}>
-            <SectionTitle title={`${sec.title} · ${items.length}`} />
+          <View key={sec.key} style={{ gap: 10 }}>
+            <Row style={{ gap: 8, marginTop: 6 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sec.color }} />
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, flex: 1 }}>{sec.title}</Text>
+              <View style={{ backgroundColor: sec.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 }}>
+                <Text style={{ color: sec.color, fontWeight: '800', fontSize: 12 }}>{items.length}</Text>
+              </View>
+            </Row>
             {items.map((a) => {
               const days = diffDays(a.date, on);
-              const when =
-                a.status === 'done' ? `Done ${formatShortDate(a.date)}` : days < 0 ? `${-days} day${days === -1 ? '' : 's'} late · was due ${formatShortDate(a.date)}` : days === 0 ? 'Due today' : `Due ${formatShortDate(a.date)} · in ${days} day${days === 1 ? '' : 's'}`;
+              const done = a.status === 'done';
+              const chip = done ? `Done ${formatShortDate(a.date)}` : days < 0 ? `${-days} day${days === -1 ? '' : 's'} late` : days === 0 ? 'Due today' : `in ${days} day${days === 1 ? '' : 's'}`;
               return (
-                <Card key={a.id} style={{ padding: 12, gap: 8 }}>
-                  <Row style={{ alignItems: 'flex-start' }}>
-                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: sec.bg, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={a.icon} color={sec.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.itemTitle}>{a.title}</Text>
-                      <Text style={[styles.itemSub, { color: sec.color, fontWeight: '600' }]}>{when}</Text>
-                      {a.subtitle ? <Text style={styles.itemSub}>{a.subtitle}</Text> : null}
-                    </View>
-                    {a.amount ? <Text style={styles.itemRight}>{money(a.amount)}</Text> : null}
-                  </Row>
-                  {a.status !== 'done' ? (
-                    <ChipRow>
-                      {a.kind === 'document' ? (
-                        <Chip label={t('Update expiry')} icon="create-outline" onPress={() => pay(a)} />
-                      ) : a.kind === 'warranty' ? (
-                        <Chip label={t('View purchase')} icon="receipt-outline" onPress={() => pay(a)} />
-                      ) : (
-                        <Chip label={t('Pay & record')} icon="wallet-outline" selected onPress={() => pay(a)} />
-                      )}
-                      {a.kind === 'bill' || a.kind === 'emi' ? <Chip label={t('Mark paid')} icon="checkmark" onPress={() => markDone(a)} /> : null}
-                    </ChipRow>
-                  ) : null}
-                </Card>
+                <View key={a.id} style={{ flexDirection: 'row', backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', opacity: done ? 0.7 : 1 }}>
+                  <View style={{ width: 5, backgroundColor: sec.color }} />
+                  <View style={{ flex: 1, padding: 14, gap: 10 }}>
+                    <Row style={{ alignItems: 'flex-start', gap: 12 }}>
+                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: sec.bg, alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name={done ? 'checkmark' : a.icon} color={sec.color} size={20} />
+                      </View>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={2}>
+                          {a.title}
+                        </Text>
+                        <Row style={{ gap: 6, flexWrap: 'wrap' }}>
+                          <View style={{ backgroundColor: sec.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                            <Text style={{ color: sec.color, fontSize: 11, fontWeight: '800' }}>{chip}</Text>
+                          </View>
+                          {!done ? <Text style={{ fontSize: 12, color: colors.muted }}>{formatShortDate(a.date)}</Text> : null}
+                        </Row>
+                        {a.subtitle ? (
+                          <Text style={{ fontSize: 12, color: colors.muted }} numberOfLines={2}>
+                            {a.subtitle}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {a.amount ? <Text style={{ fontSize: 17, fontWeight: '800', color: colors.text }}>{money(a.amount)}</Text> : null}
+                    </Row>
+                    {!done ? (
+                      <Row style={{ gap: 8 }}>
+                        <Pressable
+                          onPress={() => pay(a)}
+                          accessibilityRole="button"
+                          style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 9 }}
+                        >
+                          <Icon name={a.kind === 'document' ? 'create-outline' : a.kind === 'warranty' ? 'receipt-outline' : 'wallet-outline'} size={16} color="#fff" />
+                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{a.kind === 'document' ? t('Update expiry') : a.kind === 'warranty' ? t('View purchase') : t('Pay & record')}</Text>
+                        </Pressable>
+                        {a.kind === 'bill' || a.kind === 'emi' ? (
+                          <Pressable
+                            onPress={() => markDone(a)}
+                            accessibilityRole="button"
+                            style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10, paddingVertical: 8 }}
+                          >
+                            <Icon name="checkmark" size={16} color={colors.primary} />
+                            <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>{t('Mark paid')}</Text>
+                          </Pressable>
+                        ) : null}
+                      </Row>
+                    ) : null}
+                  </View>
+                </View>
               );
             })}
           </View>
