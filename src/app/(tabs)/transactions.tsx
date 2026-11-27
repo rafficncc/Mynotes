@@ -3,7 +3,9 @@ import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { Calendar } from '../../components/DateField';
 import { TxnRow } from '../../components/TxnRow';
-import { Chip, Empty, Icon, styles } from '../../components/ui';
+import { DonutChart } from '../../components/charts';
+import { Card, Chip, Empty, Icon, styles } from '../../components/ui';
+import { spendByCategory } from '../../logic/analytics';
 import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey } from '../../logic/dates';
 import type { TxnType } from '../../logic/types';
 import { useAppData, useCycle, useMoney } from '../../store/hooks';
@@ -11,7 +13,7 @@ import { colors } from '../../theme';
 
 export default function Transactions() {
   const data = useAppData();
-  const { money } = useMoney();
+  const { money, compact } = useMoney();
   const cycle = useCycle();
   const [month, setMonth] = useState(cycle.key);
   const [calendar, setCalendar] = useState(false);
@@ -54,6 +56,10 @@ export default function Transactions() {
     }
     return m;
   }, [data.transactions]);
+
+  // Spending by category for whatever is shown: the cycle (or day), account and search
+  const byCat = useMemo(() => spendByCategory(list, data.categories), [list, data.categories]);
+  const [showChart, setShowChart] = useState(true);
 
   const totalOut = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const totalIn = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
@@ -107,6 +113,17 @@ export default function Transactions() {
         data={list}
         keyExtractor={(t) => t.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+        ListHeaderComponent={
+          byCat.length ? (
+            <Card style={{ marginBottom: 12 }}>
+              <Pressable onPress={() => setShowChart((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showChart }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.itemTitle}>Where the money went</Text>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>{showChart ? 'Hide' : 'Show'}</Text>
+              </Pressable>
+              {showChart ? <DonutChart data={byCat} centerLabel="Spent" centerValue={compact(totalOut)} format={money} maxSlices={5} /> : null}
+            </Card>
+          ) : undefined
+        }
         ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this month and filter." />}
         renderItem={({ item: t }) => <TxnRow t={t} accounts={data.accounts} categories={data.categories} members={data.members} money={money} detailed />}
       />
