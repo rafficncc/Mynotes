@@ -5,7 +5,7 @@ import { GradientBg } from '../../components/GradientBg';
 import { Calendar, DateField } from '../../components/DateField';
 import { TxnRow } from '../../components/TxnRow';
 import { DonutChart } from '../../components/charts';
-import { Card, Chip, Empty, Icon, styles } from '../../components/ui';
+import { Chip, Empty, Icon, styles } from '../../components/ui';
 import { spendByCategory } from '../../logic/analytics';
 import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey, toISODate } from '../../logic/dates';
 import type { TxnType } from '../../logic/types';
@@ -19,6 +19,9 @@ const PERIODS: [Period, string][] = [
   ['lastyear', 'Last year'],
   ['custom', 'Custom dates'],
 ];
+
+// Bright accents that stand out on the gradient card (category colours are too dark there).
+const BRIGHT = ['#FFD978', '#7EE3B5', '#9CC3FF', '#FF9E8A', '#C9A7FF'];
 
 export default function Transactions() {
   const data = useAppData();
@@ -81,6 +84,12 @@ export default function Transactions() {
   const [picked, setPicked] = useState<{ key: string; keys: string[] } | null>(null);
   const active = picked && (picked.key === '_rest' || byCat.some((c) => c.key === picked.key)) ? picked : null;
   const list = active ? base.filter((t) => t.type === 'expense' && active.keys.includes(t.categoryId ?? 'other')) : base;
+  const pickSlice = (key: string, keys: string[]) => setPicked(active?.key === key ? null : { key, keys });
+  // Same grouping as the donut: top 5 categories, the rest as "Others".
+  const slices = [
+    ...byCat.slice(0, 5).map((c, i) => ({ ...c, color: BRIGHT[i], keys: [c.key], icon: data.categories.find((x) => x.id === c.key)?.icon ?? 'pricetag' })),
+    ...(byCat.length > 5 ? [{ key: '_rest', label: 'Others', color: '#B0BEC5', icon: 'ellipsis-horizontal', value: byCat.slice(5).reduce((s, c) => s + c.value, 0), keys: byCat.slice(5).map((c) => c.key) }] : []),
+  ];
   const pickedLabel = active ? (active.key === '_rest' ? 'Others' : byCat.find((c) => c.key === active.key)?.label) : null;
 
   // The list grouped by day: a heading with the day's spend, then that day's rows in one card.
@@ -203,33 +212,80 @@ export default function Transactions() {
         contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
         ListHeaderComponent={
           byCat.length ? (
-            <Card style={{ marginBottom: 12 }}>
-              <Pressable onPress={() => setShowChart((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showChart }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={styles.itemTitle}>Where the money went</Text>
-                <Text style={{ color: colors.primary, fontWeight: '700' }}>{showChart ? 'Hide' : 'Show'}</Text>
-              </Pressable>
-              {showChart ? (
-                <DonutChart
-                  data={byCat}
-                  centerLabel="Spent"
-                  centerValue={compact(totalOut)}
-                  format={money}
-                  maxSlices={5}
-                  selected={active?.key}
-                  onSelect={(key, keys) => setPicked(active?.key === key ? null : { key, keys })}
-                />
-              ) : null}
-              {active ? (
-                <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.primarySoft, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginTop: 10 }}>
-                  <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                    Showing {pickedLabel}: {list.length} · {money(list.reduce((s, t) => s + t.amount, 0))}
-                  </Text>
-                  <Text style={{ color: colors.primary, fontWeight: '700' }}>Clear ✕</Text>
+            <View style={{ marginBottom: 12, borderRadius: 20, overflow: 'hidden' }}>
+              <GradientBg id="wherebg" />
+              <View pointerEvents="none" style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: '#ffffff10', top: -80, right: -60 }} />
+              <View style={{ padding: 16, gap: 14 }}>
+                <Pressable onPress={() => setShowChart((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: showChart }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>Where the money went</Text>
+                    <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{byCat.length} categories · tap one to filter</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{showChart ? 'Hide ▴' : 'Show ▾'}</Text>
+                  </View>
                 </Pressable>
-              ) : showChart ? (
-                <Text style={[styles.hint, { marginTop: 6 }]}>Tap a category to see only its transactions.</Text>
-              ) : null}
-            </Card>
+                {showChart ? (
+                  <>
+                    <View style={{ alignItems: 'center' }}>
+                      <DonutChart
+                        data={byCat.map((c, i) => ({ ...c, color: BRIGHT[i] ?? '#B0BEC5' }))}
+                        centerLabel={active ? pickedLabel ?? 'Spent' : 'Spent'}
+                        centerValue={compact(active ? list.reduce((s, t) => s + t.amount, 0) : totalOut)}
+                        format={money}
+                        maxSlices={5}
+                        selected={active?.key}
+                        onSelect={pickSlice}
+                        light
+                        size={190}
+                        legend={false}
+                      />
+                    </View>
+                    <View style={{ gap: 4 }}>
+                      {slices.map((c) => {
+                        const on = active?.key === c.key;
+                        const pct = totalOut > 0 ? c.value / totalOut : 0;
+                        return (
+                          <Pressable
+                            key={c.key}
+                            onPress={() => pickSlice(c.key, c.keys)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: on }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 12, backgroundColor: on ? '#ffffff26' : 'transparent', opacity: active && !on ? 0.5 : 1 }}
+                          >
+                            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c.color + '40', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.color }}>
+                              <Icon name={c.icon} size={16} color="#fff" />
+                            </View>
+                            <View style={{ flex: 1, gap: 5 }}>
+                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+                                <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                                  {c.label}
+                                </Text>
+                                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{money(c.value)}</Text>
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <View style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: '#ffffff1f', overflow: 'hidden' }}>
+                                  <View style={{ width: `${Math.max(2, Math.round(pct * 100))}%`, height: '100%', borderRadius: 3, backgroundColor: c.color }} />
+                                </View>
+                                <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 32, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
+                              </View>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
+                {active ? (
+                  <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 }}>
+                    <Text style={{ color: '#1B1F5E', fontWeight: '800', flex: 1 }} numberOfLines={1}>
+                      Showing {pickedLabel} · {list.length} · {money(list.reduce((s, t) => s + t.amount, 0))}
+                    </Text>
+                    <Text style={{ color: '#0B6E4F', fontWeight: '800' }}>Clear ✕</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
           ) : undefined
         }
         ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this period and filter." />}

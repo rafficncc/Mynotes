@@ -20,6 +20,9 @@ export function DonutChart({
   maxSlices = 6,
   selected,
   onSelect,
+  light,
+  size = 170,
+  legend = true,
 }: {
   data: Slice[];
   centerLabel: string;
@@ -30,9 +33,13 @@ export function DonutChart({
   selected?: string | null;
   /** Makes slices and legend rows tappable; `keys` are the categories in that slice (several for Others). */
   onSelect?: (key: string, keys: string[]) => void;
+  /** White text and track, for gradient cards. */
+  light?: boolean;
+  size?: number;
+  /** false = caller draws its own legend. */
+  legend?: boolean;
 }) {
-  const size = 170;
-  const stroke = 26;
+  const stroke = Math.round(size * 0.15);
   const r = (size - stroke) / 2;
   const total = data.reduce((s, d) => s + d.value, 0);
   const shown = data.slice(0, maxSlices);
@@ -48,7 +55,7 @@ export function DonutChart({
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
       <View>
         <Svg width={size} height={size}>
-          <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.border} strokeWidth={stroke} fill="none" />
+          <Circle cx={size / 2} cy={size / 2} r={r} stroke={light ? '#ffffff1f' : colors.border} strokeWidth={stroke} fill="none" />
           {total > 0 &&
             slices.map((s) => {
               const sweep = (s.value / total) * Math.PI * 2;
@@ -73,11 +80,11 @@ export function DonutChart({
         </Svg>
         {/* Centre label lets taps through to the slices underneath */}
         <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 11, color: colors.muted }}>{centerLabel}</Text>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{centerValue}</Text>
+          <Text style={{ fontSize: light ? 12 : 11, color: light ? '#ffffffb3' : colors.muted }}>{centerLabel}</Text>
+          <Text style={{ fontSize: light ? 22 : 17, fontWeight: light ? '900' : '700', color: light ? '#fff' : colors.text }}>{centerValue}</Text>
         </View>
       </View>
-      <View style={{ flex: 1, gap: 6 }}>
+      {legend ? <View style={{ flex: 1, gap: 6 }}>
         {slices.map((s) => (
           <Pressable
             key={s.key}
@@ -98,7 +105,7 @@ export function DonutChart({
         ))}
         {slices.length === 0 ? <Text style={{ color: colors.muted, fontSize: 12 }}>No spending yet</Text> : null}
         {total > 0 ? <Text style={{ fontSize: 11, color: colors.muted }}>Total {format(total)}</Text> : null}
-      </View>
+      </View> : null}
     </View>
   );
 }
