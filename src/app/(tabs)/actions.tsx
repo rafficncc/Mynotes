@@ -42,10 +42,12 @@ export default function Actions() {
   const saveItem = useStore((s) => s.saveItem);
   const addTransaction = useStore((s) => s.addTransaction);
   const [filter, setFilter] = useState<Filter>('all');
+  const [status, setStatus] = useState<ActionStatus | null>(null);
   const on = new Date();
   const actions = useMemo(() => generateActions(data, on), [data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = actions.filter((a) => filter === 'all' || a.kind === filter);
+  const shown = actions.filter((a) => (filter === 'all' || a.kind === filter) && (!status || a.status === status));
   const toPay = actions.filter((a) => a.status !== 'done' && a.amount).reduce((s, a) => s + (a.amount ?? 0), 0);
+  const sel = SECTIONS.find((x) => x.key === status);
   const counts = (k: ActionStatus) => actions.filter((a) => a.status === k).length;
 
   const pay = (a: ActionItem) => {
@@ -128,17 +130,30 @@ export default function Actions() {
           <Row style={{ gap: 8 }}>
             {(
               [
-                ['overdue', 'Overdue', '#FF9E8A'],
-                ['due', 'Due soon', '#FFD978'],
-                ['upcoming', 'Later', '#9CC3FF'],
-                ['done', 'Done', '#7EE3B5'],
+                ['overdue', 'Overdue', '#FF9E8A', 'alert-circle'],
+                ['due', 'Due soon', '#FFD978', 'time'],
+                ['upcoming', 'Later', '#9CC3FF', 'calendar'],
+                ['done', 'Done', '#7EE3B5', 'checkmark-done'],
               ] as const
-            ).map(([k, label, c]) => (
-              <View key={k} style={{ flex: 1, backgroundColor: '#ffffff1a', borderRadius: 12, paddingVertical: 8, alignItems: 'center' }}>
-                <Text style={{ color: c, fontSize: 20, fontWeight: '800' }}>{counts(k)}</Text>
-                <Text style={{ color: '#ffffffcc', fontSize: 11 }}>{label}</Text>
-              </View>
-            ))}
+            ).map(([k, label, c, icon]) => {
+              const on = status === k;
+              return (
+                <Pressable
+                  key={k}
+                  onPress={() => setStatus(on ? null : k)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${label}: ${counts(k)}`}
+                  style={{ flex: 1, backgroundColor: on ? '#fff' : '#ffffff1a', borderRadius: 14, paddingVertical: 10, alignItems: 'center', gap: 2, borderWidth: 1.5, borderColor: on ? c : '#ffffff26' }}
+                >
+                  <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? '#1B1F5E' : c + '33' }}>
+                    <Icon name={icon} size={15} color={c} />
+                  </View>
+                  <Text style={{ color: on ? '#1B1F5E' : c, fontSize: 24, fontWeight: '900', letterSpacing: -0.5 }}>{counts(k)}</Text>
+                  <Text style={{ color: on ? '#1B1F5E' : '#ffffffd9', fontSize: 11, fontWeight: '700' }}>{label}</Text>
+                </Pressable>
+              );
+            })}
           </Row>
         </View>
       </View>
@@ -148,6 +163,14 @@ export default function Actions() {
           <Chip key={f.key} label={f.label} selected={filter === f.key} onPress={() => setFilter(f.key)} />
         ))}
       </ChipRow>
+
+      {sel ? (
+        <Pressable onPress={() => setStatus(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: sel.bg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
+          <Icon name="funnel" size={14} color={sel.color} />
+          <Text style={{ flex: 1, color: colors.text, fontWeight: '700' }}>Showing only: {sel.title.replace(/ \(.*\)/, '')}</Text>
+          <Text style={{ color: sel.color, fontWeight: '800' }}>Clear ✕</Text>
+        </Pressable>
+      ) : null}
 
       {shown.length === 0 ? (
         <Empty icon="checkmark-done-circle-outline" title={t('Nothing to do')} text="Add bills, EMIs and documents and they'll show up here when they are due." />
