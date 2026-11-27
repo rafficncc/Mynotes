@@ -260,3 +260,39 @@ export function Gauge({ value, size = 92, label, sub }: { value: number; size?: 
     </View>
   );
 }
+
+/** Two running lines on one scale: `current` (solid, may stop early) against `previous` (dashed). */
+export function CompareLines({ current, previous, width, height = 150, format, labels }: { current: number[]; previous: number[]; width: number; height?: number; format: (n: number) => string; labels: [string, string] }) {
+  const n = Math.max(current.length, previous.length);
+  if (n < 2) return null;
+  const left = 44;
+  const pad = 8;
+  const h = height - 18;
+  const max = Math.max(1, ...current, ...previous);
+  const x = (i: number) => left + (i * (width - left - pad)) / (n - 1);
+  const y = (v: number) => pad + (1 - v / max) * (h - pad * 2);
+  const path = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' ');
+  return (
+    <View style={{ gap: 6 }}>
+      <Svg width={width} height={height}>
+        {[0, 0.5, 1].map((f) => (
+          <G key={f}>
+            <Line x1={left} x2={width - pad} y1={y(max * f)} y2={y(max * f)} stroke={colors.border} strokeDasharray="3 4" />
+            <SvgText x={left - 4} y={y(max * f) + 3} fontSize={9} fill={colors.muted} textAnchor="end">
+              {format(max * f)}
+            </SvgText>
+          </G>
+        ))}
+        <Path d={path(previous)} stroke={colors.muted} strokeWidth={2} strokeDasharray="5 4" fill="none" />
+        <Path d={path(current)} stroke={colors.primary} strokeWidth={3} fill="none" strokeLinejoin="round" />
+        {current.length ? <Circle cx={x(current.length - 1)} cy={y(current[current.length - 1])} r={4} fill={colors.primary} /> : null}
+        <SvgText x={left} y={height - 2} fontSize={10} fill={colors.muted}>Day 1</SvgText>
+        <SvgText x={width - pad} y={height - 2} fontSize={10} fill={colors.muted} textAnchor="end">Day {n}</SvgText>
+      </Svg>
+      <View style={{ flexDirection: 'row', gap: 14 }}>
+        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>━ {labels[0]}</Text>
+        <Text style={{ fontSize: 12, color: colors.muted }}>┅ {labels[1]}</Text>
+      </View>
+    </View>
+  );
+}

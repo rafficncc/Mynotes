@@ -161,3 +161,45 @@ export function needsWantsSavings(txns: Transaction[], categories: Category[]) {
   }
   return { needs, wants, savings };
 }
+
+/** Running total of spending for each day of a cycle (index 0 = first day), up to `days` days. */
+export function cumulativeDaily(txns: Transaction[], start: Date, days: number): number[] {
+  const byDay = new Array(days).fill(0);
+  const s = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  for (const t of expenses(txns)) {
+    const [y, m, d] = t.date.split('-').map(Number);
+    const i = Math.round((Date.UTC(y, m - 1, d) - s) / 86400000);
+    if (i >= 0 && i < days) byDay[i] += t.amount;
+  }
+  for (let i = 1; i < days; i++) byDay[i] += byDay[i - 1];
+  return byDay.map((v) => Math.round(v));
+}
+
+/** Categories whose spending changed most from `prev` to `cur` (biggest moves first). */
+export function categoryChanges(cur: Transaction[], prev: Transaction[], categories: Category[], limit = 5): { key: string; label: string; color: string; now: number; before: number; diff: number }[] {
+  const a = new Map(spendByCategory(cur, categories).map((s) => [s.key, s]));
+  const b = new Map(spendByCategory(prev, categories).map((s) => [s.key, s]));
+  return [...new Set([...a.keys(), ...b.keys()])]
+    .map((k) => {
+      const s = a.get(k) ?? b.get(k)!;
+      const now = a.get(k)?.value ?? 0;
+      const before = b.get(k)?.value ?? 0;
+      return { key: k, label: s.label, color: s.color, now, before, diff: Math.round(now - before) };
+    })
+    .filter((x) => x.diff !== 0)
+    .sort((x, y) => Math.abs(y.diff) - Math.abs(x.diff))
+    .slice(0, limit);
+}
+
+/** Total spending for each weekday, Monday first. */
+export function spendByWeekday(txns: Transaction[]): number[] {
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  for (const t of expenses(txns)) {
+    const [y, m, d] = t.date.split('-').map(Number);
+    out[(new Date(y, m - 1, d).getDay() + 6) % 7] += t.amount;
+  }
+  return out.map((v) => Math.round(v));
+}
+
+/** Share of income kept each month, in % (0 when there was no income). */
+export const savingsRates = (months: MonthTotals[]) => months.map((m) => (m.income > 0 ? Math.round(((m.income - m.expense) / m.income) * 100) : 0));
