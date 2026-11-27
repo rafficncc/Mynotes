@@ -1,12 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
-import { Calendar } from '../../components/DateField';
+import { Calendar, DateField } from '../../components/DateField';
 import { TxnRow } from '../../components/TxnRow';
 import { DonutChart } from '../../components/charts';
 import { Card, Chip, Empty, Icon, styles } from '../../components/ui';
 import { spendByCategory } from '../../logic/analytics';
-import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey } from '../../logic/dates';
+import { cycleKeyOf, cycleLabel, formatDate, shiftMonthKey, toISODate } from '../../logic/dates';
 import type { TxnType } from '../../logic/types';
 import { useAppData, useCycle, useMoney } from '../../store/hooks';
 import { colors } from '../../theme';
@@ -26,6 +26,13 @@ export default function Transactions() {
     setLastParam(params.type);
     if (params.type) setType(params.type);
   }
+  // Period shown: a spending cycle (with arrows), a calendar year, or any start–end dates.
+  const [period, setPeriod] = useState<'cycle' | 'year' | 'lastyear' | 'custom'>('cycle');
+  const thisYear = new Date().getFullYear();
+  const [from, setFrom] = useState(`${thisYear}-01-01`);
+  const [to, setTo] = useState(toISODate(new Date()));
+  const range: [string, string] | null =
+    period === 'year' ? [`${thisYear}-01-01`, `${thisYear}-12-31`] : period === 'lastyear' ? [`${thisYear - 1}-01-01`, `${thisYear - 1}-12-31`] : period === 'custom' ? (from <= to ? [from, to] : [to, from]) : null;
   const [accountId, setAccountId] = useState<string>('');
   const [query, setQuery] = useState('');
 
@@ -35,7 +42,7 @@ export default function Transactions() {
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return data.transactions
-      .filter((t) => (day ? t.date === day : cycleKeyOf(t.date, cycle.startDay) === month))
+      .filter((t) => (day ? t.date === day : range ? t.date >= range[0] && t.date <= range[1] : cycleKeyOf(t.date, cycle.startDay) === month))
       .filter((t) => type === 'all' || t.type === type)
       .filter((t) => !accountId || t.accountId === accountId || t.toAccountId === accountId)
       .filter((t) => {
@@ -45,7 +52,7 @@ export default function Transactions() {
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, month, type, accountId, query, day, cycle.startDay]);
+  }, [data, month, type, accountId, query, day, cycle.startDay, range?.[0], range?.[1]]);
 
   // Dots on the calendar: red = spent, green = income only
   const marks = useMemo(() => {
@@ -68,13 +75,33 @@ export default function Transactions() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ padding: 16, gap: 10, backgroundColor: colors.card }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>
+          {range ? <View style={{ width: 24 }} /> : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>}
           <Pressable accessibilityRole="button" accessibilityLabel="Show calendar" onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="calendar-outline" color={colors.primary} />
-            <Text style={styles.sectionTitle}>{day ? formatDate(day) : cycleLabel(month, cycle.startDay)}</Text>
+            <Text style={styles.sectionTitle}>
+              {day ? formatDate(day) : period === 'year' ? `${thisYear}` : period === 'lastyear' ? `${thisYear - 1}` : range ? `${formatDate(range[0])} – ${formatDate(range[1])}` : cycleLabel(month, cycle.startDay)}
+            </Text>
           </Pressable>
-          <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>
+          {range ? <View style={{ width: 24 }} /> : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>}
         </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {(
+            [
+              ['cycle', 'Cycle'],
+              ['year', 'This year'],
+              ['lastyear', 'Last year'],
+              ['custom', 'Custom'],
+            ] as const
+          ).map(([k, label]) => (
+            <Chip key={k} label={label} selected={period === k} onPress={() => { setPeriod(k); setDay(''); }} />
+          ))}
+        </View>
+        {period === 'custom' ? (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><DateField label="From" value={from} onChange={setFrom} quick={false} /></View>
+            <View style={{ flex: 1 }}><DateField label="To" value={to} onChange={setTo} quick={false} /></View>
+          </View>
+        ) : null}
         {calendar ? (
           <View style={{ gap: 6 }}>
             <Calendar
@@ -83,6 +110,7 @@ export default function Transactions() {
               onChange={(iso) => {
                 setDay(iso === day ? '' : iso);
                 setMonth(cycleKeyOf(iso, cycle.startDay));
+                setPeriod('cycle');
               }}
             />
             {day ? <Chip label="Show the whole cycle" icon="close" onPress={() => setDay('')} /> : <Text style={styles.hint}>Tap a date to see that day. Red dot = money spent.</Text>}
@@ -124,7 +152,7 @@ export default function Transactions() {
             </Card>
           ) : undefined
         }
-        ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this month and filter." />}
+        ListEmptyComponent={<Empty icon="receipt-outline" title="No transactions" text="Nothing matches this period and filter." />}
         renderItem={({ item: t }) => <TxnRow t={t} accounts={data.accounts} categories={data.categories} members={data.members} money={money} detailed />}
       />
       <Pressable
