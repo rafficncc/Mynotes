@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import { useId } from 'react';
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import type { Slice } from '../logic/analytics';
 import { colors } from '../theme';
 
@@ -202,11 +203,25 @@ export function ScoreRing({ score, size = 96, label }: { score: number; size?: n
   );
 }
 
-/** Line with a soft filled area, e.g. net worth growth. `light` draws white for coloured backgrounds. */
+/** Smooth curve through the points (Catmull-Rom turned into Bezier segments). */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    d += ` C ${p1.x + (p2.x - p0.x) / 6} ${p1.y + (p2.y - p0.y) / 6}, ${p2.x - (p3.x - p1.x) / 6} ${p2.y - (p3.y - p1.y) / 6}, ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+/** Smooth line with a fading fill, e.g. net worth growth. `light` draws white for coloured backgrounds. */
 export function AreaChart({ values, labels, width, height = 90, color = colors.primary, light }: { values: number[]; labels?: string[]; width: number; height?: number; color?: string; light?: boolean }) {
+  const id = useId().replace(/:/g, '');
   if (values.length < 2) return null;
   const stroke = light ? '#fff' : color;
-  const pad = 6;
+  const pad = 8;
   const labelH = labels ? 16 : 0;
   const h = height - labelH;
   const min = Math.min(...values);
@@ -214,15 +229,26 @@ export function AreaChart({ values, labels, width, height = 90, color = colors.p
   const span = max - min || 1;
   const x = (i: number) => pad + (i * (width - pad * 2)) / (values.length - 1);
   const y = (v: number) => pad + (1 - (v - min) / span) * (h - pad * 2);
-  const line = values.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' ');
+  const pts = values.map((v, i) => ({ x: x(i), y: y(v) }));
+  const line = smoothPath(pts);
   const area = `${line} L ${x(values.length - 1)} ${h} L ${x(0)} ${h} Z`;
+  const last = pts[pts.length - 1];
   return (
     <Svg width={width} height={height} accessibilityLabel="Growth chart">
-      <Path d={area} fill={stroke} opacity={light ? 0.18 : 0.12} />
-      <Path d={line} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
-      {values.map((v, i) => (
-        <Circle key={i} cx={x(i)} cy={y(v)} r={i === values.length - 1 ? 4 : 2.5} fill={stroke} />
-      ))}
+      <Defs>
+        <LinearGradient id={`fill${id}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={stroke} stopOpacity={light ? 0.45 : 0.35} />
+          <Stop offset="1" stopColor={stroke} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      {labels
+        ? [0.25, 0.5, 0.75].map((f) => <Line key={f} x1={pad} x2={width - pad} y1={pad + f * (h - pad * 2)} y2={pad + f * (h - pad * 2)} stroke={stroke} strokeOpacity={0.15} strokeDasharray="2 6" />)
+        : null}
+      <Path d={area} fill={`url(#fill${id})`} />
+      <Path d={line} stroke={stroke} strokeWidth={labels ? 3 : 2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Today: a soft glow around the latest point */}
+      <Circle cx={last.x} cy={last.y} r={labels ? 9 : 6} fill={stroke} opacity={0.25} />
+      <Circle cx={last.x} cy={last.y} r={labels ? 4.5 : 3} fill={light ? colors.primary : '#fff'} stroke={stroke} strokeWidth={2} />
       {labels?.map((l, i) => (
         <SvgText key={l + i} x={i === 0 ? 0 : i === labels.length - 1 ? width : x(i)} y={height - 3} fontSize={10} fill={light ? '#ffffffcc' : colors.muted} textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}>
           {l}
