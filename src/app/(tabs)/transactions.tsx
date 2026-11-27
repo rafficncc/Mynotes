@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Calendar, DateField } from '../../components/DateField';
 import { TxnRow } from '../../components/TxnRow';
 import { DonutChart } from '../../components/charts';
@@ -87,37 +88,38 @@ export default function Transactions() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ padding: 16, gap: 10, backgroundColor: colors.card }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          {range ? <View style={{ width: 24 }} /> : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" /></Pressable>}
-          <Pressable accessibilityRole="button" accessibilityLabel="Show calendar" onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Icon name="calendar-outline" color={colors.primary} />
-            <Text style={styles.sectionTitle}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8, backgroundColor: colors.card }}>
+        {/* Compact period row: ‹ date › on the left, period choice on the right */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {range ? null : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Previous period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, -1)); }}><Icon name="chevron-back" size={20} /></Pressable>}
+          <Pressable accessibilityRole="button" accessibilityLabel="Show calendar" onPress={() => setCalendar((c) => !c)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+            <Icon name="calendar-outline" size={18} color={colors.primary} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={1}>
               {day ? formatDate(day) : period === 'year' ? `${thisYear}` : period === 'lastyear' ? `${thisYear - 1}` : range ? `${formatDate(range[0])} – ${formatDate(range[1])}` : cycleLabel(month, cycle.startDay)}
             </Text>
           </Pressable>
-          {range ? <View style={{ width: 24 }} /> : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" /></Pressable>}
+          {range ? null : <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Next period" onPress={() => { setDay(''); setMonth(shiftMonthKey(month, 1)); }}><Icon name="chevron-forward" size={20} /></Pressable>}
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => setPeriodMenu((m) => !m)} accessibilityRole="button" accessibilityLabel="Choose period" style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: periodMenu ? colors.primary : colors.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: periodMenu ? '#fff' : colors.primary }}>{PERIODS.find(([k]) => k === period)![1]} ▾</Text>
+          </Pressable>
         </View>
-        {/* One small button; the period choices open only when needed */}
-        <View style={{ alignItems: 'center', gap: 8 }}>
-          <Chip label={`${PERIODS.find(([k]) => k === period)![1]} ▾`} icon="time-outline" selected={periodMenu} onPress={() => setPeriodMenu((m) => !m)} />
-          {periodMenu ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-              {PERIODS.map(([k, label]) => (
-                <Chip
-                  key={k}
-                  label={label}
-                  selected={period === k}
-                  onPress={() => {
-                    setPeriod(k);
-                    setDay('');
-                    setPeriodMenu(false);
-                  }}
-                />
-              ))}
-            </View>
-          ) : null}
-        </View>
+        {periodMenu ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {PERIODS.map(([k, label]) => (
+              <Chip
+                key={k}
+                label={label}
+                selected={period === k}
+                onPress={() => {
+                  setPeriod(k);
+                  setDay('');
+                  setPeriodMenu(false);
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
         {period === 'custom' ? (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><DateField label="From" value={from} onChange={setFrom} quick={false} /></View>
@@ -138,9 +140,35 @@ export default function Transactions() {
             {day ? <Chip label="Show the whole cycle" icon="close" onPress={() => setDay('')} /> : <Text style={styles.hint}>Tap a date to see that day. Red dot = money spent.</Text>}
           </View>
         ) : null}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-          <Text style={{ color: colors.danger, fontWeight: '700' }}>Out {money(totalOut)}</Text>
-          <Text style={{ color: colors.success, fontWeight: '700' }}>In {money(totalIn)}</Text>
+        {/* Out / In / Net strip in the Home card's colours */}
+        <View style={{ borderRadius: 14, overflow: 'hidden' }}>
+          <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="txbg" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#1B1F5E" />
+                <Stop offset="0.55" stopColor="#0E4D64" />
+                <Stop offset="1" stopColor="#0B6E4F" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#txbg)" />
+          </Svg>
+          <View style={{ flexDirection: 'row', paddingVertical: 10 }}>
+            {(
+              [
+                ['Out', totalOut, '#FF9E8A', '−'],
+                ['In', totalIn, '#7EE3B5', '+'],
+                ['Net', totalIn - totalOut, '#FFD978', totalIn - totalOut < 0 ? '−' : '+'],
+              ] as const
+            ).map(([label, value, color, sign]) => (
+              <View key={label} style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{ color: '#ffffffaa', fontSize: 11 }}>{label}</Text>
+                <Text style={{ color, fontSize: 15, fontWeight: '800' }} numberOfLines={1}>
+                  {sign}
+                  {compact(Math.abs(value))}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
         <TextInput value={query} onChangeText={setQuery} placeholder="Search shop, note, category…" placeholderTextColor={colors.muted} style={styles.input} />
         <FlatList
