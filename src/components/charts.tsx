@@ -351,7 +351,7 @@ export function CompareLines({ current, previous, width, height = 150, format, l
 }
 
 /** Half-circle score gauge (0–100) on a red → orange → green band, with the score in large type. */
-export function HealthGauge({ score, label, size = 240 }: { score: number; label: string; size?: number }) {
+export function HealthGauge({ score, label, size = 240, light }: { score: number; label: string; size?: number; light?: boolean }) {
   const id = useId().replace(/:/g, '');
   const stroke = 18;
   const r = (size - stroke) / 2;
@@ -378,17 +378,17 @@ export function HealthGauge({ score, label, size = 240 }: { score: number; label
             <Stop offset="1" stopColor={colors.success} />
           </LinearGradient>
         </Defs>
-        <Path d={arc(1)} stroke={colors.border} strokeWidth={stroke} strokeLinecap="round" fill="none" />
+        <Path d={arc(1)} stroke={light ? '#ffffff2e' : colors.border} strokeWidth={stroke} strokeLinecap="round" fill="none" />
         {f > 0 ? <Path d={arc(f)} stroke={`url(#hg${id})`} strokeWidth={stroke} strokeLinecap="round" fill="none" /> : null}
         <Circle cx={tip.x} cy={tip.y} r={stroke / 2 + 3} fill="#fff" stroke={color} strokeWidth={4} />
       </Svg>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}>
-        <Text style={{ fontSize: 48, fontWeight: '800', color: colors.text, lineHeight: 52 }}>{score}</Text>
-        <Text style={{ fontSize: 12, color: colors.muted }}>out of 100</Text>
+        <Text style={{ fontSize: 48, fontWeight: '800', color: light ? '#fff' : colors.text, lineHeight: 52 }}>{score}</Text>
+        <Text style={{ fontSize: 12, color: light ? '#ffffffaa' : colors.muted }}>out of 100</Text>
       </View>
       </View>
-      <View style={{ marginTop: 10, backgroundColor: color + '22', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 5 }}>
-        <Text style={{ color, fontWeight: '800', fontSize: 15 }}>{label}</Text>
+      <View style={{ marginTop: 10, backgroundColor: light ? '#ffffff26' : color + '22', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 5 }}>
+        <Text style={{ color: light ? '#FFD978' : color, fontWeight: '800', fontSize: 15 }}>{label}</Text>
       </View>
     </View>
   );

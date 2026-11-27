@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { AreaChart, BarChart, CompareLines, HBars, HealthGauge } from '../../components/charts';
+import { GradientBg } from '../../components/GradientBg';
 import { t } from '../../i18n';
 import { Button, Card, Chip, ChipRow, Icon, InsightCard, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import {
@@ -79,28 +80,34 @@ export default function Insights() {
 
   return (
     <Screen>
-      {/* Financial health */}
-      <Card style={{ alignItems: 'center', gap: 12 }}>
-        <Text style={[styles.sectionTitle, { alignSelf: 'flex-start' }]}>{t('Financial health')}</Text>
-        <HealthGauge score={v.health.score} label={v.health.label} size={Math.min(260, chartW)} />
-        <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 4 }}>
-          {v.health.parts.map((p) => {
-            const ok = p.score / p.max >= 0.6;
-            return (
-              <View key={p.name} style={{ gap: 4 }}>
-                <Row style={{ gap: 8 }}>
-                  <Icon name={ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={ok ? colors.success : colors.warning} />
-                  <Text style={[styles.insightText, { flex: 1 }]}>{p.name}</Text>
-                  <Text style={[styles.insightText, { fontWeight: '700' }]}>
-                    {p.score}/{p.max}
-                  </Text>
-                </Row>
-                <ProgressBar value={p.score / p.max} color={ok ? colors.success : colors.warning} plain />
-              </View>
-            );
-          })}
+      {/* Financial health, in the app's hero colours */}
+      <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+        <GradientBg id="healthbg" />
+        <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
+        <View style={{ padding: 16, alignItems: 'center', gap: 12 }}>
+          <Text style={{ alignSelf: 'flex-start', color: '#fff', fontSize: 18, fontWeight: '800' }}>{t('Financial health')}</Text>
+          <HealthGauge score={v.health.score} label={v.health.label} size={Math.min(260, chartW)} light />
+          <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 4 }}>
+            {v.health.parts.map((p) => {
+              const ok = p.score / p.max >= 0.6;
+              return (
+                <View key={p.name} style={{ gap: 4 }}>
+                  <Row style={{ gap: 8 }}>
+                    <Icon name={ok ? 'checkmark-circle' : 'alert-circle'} size={18} color={ok ? '#7EE3B5' : '#FFD978'} />
+                    <Text style={{ flex: 1, color: '#fff', fontSize: 14 }}>{p.name}</Text>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+                      {p.score}/{p.max}
+                    </Text>
+                  </Row>
+                  <View style={{ height: 6, borderRadius: 3, backgroundColor: '#ffffff26', overflow: 'hidden' }}>
+                    <View style={{ width: `${Math.round((p.score / p.max) * 100)}%`, height: '100%', borderRadius: 3, backgroundColor: ok ? '#7EE3B5' : '#FFD978' }} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         </View>
-      </Card>
+      </View>
 
       {/* Suggestions */}
       {v.potential > 0 ? (

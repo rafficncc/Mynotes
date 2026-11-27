@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
+import { GradientBg } from '../../components/GradientBg';
 import { BarChart, HBars } from '../../components/charts';
 import { inMonth } from '../../logic/analytics';
 import { TipCard } from '../../components/TipCard';
@@ -36,21 +37,6 @@ function MiniRing({ value, size = 46 }: { value: number; size?: number }) {
       </Svg>
       <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>{Math.round(value * 100)}%</Text>
     </View>
-  );
-}
-
-/** Gradient background filling its parent. */
-function GradientBg({ id, from, to }: { id: string; from: string; to: string }) {
-  return (
-    <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor={from} />
-          <Stop offset="1" stopColor={to} />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
-    </Svg>
   );
 }
 
@@ -121,7 +107,7 @@ export default function SmartCard() {
         ]}
       />
       <View style={{ borderRadius: 20, overflow: 'hidden' }}>
-        <GradientBg id="cardsum" from="#1B1F5E" to="#0B6E4F" />
+        <GradientBg id="cardsum" />
         <Row style={{ padding: 16, gap: 16 }}>
           {totals.util !== null ? <MiniRing value={totals.util} size={84} /> : null}
           <View style={{ flex: 1, gap: 2 }}>
@@ -196,7 +182,7 @@ export default function SmartCard() {
           <Card key={info.account.id}>
             {/* The card itself */}
             <Pressable onPress={() => router.push(`/account-form?id=${info.account.id}`)} accessibilityRole="button" accessibilityLabel={`Edit ${info.account.name}`} style={{ borderRadius: 18, overflow: 'hidden', aspectRatio: 1.75 }}>
-              <GradientBg id={`cg${info.account.id}`} from={look[0]} to={look[1]} />
+              <GradientBg id={`cg${info.account.id}`} colors={look} />
               <View style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: '#ffffff14', top: -60, right: -50 }} />
               <View style={{ flex: 1, padding: 16, justifyContent: 'space-between' }}>
                 <Row style={{ justifyContent: 'space-between' }}>

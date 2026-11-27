@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { GradientBg } from '../../components/GradientBg';
 import { AreaChart, BarChart, DonutChart, Gauge } from '../../components/charts';
 import { ask } from '../../components/Dialog';
 import { Card, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
@@ -91,16 +91,7 @@ export default function Home() {
         <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
           <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden' }}>
             {/* indigo → emerald background */}
-            <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
-              <Defs>
-                <LinearGradient id="nwbg" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0" stopColor="#1B1F5E" />
-                  <Stop offset="0.55" stopColor="#0E4D64" />
-                  <Stop offset="1" stopColor="#0B6E4F" />
-                </LinearGradient>
-              </Defs>
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#nwbg)" />
-            </Svg>
+            <GradientBg id="nwbg" />
             {/* soft circles for depth */}
             <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
             <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0d', bottom: -60, left: -40 }} />
