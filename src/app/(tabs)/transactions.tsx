@@ -226,8 +226,8 @@ export default function Transactions() {
                   </View>
                 </Pressable>
                 {showChart ? (
-                  <>
-                    <View style={{ alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View>
                       <DonutChart
                         data={byCat.map((c, i) => ({ ...c, color: BRIGHT[i] ?? '#B0BEC5' }))}
                         centerLabel={active ? pickedLabel ?? 'Spent' : 'Spent'}
@@ -237,11 +237,11 @@ export default function Transactions() {
                         selected={active?.key}
                         onSelect={pickSlice}
                         light
-                        size={150}
+                        size={128}
                         legend={false}
                       />
                     </View>
-                    <View style={{ gap: 0 }}>
+                    <View style={{ flex: 1 }}>
                       {slices.map((c) => {
                         const on = active?.key === c.key;
                         const pct = totalOut > 0 ? c.value / totalOut : 0;
@@ -251,30 +251,30 @@ export default function Transactions() {
                             onPress={() => pickSlice(c.key, c.keys)}
                             accessibilityRole="button"
                             accessibilityState={{ selected: on }}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 10, backgroundColor: on ? '#ffffff26' : 'transparent', opacity: active && !on ? 0.5 : 1 }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 8, backgroundColor: on ? '#ffffff26' : 'transparent', opacity: active && !on ? 0.5 : 1 }}
                           >
-                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c.color + '40', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.color }}>
-                              <Icon name={c.icon} size={14} color="#fff" />
+                            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: c.color + '40', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.color }}>
+                              <Icon name={c.icon} size={11} color="#fff" />
                             </View>
                             <View style={{ flex: 1, gap: 3 }}>
                               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                                <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>
+                                <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 12 }} numberOfLines={1}>
                                   {c.label}
                                 </Text>
-                                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{money(c.value)}</Text>
+                                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{compact(c.value)}</Text>
                               </View>
                               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: '#ffffff1f', overflow: 'hidden' }}>
                                   <View style={{ width: `${Math.max(2, Math.round(pct * 100))}%`, height: '100%', borderRadius: 3, backgroundColor: c.color }} />
                                 </View>
-                                <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 32, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
+                                <Text style={{ color: '#ffffffb3', fontSize: 11, fontWeight: '700', width: 28, textAlign: 'right' }}>{Math.round(pct * 100)}%</Text>
                               </View>
                             </View>
                           </Pressable>
                         );
                       })}
                     </View>
-                  </>
+                  </View>
                 ) : null}
                 {active ? (
                   <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 }}>
