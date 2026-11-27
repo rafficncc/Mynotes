@@ -201,3 +201,33 @@ export function ScoreRing({ score, size = 96, label }: { score: number; size?: n
     </View>
   );
 }
+
+/** Line with a soft filled area, e.g. net worth growth. `light` draws white for coloured backgrounds. */
+export function AreaChart({ values, labels, width, height = 90, color = colors.primary, light }: { values: number[]; labels?: string[]; width: number; height?: number; color?: string; light?: boolean }) {
+  if (values.length < 2) return null;
+  const stroke = light ? '#fff' : color;
+  const pad = 6;
+  const labelH = labels ? 16 : 0;
+  const h = height - labelH;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const x = (i: number) => pad + (i * (width - pad * 2)) / (values.length - 1);
+  const y = (v: number) => pad + (1 - (v - min) / span) * (h - pad * 2);
+  const line = values.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' ');
+  const area = `${line} L ${x(values.length - 1)} ${h} L ${x(0)} ${h} Z`;
+  return (
+    <Svg width={width} height={height} accessibilityLabel="Growth chart">
+      <Path d={area} fill={stroke} opacity={light ? 0.18 : 0.12} />
+      <Path d={line} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinejoin="round" />
+      {values.map((v, i) => (
+        <Circle key={i} cx={x(i)} cy={y(v)} r={i === values.length - 1 ? 4 : 2.5} fill={stroke} />
+      ))}
+      {labels?.map((l, i) => (
+        <SvgText key={l + i} x={i === 0 ? 0 : i === labels.length - 1 ? width : x(i)} y={height - 3} fontSize={10} fill={light ? '#ffffffcc' : colors.muted} textAnchor={i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'middle'}>
+          {l}
+        </SvgText>
+      ))}
+    </Svg>
+  );
+}
