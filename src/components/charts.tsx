@@ -71,7 +71,8 @@ export function DonutChart({
               );
             })}
         </Svg>
-        <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+        {/* Centre label lets taps through to the slices underneath */}
+        <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 11, color: colors.muted }}>{centerLabel}</Text>
           <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{centerValue}</Text>
         </View>
