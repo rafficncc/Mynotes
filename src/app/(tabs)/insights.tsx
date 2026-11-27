@@ -47,7 +47,8 @@ export default function Insights() {
     const elapsed = Math.min(diffDays(on, curB.start) + 1, diffDays(curB.end, curB.start) + 1);
     const pace = { current: cumulativeDaily(cur, curB.start, elapsed), previous: cumulativeDaily(prev, prevB.start, diffDays(prevB.end, prevB.start) + 1) };
     const months = monthlyTotals(data.transactions, key, 6, startDay);
-    const insights = generateInsights(data, on);
+    // Budget-exceeded alerts live on the Budgets screen; Insights keeps saving ideas only.
+    const insights = generateInsights(data, on).filter((i) => !i.id.startsWith('budget-over-'));
     return {
       pace,
       changes: categoryChanges(cur, prev, data.categories),
