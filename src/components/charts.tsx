@@ -231,3 +231,32 @@ export function AreaChart({ values, labels, width, height = 90, color = colors.p
     </Svg>
   );
 }
+
+/** Ring gauge: how much of something is used, with the text in the middle. Turns orange near the limit, red over it. */
+export function Gauge({ value, size = 92, label, sub }: { value: number; size?: number; label: string; sub?: string }) {
+  const stroke = 10;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const shown = Math.max(0, Math.min(1, value));
+  const color = value > 1 ? colors.danger : value > 0.85 ? colors.warning : colors.success;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.border} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${c * shown} ${c}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <Text style={{ fontSize: 18, fontWeight: '800', color }}>{label}</Text>
+      {sub ? <Text style={{ fontSize: 10, color: colors.muted }}>{sub}</Text> : null}
+    </View>
+  );
+}

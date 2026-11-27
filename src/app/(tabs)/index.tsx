@@ -1,14 +1,14 @@
 import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { AreaChart, BarChart, DonutChart } from '../../components/charts';
+import { AreaChart, BarChart, DonutChart, Gauge } from '../../components/charts';
 import { ask } from '../../components/Dialog';
-import { Card, Icon, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
+import { Card, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import { t } from '../../i18n';
 import { expenses, inMonth, incomes, monthlyTotals, spendByCategory, sum } from '../../logic/analytics';
 import { computeBalances, computeNetWorth } from '../../logic/balances';
 import { generateActions } from '../../logic/actions';
-import { formatShortDate, monthLabel, shiftMonthKey, toISODate } from '../../logic/dates';
+import { diffDays, formatShortDate, monthLabel, shiftMonthKey, toISODate } from '../../logic/dates';
 import { personBalances } from '../../logic/money2';
 import { netWorthHistory } from '../../logic/reports';
 import { savingsThisYear } from '../../logic/savings';
@@ -66,19 +66,31 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, balances, key, startDay]);
 
-  const tiles: { label: string; value: number; pct: number | null; icon: string; bg: string; fg: string; good: 'up' | 'down'; href: Href }[] = [
-    { label: t('Income'), value: view.earned, pct: view.changes.income, icon: 'wallet-outline', bg: colors.successSoft, fg: colors.success, good: 'up', href: '/transactions' },
-    { label: t('Expenses'), value: view.spent, pct: view.changes.spent, icon: 'cart-outline', bg: colors.dangerSoft, fg: colors.danger, good: 'down', href: '/transactions' },
-    { label: 'Savings', value: view.savings, pct: view.changes.savings, icon: 'leaf-outline', bg: colors.infoSoft, fg: colors.info, good: 'up', href: '/reports' },
-    { label: 'Debt', value: view.net.liabilities, pct: view.changes.debt, icon: 'trending-down-outline', bg: colors.warningSoft, fg: colors.warning, good: 'down', href: '/debts' },
+  const tiles: { label: string; value: number; pct: number | null; icon: string; bg: string; fg: string; good: 'up' | 'down'; href: Href; trend: number[] }[] = [
+    { label: t('Income'), value: view.earned, pct: view.changes.income, icon: 'wallet-outline', bg: colors.successSoft, fg: colors.success, good: 'up', href: '/transactions', trend: view.months.map((m) => m.income) },
+    { label: t('Expenses'), value: view.spent, pct: view.changes.spent, icon: 'cart-outline', bg: colors.dangerSoft, fg: colors.danger, good: 'down', href: '/transactions', trend: view.months.map((m) => m.expense) },
+    { label: 'Savings', value: view.savings, pct: view.changes.savings, icon: 'leaf-outline', bg: colors.infoSoft, fg: colors.info, good: 'up', href: '/reports', trend: view.months.map((m) => m.income - m.expense) },
+    { label: 'Debt', value: view.net.liabilities, pct: view.changes.debt, icon: 'trending-down-outline', bg: colors.warningSoft, fg: colors.warning, good: 'down', href: '/debts', trend: view.history.map((h) => h.liabilities) },
   ];
+  const tileChartW = Math.floor((Math.min(width, 760) - 42) / 2) - 24;
   const budgetPct = view.budgetTotal ? Math.round((view.budgetSpent / view.budgetTotal) * 100) : 0;
+  const hour = on.getHours();
+  const me = data.members.find((m) => m.id === data.settings.currentMemberId)?.name;
+  const greeting = `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}${me && me !== 'Me' ? `, ${me}` : ''} 👋`;
 
   return (
     <Screen>
+      <View>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text }}>{greeting}</Text>
+        <Text style={styles.hint}>Here’s your family’s money today.</Text>
+      </View>
+
       {/* Net worth and how it grew */}
       <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
-        <Card style={{ backgroundColor: colors.primary, gap: 4 }}>
+        <Card style={{ backgroundColor: colors.primary, gap: 4, overflow: 'hidden' }}>
+          {/* soft circles for depth */}
+          <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
+          <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0d', bottom: -60, left: -40 }} />
           <Row style={{ justifyContent: 'space-between' }}>
             <Text style={{ color: '#ffffffcc', fontSize: 13 }}>{t('Net worth')}</Text>
             <Pressable
@@ -99,8 +111,13 @@ export default function Home() {
             </View>
           ) : null}
           <AreaChart values={view.history.map((h) => h.net)} labels={view.history.map((h) => h.label.slice(0, 3))} width={chartW} height={96} light />
+          {/* What we own vs what we owe */}
+          <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#ffffff33', marginTop: 4 }}>
+            <View style={{ flex: Math.max(view.net.assets, 1), backgroundColor: '#fff' }} />
+            <View style={{ flex: view.net.liabilities, backgroundColor: '#FFB4A2' }} />
+          </View>
           <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={{ color: '#ffffffcc', fontSize: 12 }}>Own {compact(view.net.assets)} · Owe {compact(view.net.liabilities)}</Text>
+            <Text style={{ color: '#ffffffdd', fontSize: 12 }}>● Own {compact(view.net.assets)}   <Text style={{ color: '#FFB4A2' }}>●</Text> Owe {compact(view.net.liabilities)}</Text>
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>All balances ›</Text>
           </Row>
         </Card>
@@ -148,15 +165,20 @@ export default function Home() {
           const good = x.pct === null ? null : x.good === 'up' ? x.pct >= 0 : x.pct <= 0;
           return (
             <Pressable key={x.label} onPress={() => router.push(x.href)} accessibilityRole="button" style={{ flexBasis: '47%', flexGrow: 1 }}>
-              <View style={{ backgroundColor: x.bg, borderRadius: 16, padding: 14, gap: 2, alignItems: 'center' }}>
-                <Icon name={x.icon} color={x.fg} />
+              <View style={{ backgroundColor: x.bg, borderRadius: 16, padding: 12, gap: 2 }}>
+                <Row style={{ justifyContent: 'space-between' }}>
+                  <View style={{ backgroundColor: colors.card, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={x.icon} color={x.fg} size={18} />
+                  </View>
+                  {x.pct !== null ? (
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: good ? colors.success : colors.danger }}>
+                      {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
+                    </Text>
+                  ) : null}
+                </Row>
                 <Text style={styles.itemSub}>{x.label}</Text>
                 <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{compact(x.value)}</Text>
-                {x.pct !== null ? (
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: good ? colors.success : colors.danger }}>
-                    {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
-                  </Text>
-                ) : null}
+                <AreaChart values={x.trend} width={tileChartW} height={34} color={x.fg} />
               </View>
             </Pressable>
           );
@@ -165,15 +187,16 @@ export default function Home() {
 
       {view.budgetTotal > 0 ? (
         <Pressable onPress={() => router.push('/budgets')} accessibilityRole="button">
-          <Card style={{ gap: 6 }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={styles.itemTitle}>This cycle’s budget</Text>
-              <Text style={[styles.itemSub, { color: budgetPct > 100 ? colors.danger : colors.text }]}>{budgetPct}% used</Text>
-            </Row>
-            <ProgressBar value={view.budgetSpent / view.budgetTotal} />
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={styles.hint}>Spent {money(view.budgetSpent)}</Text>
-              <Text style={styles.hint}>Budget {money(view.budgetTotal)}</Text>
+          <Card>
+            <Row style={{ gap: 16 }}>
+              <Gauge value={view.budgetSpent / view.budgetTotal} label={`${budgetPct}%`} sub="used" />
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.itemTitle}>This cycle’s budget</Text>
+                <Text style={styles.itemSub}>Spent {money(view.budgetSpent)} of {money(view.budgetTotal)}</Text>
+                <Text style={[styles.itemSub, { fontWeight: '700', color: budgetPct > 100 ? colors.danger : colors.success }]}>
+                  {budgetPct > 100 ? `${money(view.budgetSpent - view.budgetTotal)} over budget` : `${money(view.budgetTotal - view.budgetSpent)} left · ${progress.left} days`}
+                </Text>
+              </View>
             </Row>
           </Card>
         </Pressable>
@@ -190,14 +213,25 @@ export default function Home() {
           {view.upcoming.slice(0, 3).map((a) => (
             <Pressable key={a.id} onPress={() => router.push('/actions')} accessibilityRole="button">
               <Row style={{ paddingVertical: 6 }}>
-                <Icon name={a.icon} color={a.status === 'overdue' ? colors.danger : colors.primary} />
+                <View style={{ backgroundColor: a.status === 'overdue' ? colors.dangerSoft : colors.primarySoft, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={a.icon} color={a.status === 'overdue' ? colors.danger : colors.primary} size={20} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemTitle} numberOfLines={1}>{a.title}</Text>
-                  <Text style={[styles.itemSub, a.status === 'overdue' && { color: colors.danger }]}>
-                    {a.status === 'overdue' ? 'Overdue' : 'Due'} {formatShortDate(a.date)}
-                  </Text>
+                  <Text style={styles.itemSub}>{formatShortDate(a.date)}</Text>
                 </View>
-                <Text style={styles.itemTitle}>{money(a.amount ?? 0)}</Text>
+                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                  <Text style={styles.itemTitle}>{money(a.amount ?? 0)}</Text>
+                  {(() => {
+                    const d = diffDays(a.date, on);
+                    const late = d < 0;
+                    return (
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: late ? colors.danger : d <= 3 ? colors.warning : colors.muted, backgroundColor: late ? colors.dangerSoft : d <= 3 ? colors.warningSoft : colors.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>
+                        {late ? `${-d} days late` : d === 0 ? 'Today' : `in ${d} days`}
+                      </Text>
+                    );
+                  })()}
+                </View>
               </Row>
             </Pressable>
           ))}
