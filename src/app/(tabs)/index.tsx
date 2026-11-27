@@ -80,215 +80,205 @@ export default function Home() {
   const greeting = `${hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'}${me && me !== 'Me' ? `, ${me}` : ''} 👋`;
 
   return (
-    <Screen>
-      <View>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text }}>{greeting}</Text>
-        <Text style={styles.hint}>Here’s your family’s money today.</Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      <Screen>
+        <View>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text }}>{greeting}</Text>
+          <Text style={styles.hint}>Here’s your family’s money today.</Text>
+        </View>
 
-      {/* Net worth and how it grew */}
-      <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
-        <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden' }}>
-          {/* indigo → emerald background */}
-          <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
-            <Defs>
-              <LinearGradient id="nwbg" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#1B1F5E" />
-                <Stop offset="0.55" stopColor="#0E4D64" />
-                <Stop offset="1" stopColor="#0B6E4F" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#nwbg)" />
-          </Svg>
-          {/* soft circles for depth */}
-          <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
-          <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0d', bottom: -60, left: -40 }} />
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={{ color: '#ffffffcc', fontSize: 13 }}>{t('Net worth')}</Text>
-            <Pressable
-              onPress={() => updateSettings({ hideAmounts: !data.settings.hideAmounts })}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel={data.settings.hideAmounts ? 'Show amounts' : 'Hide amounts'}
-            >
-              <Icon name={data.settings.hideAmounts ? 'eye-off-outline' : 'eye-outline'} color="#fff" />
-            </Pressable>
-          </Row>
-          <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.net.net)}</Text>
-          {view.netChange !== null ? (
-            <View style={{ alignSelf: 'flex-start', backgroundColor: '#F5B84133', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-              <Text style={{ color: '#FFD978', fontWeight: '700', fontSize: 12 }}>
-                {view.netChange >= 0 ? '↑' : '↓'} {Math.abs(view.netChange)}% vs last month
-              </Text>
-            </View>
-          ) : null}
-          <View>
-            <AreaChart values={view.history.map((h) => h.net)} labels={view.history.map((h) => h.label.slice(0, 3))} width={chartW} height={100} light lineColor="#FFD978" />
-          </View>
-          {/* What we own vs what we owe */}
-          <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#ffffff33', marginTop: 4 }}>
-            <View style={{ flex: Math.max(view.net.assets, 1), backgroundColor: '#7EE3B5' }} />
-            <View style={{ flex: view.net.liabilities, backgroundColor: '#FF9E8A' }} />
-          </View>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={{ color: '#ffffffdd', fontSize: 12 }}><Text style={{ color: '#7EE3B5' }}>●</Text> Own {compact(view.net.assets)}   <Text style={{ color: '#FF9E8A' }}>●</Text> Owe {compact(view.net.liabilities)}</Text>
-            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>All balances ›</Text>
-          </Row>
-        </Card>
-      </Pressable>
-
-      {view.saved.total > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            ask(
-              `FamilyFin saved your family ${money(view.saved.total)} this year`,
-              `• Card rewards & cashback: ${money(view.saved.rewards)}\n• Interest kept by paying with cards on interest-free days: ${money(view.saved.cardFloat)}\n• Left unspent in your budgets: ${money(view.saved.underBudget)}\n\nWorked out from your own entries since 1 January.`,
-            )
-          }
-          style={{ backgroundColor: colors.successSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}
-        >
-          <Text style={{ color: colors.success, fontWeight: '700', fontSize: 13 }}>💰 FamilyFin saved you {money(view.saved.total)} this year ›</Text>
-        </Pressable>
-      ) : null}
-
-      {/* Quick add */}
-      <Row style={{ justifyContent: 'space-between' }}>
-        {(
-          [
-            ['remove-circle-outline', t('Expense'), '/add?type=expense'],
-            ['add-circle-outline', t('Income'), '/add?type=income'],
-            ['swap-horizontal', t('Transfer'), '/add?type=transfer'],
-            ['scan-outline', 'Scan', '/scan'],
-            ['mic-outline', 'Voice', '/voice'],
-          ] as [string, string, Href][]
-        ).map(([icon, label, href]) => (
-          <Pressable key={label} onPress={() => router.push(href)} accessibilityRole="button" accessibilityLabel={label} style={{ alignItems: 'center', gap: 4, flex: 1 }}>
-            <View style={{ backgroundColor: colors.primarySoft, width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name={icon} color={colors.primary} />
-            </View>
-            <Text style={{ fontSize: 12, color: colors.text }}>{label}</Text>
-          </Pressable>
-        ))}
-      </Row>
-
-      {/* This cycle at a glance */}
-      <SectionTitle title={`${cycleText} · ${progress.left} days left`} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        {tiles.map((x) => {
-          const good = x.pct === null ? null : x.good === 'up' ? x.pct >= 0 : x.pct <= 0;
-          return (
-            <Pressable key={x.label} onPress={() => router.push(x.href)} accessibilityRole="button" style={{ flexBasis: '47%', flexGrow: 1 }}>
-              <View style={{ backgroundColor: x.bg, borderRadius: 16, padding: 12, gap: 2 }}>
-                <Row style={{ justifyContent: 'space-between' }}>
-                  <View style={{ backgroundColor: colors.card, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={x.icon} color={x.fg} size={18} />
-                  </View>
-                  {x.pct !== null ? (
-                    <Text style={{ fontSize: 12, fontWeight: '700', color: good ? colors.success : colors.danger }}>
-                      {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
-                    </Text>
-                  ) : null}
-                </Row>
-                <Text style={styles.itemSub}>{x.label}</Text>
-                <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{compact(x.value)}</Text>
-                <AreaChart values={x.trend} width={tileChartW} height={34} color={x.fg} />
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {view.budgetTotal > 0 ? (
-        <Pressable onPress={() => router.push('/budgets')} accessibilityRole="button">
-          <Card>
-            <Row style={{ gap: 16 }}>
-              <Gauge value={view.budgetSpent / view.budgetTotal} label={`${budgetPct}%`} sub="used" />
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.itemTitle}>This cycle’s budget</Text>
-                <Text style={styles.itemSub}>Spent {money(view.budgetSpent)} of {money(view.budgetTotal)}</Text>
-                <Text style={[styles.itemSub, { fontWeight: '700', color: budgetPct > 100 ? colors.danger : colors.success }]}>
-                  {budgetPct > 100 ? `${money(view.budgetSpent - view.budgetTotal)} over budget` : `${money(view.budgetTotal - view.budgetSpent)} left · ${progress.left} days`}
+        {/* Net worth and how it grew */}
+        <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
+          <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden' }}>
+            {/* indigo → emerald background */}
+            <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
+              <Defs>
+                <LinearGradient id="nwbg" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0" stopColor="#1B1F5E" />
+                  <Stop offset="0.55" stopColor="#0E4D64" />
+                  <Stop offset="1" stopColor="#0B6E4F" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#nwbg)" />
+            </Svg>
+            {/* soft circles for depth */}
+            <View style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#ffffff12', top: -90, right: -70 }} />
+            <View style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0d', bottom: -60, left: -40 }} />
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text style={{ color: '#ffffffcc', fontSize: 13 }}>{t('Net worth')}</Text>
+              <Pressable
+                onPress={() => updateSettings({ hideAmounts: !data.settings.hideAmounts })}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={data.settings.hideAmounts ? 'Show amounts' : 'Hide amounts'}
+              >
+                <Icon name={data.settings.hideAmounts ? 'eye-off-outline' : 'eye-outline'} color="#fff" />
+              </Pressable>
+            </Row>
+            <Text style={{ color: '#fff', fontSize: 32, fontWeight: '800' }}>{money(view.net.net)}</Text>
+            {view.netChange !== null ? (
+              <View style={{ alignSelf: 'flex-start', backgroundColor: '#F5B84133', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+                <Text style={{ color: '#FFD978', fontWeight: '700', fontSize: 12 }}>
+                  {view.netChange >= 0 ? '↑' : '↓'} {Math.abs(view.netChange)}% vs last month
                 </Text>
               </View>
+            ) : null}
+            <View>
+              <AreaChart values={view.history.map((h) => h.net)} labels={view.history.map((h) => h.label.slice(0, 3))} width={chartW} height={100} light lineColor="#FFD978" />
+            </View>
+            {/* What we own vs what we owe */}
+            <View style={{ flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#ffffff33', marginTop: 4 }}>
+              <View style={{ flex: Math.max(view.net.assets, 1), backgroundColor: '#7EE3B5' }} />
+              <View style={{ flex: view.net.liabilities, backgroundColor: '#FF9E8A' }} />
+            </View>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text style={{ color: '#ffffffdd', fontSize: 12 }}><Text style={{ color: '#7EE3B5' }}>●</Text> Own {compact(view.net.assets)}   <Text style={{ color: '#FF9E8A' }}>●</Text> Owe {compact(view.net.liabilities)}</Text>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>All balances ›</Text>
             </Row>
           </Card>
         </Pressable>
-      ) : null}
 
-      {view.upcoming.length ? (
-        <Card style={{ gap: 4 }}>
-          <Row style={{ justifyContent: 'space-between' }}>
-            <Text style={styles.itemTitle}>Upcoming payments ({view.upcoming.length})</Text>
-            <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => router.push('/actions')}>
-              View all
-            </Text>
-          </Row>
-          {view.upcoming.slice(0, 3).map((a) => (
-            <Pressable key={a.id} onPress={() => router.push('/actions')} accessibilityRole="button">
-              <Row style={{ paddingVertical: 6 }}>
-                <View style={{ backgroundColor: a.status === 'overdue' ? colors.dangerSoft : colors.primarySoft, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={a.icon} color={a.status === 'overdue' ? colors.danger : colors.primary} size={20} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemTitle} numberOfLines={1}>{a.title}</Text>
-                  <Text style={styles.itemSub}>{formatShortDate(a.date)}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                  <Text style={styles.itemTitle}>{money(a.amount ?? 0)}</Text>
-                  {(() => {
-                    const d = diffDays(a.date, on);
-                    const late = d < 0;
-                    return (
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: late ? colors.danger : d <= 3 ? colors.warning : colors.muted, backgroundColor: late ? colors.dangerSoft : d <= 3 ? colors.warningSoft : colors.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>
-                        {late ? `${-d} days late` : d === 0 ? 'Today' : `in ${d} days`}
+        {view.saved.total > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              ask(
+                `FamilyFin saved your family ${money(view.saved.total)} this year`,
+                `• Card rewards & cashback: ${money(view.saved.rewards)}\n• Interest kept by paying with cards on interest-free days: ${money(view.saved.cardFloat)}\n• Left unspent in your budgets: ${money(view.saved.underBudget)}\n\nWorked out from your own entries since 1 January.`,
+              )
+            }
+            style={{ backgroundColor: colors.successSoft, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}
+          >
+            <Text style={{ color: colors.success, fontWeight: '700', fontSize: 13 }}>💰 FamilyFin saved you {money(view.saved.total)} this year ›</Text>
+          </Pressable>
+        ) : null}
+
+        {/* This cycle at a glance */}
+        <SectionTitle title={`${cycleText} · ${progress.left} days left`} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {tiles.map((x) => {
+            const good = x.pct === null ? null : x.good === 'up' ? x.pct >= 0 : x.pct <= 0;
+            return (
+              <Pressable key={x.label} onPress={() => router.push(x.href)} accessibilityRole="button" style={{ flexBasis: '47%', flexGrow: 1 }}>
+                <View style={{ backgroundColor: x.bg, borderRadius: 16, padding: 12, gap: 2 }}>
+                  <Row style={{ justifyContent: 'space-between' }}>
+                    <View style={{ backgroundColor: colors.card, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={x.icon} color={x.fg} size={18} />
+                    </View>
+                    {x.pct !== null ? (
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: good ? colors.success : colors.danger }}>
+                        {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
                       </Text>
-                    );
-                  })()}
+                    ) : null}
+                  </Row>
+                  <Text style={styles.itemSub}>{x.label}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{compact(x.value)}</Text>
+                  <AreaChart values={x.trend} width={tileChartW} height={34} color={x.fg} />
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {view.budgetTotal > 0 ? (
+          <Pressable onPress={() => router.push('/budgets')} accessibilityRole="button">
+            <Card>
+              <Row style={{ gap: 16 }}>
+                <Gauge value={view.budgetSpent / view.budgetTotal} label={`${budgetPct}%`} sub="used" />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={styles.itemTitle}>This cycle’s budget</Text>
+                  <Text style={styles.itemSub}>Spent {money(view.budgetSpent)} of {money(view.budgetTotal)}</Text>
+                  <Text style={[styles.itemSub, { fontWeight: '700', color: budgetPct > 100 ? colors.danger : colors.success }]}>
+                    {budgetPct > 100 ? `${money(view.budgetSpent - view.budgetTotal)} over budget` : `${money(view.budgetTotal - view.budgetSpent)} left · ${progress.left} days`}
+                  </Text>
                 </View>
               </Row>
-            </Pressable>
-          ))}
-        </Card>
-      ) : null}
+            </Card>
+          </Pressable>
+        ) : null}
 
-      <Card style={{ gap: 10 }}>
-        <Row>
-          {(
-            [
-              ['flow', 'Income vs expenses'],
-              ['spend', 'Spending'],
-            ] as const
-          ).map(([k, label]) => (
-            <Pressable
-              key={k}
-              onPress={() => setChart(k)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: chart === k }}
-              style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: chart === k ? colors.primary : colors.bg }}
-            >
-              <Text style={{ fontWeight: '700', fontSize: 13, color: chart === k ? '#fff' : colors.text }}>{label}</Text>
-            </Pressable>
-          ))}
-        </Row>
-        {chart === 'flow' ? (
-          <BarChart
-            labels={view.months.map((m) => monthLabel(m.key).slice(0, 3))}
-            series={[
-              { name: t('Income'), color: colors.success, values: view.months.map((m) => m.income) },
-              { name: t('Expenses'), color: colors.danger, values: view.months.map((m) => m.expense) },
-              { name: 'Savings', color: colors.info, values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
-            ]}
-            width={chartW}
-            height={160}
-            format={compact}
-          />
-        ) : view.byCat.length ? (
-          <DonutChart data={view.byCat} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} />
-        ) : (
-          <Text style={styles.hint}>No spending yet this cycle.</Text>
-        )}
-      </Card>
-    </Screen>
+        {view.upcoming.length ? (
+          <Card style={{ gap: 4 }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <Text style={styles.itemTitle}>Upcoming payments ({view.upcoming.length})</Text>
+              <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => router.push('/actions')}>
+                View all
+              </Text>
+            </Row>
+            {view.upcoming.slice(0, 3).map((a) => (
+              <Pressable key={a.id} onPress={() => router.push('/actions')} accessibilityRole="button">
+                <Row style={{ paddingVertical: 6 }}>
+                  <View style={{ backgroundColor: a.status === 'overdue' ? colors.dangerSoft : colors.primarySoft, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name={a.icon} color={a.status === 'overdue' ? colors.danger : colors.primary} size={20} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemTitle} numberOfLines={1}>{a.title}</Text>
+                    <Text style={styles.itemSub}>{formatShortDate(a.date)}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                    <Text style={styles.itemTitle}>{money(a.amount ?? 0)}</Text>
+                    {(() => {
+                      const d = diffDays(a.date, on);
+                      const late = d < 0;
+                      return (
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: late ? colors.danger : d <= 3 ? colors.warning : colors.muted, backgroundColor: late ? colors.dangerSoft : d <= 3 ? colors.warningSoft : colors.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>
+                          {late ? `${-d} days late` : d === 0 ? 'Today' : `in ${d} days`}
+                        </Text>
+                      );
+                    })()}
+                  </View>
+                </Row>
+              </Pressable>
+            ))}
+          </Card>
+        ) : null}
+
+        <Card style={{ gap: 10 }}>
+          <Row>
+            {(
+              [
+                ['flow', 'Income vs expenses'],
+                ['spend', 'Spending'],
+              ] as const
+            ).map(([k, label]) => (
+              <Pressable
+                key={k}
+                onPress={() => setChart(k)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: chart === k }}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: chart === k ? colors.primary : colors.bg }}
+              >
+                <Text style={{ fontWeight: '700', fontSize: 13, color: chart === k ? '#fff' : colors.text }}>{label}</Text>
+              </Pressable>
+            ))}
+          </Row>
+          {chart === 'flow' ? (
+            <BarChart
+              labels={view.months.map((m) => monthLabel(m.key).slice(0, 3))}
+              series={[
+                { name: t('Income'), color: colors.success, values: view.months.map((m) => m.income) },
+                { name: t('Expenses'), color: colors.danger, values: view.months.map((m) => m.expense) },
+                { name: 'Savings', color: colors.info, values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
+              ]}
+              width={chartW}
+              height={160}
+              format={compact}
+            />
+          ) : view.byCat.length ? (
+            <DonutChart data={view.byCat} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} />
+          ) : (
+            <Text style={styles.hint}>No spending yet this cycle.</Text>
+          )}
+        </Card>
+      </Screen>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Add transaction"
+        onPress={() => router.push('/add')}
+        style={{ position: 'absolute', right: 20, bottom: 24, backgroundColor: colors.primary, width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}
+      >
+        <Icon name="add" size={30} color="#fff" />
+      </Pressable>
+    </View>
   );
 }
