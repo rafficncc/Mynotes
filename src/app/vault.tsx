@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ask } from '../components/Dialog';
@@ -8,7 +9,7 @@ import { Button, Card, Chip, Field, Icon, ProgressBar, Row, Screen, SectionTitle
 import { t } from '../i18n';
 import { diffDays, formatDate } from '../logic/dates';
 import type { VaultEntry } from '../logic/types';
-import { looksSecret, readiness, VAULT_CATEGORIES, VAULT_GROUPS, vaultHtml, vaultRows, type VaultRow } from '../logic/vault';
+import { allCategories, allGroups, looksSecret, readiness, vaultHtml, vaultRows, type VaultRow } from '../logic/vault';
 import { shareLockedPdf } from '../services/vaultPdf';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
@@ -31,6 +32,11 @@ function Vault() {
   const rows = useMemo(() => vaultRows(data), [data]);
   const ready = useMemo(() => readiness(data, rows), [data, rows]);
   const na = new Set(data.settings.vaultNA ?? []);
+  const cats = allCategories(data);
+  const groups = allGroups(cats);
+  const custom = data.settings.vaultCustom ?? [];
+  const [newTopic, setNewTopic] = useState('');
+  const [newGroup, setNewGroup] = useState('');
 
   if (!unlocked) return <PinPad title={t('Unlock the money vault')} useBiometrics={!!data.settings.useBiometrics} onUnlock={() => setUnlocked(true)} />;
 
@@ -93,7 +99,24 @@ function Vault() {
     }
   };
 
-  const cat = draft ? VAULT_CATEGORIES.find((c) => c.key === draft.section) : undefined;
+  const cat = draft ? cats.find((c) => c.key === draft.section) : undefined;
+
+  const addTopic = () => {
+    const label = newTopic.trim();
+    const group = newGroup.trim() || 'My own topics';
+    if (!label) return ask('Name the topic', 'For example “Chit fund”, “Business partnership” or “Kids’ savings”.');
+    if (cats.some((c) => c.label.toLowerCase() === label.toLowerCase())) return ask('That topic already exists');
+    const key = `custom-${randomUUID().slice(0, 8)}`;
+    updateSettings({ vaultCustom: [...custom, { key, group, label }] });
+    setNewTopic('');
+    setOpen(key);
+    toast(`Added “${label}” to ${group}`);
+  };
+  const deleteTopic = (key: string, label: string) =>
+    ask(`Delete the topic “${label}”?`, 'Items you added to it move to “Anything else”.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => updateSettings({ vaultCustom: custom.filter((c) => c.key !== key) }) },
+    ]);
 
   if (draft && cat) {
     const set = (k: keyof Draft, v: string) => setDraft({ ...draft, [k]: v });
@@ -171,10 +194,10 @@ function Vault() {
         )}
       </Card>
 
-      {VAULT_GROUPS.map((g) => (
+      {groups.map((g) => (
         <View key={g} style={{ gap: 8 }}>
           <SectionTitle title={g} />
-          {VAULT_CATEGORIES.filter((c) => c.group === g).map((c) => {
+          {cats.filter((c) => c.group === g).map((c) => {
             const items = rows.filter((r) => r.section === c.key);
             const isNA = na.has(c.key);
             const expanded = open === c.key;
@@ -205,7 +228,8 @@ function Vault() {
                     ))}
                     <Row style={{ flexWrap: 'wrap' }}>
                       <Chip label="Add" icon="add" onPress={() => setDraft(emptyDraft(c.key))} />
-                      {!items.length ? (
+                      {c.key.startsWith('custom-') ? <Chip label="Delete topic" icon="trash-outline" onPress={() => deleteTopic(c.key, c.label)} /> : null}
+                      {!items.length && !c.key.startsWith('custom-') ? (
                         <Chip
                           label={isNA ? 'I have this' : 'I don’t have this'}
                           icon={isNA ? 'arrow-undo-outline' : 'remove-circle-outline'}
@@ -220,6 +244,19 @@ function Vault() {
           })}
         </View>
       ))}
+      <SectionTitle title="Add your own topic" />
+      <Card style={{ gap: 8 }}>
+        <Text style={styles.itemSub}>Something that isn’t listed? Add it. For example a chit fund, a business share, kids’ savings or a property abroad.</Text>
+        <Field label="Topic name" value={newTopic} onChangeText={setNewTopic} placeholder="e.g. Chit fund" />
+        <Text style={styles.label}>Group</Text>
+        <Row style={{ flexWrap: 'wrap' }}>
+          {[...new Set([...groups, 'My own topics'])].map((g) => (
+            <Chip key={g} label={g} selected={(newGroup.trim() || 'My own topics') === g} onPress={() => setNewGroup(g)} />
+          ))}
+        </Row>
+        <Field label="…or a new group" value={groups.includes(newGroup) || newGroup === 'My own topics' ? '' : newGroup} onChangeText={setNewGroup} placeholder="e.g. Business" />
+        <Button title="Add topic" icon="add" onPress={addTopic} />
+      </Card>
       <Text style={[styles.hint, { textAlign: 'center' }]}>Never store PINs, passwords or full card numbers. Account numbers: last 4 digits only.</Text>
     </Screen>
   );

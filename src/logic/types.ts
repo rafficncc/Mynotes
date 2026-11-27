@@ -355,6 +355,8 @@ export interface Settings {
   onboarded: boolean;
   /** How Premium was bought: a yearly plan is re-checked with the store, lifetime is kept. */
   premiumPlan?: 'lifetime' | 'yearly';
+  /** The family's own Money Vault topics; a new group name makes a new group. */
+  vaultCustom?: { key: string; group: string; label: string }[];
   /** Money Vault categories the family doesn't have. */
   vaultNA?: string[];
   /** When the family file was last shared, and with whom. */

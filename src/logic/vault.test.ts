@@ -44,3 +44,21 @@ describe('money vault', () => {
     expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
   });
 });
+
+describe('own topics', () => {
+  it('adds custom topics and groups to readiness, rows and the family file', () => {
+    const d = {
+      ...data,
+      settings: { ...data.settings, vaultCustom: [{ key: 'custom-a1', group: 'Business', label: 'Chit fund' }] },
+      vault: [...data.vault, { id: 'c1', section: 'custom-a1', title: 'Sree Gokulam chit', detail: 'Monthly ₹10,000', nominee: 'Priya' }],
+    };
+    expect(readiness(d).total).toBe(VAULT_CATEGORIES.length + 1);
+    expect(vaultRows(d).find((r) => r.key === 'c1')?.section).toBe('custom-a1');
+    const html = vaultHtml(d, String, 'Me', on);
+    expect(html).toContain('Business');
+    expect(html).toContain('Chit fund');
+    // deleting the topic keeps the item, under "Anything else"
+    const removed = { ...d, settings: { ...d.settings, vaultCustom: [] } };
+    expect(vaultRows(removed).find((r) => r.key === 'c1')?.section).toBe('other');
+  });
+});

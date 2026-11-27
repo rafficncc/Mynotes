@@ -55,9 +55,15 @@ export const VAULT_CATEGORIES: VaultCategory[] = [
 ];
 
 export const VAULT_GROUPS = [...new Set(VAULT_CATEGORIES.map((c) => c.group))];
-const KNOWN = new Set(VAULT_CATEGORIES.map((c) => c.key));
-/** Older entries with retired keys show under "Anything else". */
-export const categoryOf = (e: VaultEntry) => (KNOWN.has(e.section) ? e.section : 'other');
+
+/** Built-in topics plus the family's own topics (and groups) from Settings. */
+export function allCategories(data: AppData): VaultCategory[] {
+  return [...VAULT_CATEGORIES, ...(data.settings.vaultCustom ?? []).map((c) => ({ ...c, icon: 'bookmark-outline', hint: 'Your own topic', nominee: true }))];
+}
+export const allGroups = (cats: VaultCategory[]) => [...new Set(cats.map((c) => c.group))];
+
+/** Entries whose topic no longer exists (retired keys, deleted custom topics) show under "Anything else". */
+export const categoryOf = (e: VaultEntry, cats: VaultCategory[] = VAULT_CATEGORIES) => (cats.some((c) => c.key === e.section) ? e.section : 'other');
 
 /** Items the app already knows about, shown in the vault without typing. */
 export interface AutoItem {
@@ -109,9 +115,10 @@ export function vaultRows(data: AppData): VaultRow[] {
     return { key: a.linkedId, section: a.section, title: a.title, auto: a, entry: e, nominee: e?.nominee || a.nominee, value: e?.value ?? a.value, extra: { ...a.extra, ...e?.extra } };
   });
   const autoIds = new Set(rows.map((r) => r.key));
+  const cats = allCategories(data);
   for (const e of data.vault) {
     if (e.linkedId && autoIds.has(e.linkedId)) continue;
-    rows.push({ key: e.id, section: categoryOf(e), title: e.title, entry: e, nominee: e.nominee, value: e.value, extra: e.extra });
+    rows.push({ key: e.id, section: categoryOf(e, cats), title: e.title, entry: e, nominee: e.nominee, value: e.value, extra: e.extra });
   }
   return rows;
 }
@@ -130,12 +137,13 @@ export interface Readiness {
 export function readiness(data: AppData, rows = vaultRows(data)): Readiness {
   const na = new Set(data.settings.vaultNA ?? []);
   const has = new Set(rows.map((r) => r.section));
-  const done = VAULT_CATEGORIES.filter((c) => has.has(c.key) || na.has(c.key)).length;
-  const nomineeCats = new Set(VAULT_CATEGORIES.filter((c) => c.nominee).map((c) => c.key));
+  const cats = allCategories(data);
+  const done = cats.filter((c) => has.has(c.key) || na.has(c.key)).length;
+  const nomineeCats = new Set(cats.filter((c) => c.nominee).map((c) => c.key));
   return {
-    percent: Math.round((done / VAULT_CATEGORIES.length) * 100),
+    percent: Math.round((done / cats.length) * 100),
     done,
-    total: VAULT_CATEGORIES.length,
+    total: cats.length,
     missingNominee: rows.filter((r) => nomineeCats.has(r.section) && !r.nominee),
     missingWhere: rows.filter((r) => !r.entry?.where && !['contact', 'professionals', 'instruction', 'other', 'borrowed', 'lent'].includes(r.section)),
   };
@@ -151,18 +159,19 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 /** Printable family file: "Start here" first, then each category the family has. */
 export function vaultHtml(data: AppData, money: (n: number) => string, owner: string, on: Date): string {
   const rows = vaultRows(data);
+  const cats = allCategories(data);
   const field = (label: string, v?: string) => (v ? `<div class="f"><b>${esc(label)}:</b> ${esc(v)}</div>` : '');
   const card = (r: VaultRow) => {
-    const cat = VAULT_CATEGORIES.find((c) => c.key === r.section);
+    const cat = cats.find((c) => c.key === r.section);
     return `<div class="item"><div class="t">${esc(r.title)}${r.value ? ` <span class="v">${esc(money(r.value))}</span>` : ''}</div>
       ${field('Holder', r.entry?.holder)}${field('Nominee', r.nominee)}${field('Where to find it', r.entry?.where)}${field('Contact', r.entry?.contact)}
       ${(cat?.extra ?? []).map((x) => field(x.label, r.extra?.[x.key])).join('')}${field('Note', r.entry?.detail)}</div>`;
   };
   const firstSteps = rows.filter((r) => r.section === 'instruction');
   const callFirst = rows.filter((r) => r.section === 'contact');
-  const sections = VAULT_GROUPS.map((g) => {
-    const cats = VAULT_CATEGORIES.filter((c) => c.group === g && !['instruction', 'contact'].includes(c.key));
+  const sections = allGroups(cats).map((g) => {
     const body = cats
+      .filter((c) => c.group === g && !['instruction', 'contact'].includes(c.key))
       .map((c) => {
         const items = rows.filter((r) => r.section === c.key);
         return items.length ? `<h3>${esc(c.label)}</h3>${items.map(card).join('')}` : '';
