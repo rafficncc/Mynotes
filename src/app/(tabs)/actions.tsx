@@ -6,14 +6,14 @@ import { GradientBg } from '../../components/GradientBg';
 import { TipCard } from '../../components/TipCard';
 import { Chip, ChipRow, Empty, Icon, Row, Screen, SectionTitle } from '../../components/ui';
 import { generateActions, type ActionItem, type ActionStatus } from '../../logic/actions';
-import { diffDays, formatShortDate, toISODate } from '../../logic/dates';
+import { diffDays, toISODate } from '../../logic/dates';
 import { toast } from '../../components/Toast';
 import { ask, choose } from '../../components/Dialog';
 import { SPENDABLE_TYPES } from '../../logic/balances';
 import { alreadyPaid, billPayment, emiPayment, premiumPayment } from '../../logic/payments';
 import { notifyBalance, useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
-import { colors } from '../../theme';
+import { colors, isDark } from '../../theme';
 
 const SECTIONS: { key: ActionStatus; title: string; color: string; bg: string }[] = [
   { key: 'overdue', title: t('Overdue'), color: colors.danger, bg: colors.dangerSoft },
@@ -21,6 +21,14 @@ const SECTIONS: { key: ActionStatus; title: string; color: string; bg: string }[
   { key: 'upcoming', title: t('Later this cycle'), color: colors.info, bg: colors.infoSoft },
   { key: 'done', title: t('Done this cycle'), color: colors.success, bg: colors.successSoft },
 ];
+
+const GRAD: Record<ActionStatus, string[]> = {
+  overdue: ['#C8324A', '#FF9E8A'],
+  due: ['#D9861A', '#FFD978'],
+  upcoming: ['#2F5FC4', '#9CC3FF'],
+  done: ['#0B6E4F', '#7EE3B5'],
+};
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 type Filter = 'all' | ActionItem['kind'];
 const FILTERS: { key: Filter; label: string }[] = [
@@ -165,10 +173,17 @@ export default function Actions() {
       </ChipRow>
 
       {sel ? (
-        <Pressable onPress={() => setStatus(null)} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: sel.bg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
-          <Icon name="funnel" size={14} color={sel.color} />
-          <Text style={{ flex: 1, color: colors.text, fontWeight: '700' }}>Showing only: {sel.title.replace(/ \(.*\)/, '')}</Text>
-          <Text style={{ color: sel.color, fontWeight: '800' }}>Clear ✕</Text>
+        <Pressable onPress={() => setStatus(null)} accessibilityRole="button" style={{ borderRadius: 14, overflow: 'hidden' }}>
+          <GradientBg id="actfilter" />
+          <Row style={{ gap: 10, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: GRAD[sel.key][1] }} />
+            <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 14 }}>
+              Showing only <Text style={{ color: GRAD[sel.key][1], fontWeight: '900' }}>{sel.title.replace(/ \(.*\)/, '')}</Text>
+            </Text>
+            <View style={{ backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Clear ✕</Text>
+            </View>
+          </Row>
         </Pressable>
       ) : null}
 
@@ -181,66 +196,70 @@ export default function Actions() {
         if (!items.length) return null;
         return (
           <View key={sec.key} style={{ gap: 10 }}>
-            <Row style={{ gap: 8, marginTop: 6 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sec.color }} />
-              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, flex: 1 }}>{sec.title}</Text>
-              <View style={{ backgroundColor: sec.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 }}>
-                <Text style={{ color: sec.color, fontWeight: '800', fontSize: 12 }}>{items.length}</Text>
-              </View>
+            <Row style={{ gap: 8, marginTop: 8 }}>
+              <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: GRAD[sec.key][1] }} />
+              <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.muted, flex: 1 }}>{sec.title.replace(/ \(.*\)/, '').toUpperCase()}</Text>
+              <Text style={{ color: colors.muted, fontWeight: '700', fontSize: 13 }}>
+                {items.length} item{items.length === 1 ? '' : 's'}
+                {items.some((x) => x.amount) ? ` · ${money(items.reduce((t2, x) => t2 + (x.amount ?? 0), 0))}` : ''}
+              </Text>
             </Row>
             {items.map((a) => {
               const days = diffDays(a.date, on);
               const done = a.status === 'done';
-              const chip = done ? `Done ${formatShortDate(a.date)}` : days < 0 ? `${-days} day${days === -1 ? '' : 's'} late` : days === 0 ? 'Due today' : `in ${days} day${days === 1 ? '' : 's'}`;
+              const chip = done ? 'Done' : days < 0 ? `${-days} day${days === -1 ? '' : 's'} late` : days === 0 ? 'Due today' : days === 1 ? 'Tomorrow' : `In ${days} days`;
+              const [c1, c2] = GRAD[sec.key];
+              const gid = `ag${a.id.replace(/[^a-zA-Z0-9]/g, '')}`;
               return (
-                <View key={a.id} style={{ flexDirection: 'row', backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', opacity: done ? 0.7 : 1 }}>
-                  <View style={{ width: 5, backgroundColor: sec.color }} />
-                  <View style={{ flex: 1, padding: 14, gap: 10 }}>
-                    <Row style={{ alignItems: 'flex-start', gap: 12 }}>
-                      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: sec.bg, alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name={done ? 'checkmark' : a.icon} color={sec.color} size={20} />
-                      </View>
-                      <View style={{ flex: 1, gap: 3 }}>
-                        <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={2}>
+                <View key={a.id} style={{ backgroundColor: colors.card, borderRadius: 18, padding: 12, gap: 12, borderWidth: 1, borderColor: colors.border, opacity: done ? 0.75 : 1 }}>
+                  <Row style={{ alignItems: 'center', gap: 12 }}>
+                    {/* Calendar-style date block in the status colour */}
+                    <View style={{ width: 54, height: 58, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                      <GradientBg id={gid} colors={[c1, c2]} />
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1 }}>{MONTHS[a.date.getMonth()]}</Text>
+                      <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900', lineHeight: 26 }}>{a.date.getDate()}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Row style={{ gap: 6 }}>
+                        <Icon name={done ? 'checkmark-circle' : a.icon} color={c1} size={15} />
+                        <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={1}>
                           {a.title}
                         </Text>
-                        <Row style={{ gap: 6, flexWrap: 'wrap' }}>
-                          <View style={{ backgroundColor: sec.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                            <Text style={{ color: sec.color, fontSize: 11, fontWeight: '800' }}>{chip}</Text>
-                          </View>
-                          {!done ? <Text style={{ fontSize: 12, color: colors.muted }}>{formatShortDate(a.date)}</Text> : null}
-                        </Row>
-                        {a.subtitle ? (
-                          <Text style={{ fontSize: 12, color: colors.muted }} numberOfLines={2}>
-                            {a.subtitle}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {a.amount ? <Text style={{ fontSize: 17, fontWeight: '800', color: colors.text }}>{money(a.amount)}</Text> : null}
-                    </Row>
-                    {!done ? (
-                      <Row style={{ gap: 8 }}>
-                        <Pressable
-                          onPress={() => pay(a)}
-                          accessibilityRole="button"
-                          style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 9 }}
-                        >
-                          <Icon name={a.kind === 'document' ? 'create-outline' : a.kind === 'warranty' ? 'receipt-outline' : 'wallet-outline'} size={16} color="#fff" />
-                          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{a.kind === 'document' ? t('Update expiry') : a.kind === 'warranty' ? t('View purchase') : t('Pay & record')}</Text>
-                        </Pressable>
-                        {a.kind === 'bill' || a.kind === 'emi' ? (
-                          <Pressable
-                            onPress={() => markDone(a)}
-                            accessibilityRole="button"
-                            style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10, paddingVertical: 8 }}
-                          >
-                            <Icon name="checkmark" size={16} color={colors.primary} />
-                            <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>{t('Mark paid')}</Text>
-                          </Pressable>
-                        ) : null}
                       </Row>
-                    ) : null}
-                  </View>
+                      {a.subtitle ? (
+                        <Text style={{ fontSize: 12, color: colors.muted }} numberOfLines={1}>
+                          {a.subtitle}
+                        </Text>
+                      ) : null}
+                      <Row style={{ gap: 8 }}>
+                        <View style={{ backgroundColor: c2 + '33', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color: isDark ? c2 : c1, fontSize: 11, fontWeight: '800' }}>{chip}</Text>
+                        </View>
+                        {a.amount ? <Text style={{ fontSize: 16, fontWeight: '900', color: colors.text, marginLeft: 'auto' }}>{money(a.amount)}</Text> : null}
+                      </Row>
+                    </View>
+                  </Row>
+                  {!done ? (
+                    <Row style={{ gap: 8 }}>
+                      <Pressable onPress={() => pay(a)} accessibilityRole="button" style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }}>
+                        <GradientBg id={`${gid}p`} />
+                        <Row style={{ gap: 6, justifyContent: 'center', paddingVertical: 10 }}>
+                          <Icon name={a.kind === 'document' ? 'create-outline' : a.kind === 'warranty' ? 'receipt-outline' : 'wallet-outline'} size={15} color="#fff" />
+                          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{a.kind === 'document' ? t('Update expiry') : a.kind === 'warranty' ? t('View purchase') : t('Pay & record')}</Text>
+                        </Row>
+                      </Pressable>
+                      {a.kind === 'bill' || a.kind === 'emi' ? (
+                        <Pressable
+                          onPress={() => markDone(a)}
+                          accessibilityRole="button"
+                          style={{ flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7EE3B526', borderRadius: 12, paddingVertical: 10 }}
+                        >
+                          <Icon name="checkmark-circle" size={15} color={colors.success} />
+                          <Text style={{ color: colors.success, fontWeight: '800', fontSize: 13 }}>{t('Mark paid')}</Text>
+                        </Pressable>
+                      ) : null}
+                    </Row>
+                  ) : null}
                 </View>
               );
             })}
