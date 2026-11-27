@@ -272,13 +272,27 @@ export interface MedicalClaim {
   paidTxnId?: string;
 }
 
-export type VaultSection = 'contact' | 'nominee' | 'account' | 'instruction' | 'other';
+/** Money Vault category key (see VAULT_CATEGORIES). Older entries used 'contact' | 'nominee' | 'account' | 'instruction' | 'other'. */
+export type VaultSection = string;
 
 export interface VaultEntry {
   id: string;
   section: VaultSection;
+  /** Name / institution, e.g. "SBI savings", "LIC term plan" */
   title: string;
+  /** Free note */
   detail: string;
+  holder?: string;
+  nominee?: string;
+  /** Where to find the papers, app or key */
+  where?: string;
+  /** Branch, agent or HR phone */
+  contact?: string;
+  value?: number;
+  /** Category-specific fields, e.g. { lockerNo: '214' } */
+  extra?: Record<string, string>;
+  /** Item from the app (account, policy, document…) this entry adds details to. */
+  linkedId?: string;
 }
 
 export type ChallengeType = 'no_spend_weekend' | 'week52' | 'no_category_week' | 'save_target';
@@ -341,6 +355,10 @@ export interface Settings {
   onboarded: boolean;
   /** How Premium was bought: a yearly plan is re-checked with the store, lifetime is kept. */
   premiumPlan?: 'lifetime' | 'yearly';
+  /** Money Vault categories the family doesn't have. */
+  vaultNA?: string[];
+  /** When the family file was last shared, and with whom. */
+  vaultShared?: { at: string; with: string };
   /** Hour of day (0–23) for bill and document reminders. Default 9. */
   reminderHour?: number;
   /** Free-plan monthly counters for scans and voice entries. */

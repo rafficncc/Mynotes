@@ -259,6 +259,13 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
       out.push({ id: `warranty-${t.id}`, title: `Warranty ends in ${WARRANTY_REMIND_DAYS} days`, body: `${t.item || t.merchant || 'Purchase'}: warranty until ${t.warrantyUntil}.`, date: remindOn });
     }
   }
+  // Money Vault: review the family file every 6 months after sharing it
+  if (data.settings.vaultShared) {
+    const review = addDays(new Date(data.settings.vaultShared.at), 180);
+    if (diffDays(review, on) >= 0 && diffDays(review, until) <= 0) {
+      out.push({ id: 'vault-review', title: 'Update your family file', body: 'It has been 6 months. Review the Money Vault and share it again.', date: review });
+    }
+  }
   return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 

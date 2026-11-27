@@ -15,7 +15,7 @@ export async function shareTextFile(name: string, text: string, mimeType: string
   const file = new File(Paths.cache, name);
   if (file.exists) file.delete();
   file.create();
-  file.write(text);
+  await file.write(text);
   await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: name, UTI: mimeType === 'application/json' ? 'public.json' : 'public.comma-separated-values-text' });
 }
 

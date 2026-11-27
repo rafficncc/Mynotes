@@ -1,67 +1,136 @@
-import { premiumOnly } from '../components/PremiumGate';
-import { useState } from 'react';
-import { t } from '../i18n';
-import { Share, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { ask } from '../components/Dialog';
 import { PinPad } from '../components/LockScreen';
-import { Button, Card, Chip, ChipRow, Field, ListItem, Screen, SectionTitle, styles } from '../components/ui';
-import type { VaultEntry, VaultSection } from '../logic/types';
+import { premiumOnly } from '../components/PremiumGate';
+import { toast } from '../components/Toast';
+import { Button, Card, Chip, Field, Icon, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { t } from '../i18n';
+import { diffDays, formatDate } from '../logic/dates';
+import type { VaultEntry } from '../logic/types';
+import { looksSecret, readiness, VAULT_CATEGORIES, VAULT_GROUPS, vaultHtml, vaultRows, type VaultRow } from '../logic/vault';
+import { shareLockedPdf } from '../services/vaultPdf';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
-const SECTIONS: { key: VaultSection; label: string; icon: string; hint: string }[] = [
-  { key: 'instruction', label: 'If something happens to me', icon: 'heart-outline', hint: 'What to do first, who to call, where papers are kept' },
-  { key: 'contact', label: 'Emergency contacts', icon: 'call-outline', hint: 'Name, relation and phone' },
-  { key: 'nominee', label: 'Nominees', icon: 'people-outline', hint: 'Who is nominee for which account or policy' },
-  { key: 'account', label: 'Accounts & where to find them', icon: 'business-outline', hint: 'Bank, branch, locker, PF, investments – no passwords' },
-  { key: 'other', label: 'Other', icon: 'folder-outline', hint: 'Anything else the family should know' },
-];
+type Draft = { id?: string; section: string; linkedId?: string; title: string; holder: string; nominee: string; where: string; contact: string; value: string; detail: string; extra: Record<string, string> };
+const emptyDraft = (section: string): Draft => ({ section, title: '', holder: '', nominee: '', where: '', contact: '', value: '', detail: '', extra: {} });
 
 function Vault() {
   const data = useAppData();
-  const { saveItem, deleteItem } = useStore();
+  const { saveItem, deleteItem, updateSettings } = useStore();
   const { money } = useMoney();
   // The vault asks for the PIN again every time it is opened.
   const [unlocked, setUnlocked] = useState(!data.settings.lockEnabled);
-  const [section, setSection] = useState<VaultSection>('instruction');
-  const [title, setTitle] = useState('');
-  const [detail, setDetail] = useState('');
-  const [editing, setEditing] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [password, setPassword] = useState('');
+  const [sendTo, setSendTo] = useState(data.settings.vaultShared?.with ?? '');
+  const rows = useMemo(() => vaultRows(data), [data]);
+  const ready = useMemo(() => readiness(data, rows), [data, rows]);
+  const na = new Set(data.settings.vaultNA ?? []);
 
   if (!unlocked) return <PinPad title={t('Unlock the money vault')} useBiometrics={!!data.settings.useBiometrics} onUnlock={() => setUnlocked(true)} />;
 
-  const save = () => {
-    if (!title.trim()) return ask('Add a title');
-    saveItem('vault', { id: editing ?? undefined, section, title: title.trim(), detail: detail.trim() });
-    setEditing(null);
-    setTitle('');
-    setDetail('');
-  };
-  const edit = (e: VaultEntry) => {
-    setEditing(e.id);
-    setSection(e.section);
-    setTitle(e.title);
-    setDetail(e.detail);
+  const sharedDaysAgo = data.settings.vaultShared ? diffDays(new Date(), new Date(data.settings.vaultShared.at)) : null;
+  const owner = data.members.find((m) => m.id === data.settings.currentMemberId)?.name ?? 'me';
+
+  const edit = (r: VaultRow) => {
+    const e = r.entry;
+    setDraft({
+      id: e?.id,
+      section: r.section,
+      linkedId: r.auto?.linkedId,
+      title: e?.title ?? r.title,
+      holder: e?.holder ?? '',
+      nominee: e?.nominee ?? r.nominee ?? '',
+      where: e?.where ?? '',
+      contact: e?.contact ?? '',
+      value: r.value ? String(r.value) : '',
+      detail: e?.detail ?? '',
+      extra: { ...r.extra },
+    });
   };
 
-  const policyLines = data.policies.map((p) => `${p.name}${p.insurer ? ` (${p.insurer}${p.policyNo ? `, ${p.policyNo}` : ''})` : ''}${p.sumAssured ? ` – cover ${money(p.sumAssured)}` : ''}${p.nominee ? ` – nominee ${p.nominee}` : ''}`);
+  const save = (d: Draft, checked = false) => {
+    if (!d.title.trim()) return ask('Add a name', 'For example “SBI savings” or “LIC term plan”.');
+    if (!checked && [d.detail, d.where, d.contact, ...Object.values(d.extra)].some(looksSecret)) {
+      return ask('This looks like a PIN, password or full card number', 'Never store those here. The family file is for where things are and who to call.', [
+        { text: 'Edit', style: 'cancel' },
+        { text: 'Save anyway', style: 'destructive', onPress: () => save(d, true) },
+      ]);
+    }
+    const entry: Omit<VaultEntry, 'id'> & { id?: string } = {
+      id: d.id,
+      section: d.section,
+      linkedId: d.linkedId,
+      title: d.title.trim(),
+      holder: d.holder.trim() || undefined,
+      nominee: d.nominee.trim() || undefined,
+      where: d.where.trim() || undefined,
+      contact: d.contact.trim() || undefined,
+      value: parseFloat(d.value) || undefined,
+      detail: d.detail.trim(),
+      extra: Object.fromEntries(Object.entries(d.extra).filter(([, v]) => v.trim())),
+    };
+    saveItem('vault', entry);
+    setDraft(null);
+  };
 
-  const shareAll = async () => {
-    const text = [
-      'FAMILY MONEY VAULT (keep private)',
-      ...SECTIONS.flatMap((s) => {
-        const items = data.vault.filter((e) => e.section === s.key);
-        return items.length ? [`\n${s.label.toUpperCase()}`, ...items.map((e) => `• ${e.title}${e.detail ? `: ${e.detail}` : ''}`)] : [];
-      }),
-      ...(policyLines.length ? ['\nINSURANCE POLICIES', ...policyLines.map((l) => `• ${l}`)] : []),
-    ].join('\n');
+  const share = async () => {
+    if (password.length < 6) return ask('Set a family password', 'Use at least 6 characters. Tell it to your family in person or by phone, never in the same message as the file.');
     try {
-      await Share.share({ message: text });
+      const ok = await shareLockedPdf(vaultHtml(data, money, owner, new Date()), password);
+      if (!ok) return ask('Works in the installed app', 'Password-locked PDFs are made on your phone. Open FamilyFin from Google Play to share.');
+      updateSettings({ vaultShared: { at: new Date().toISOString(), with: sendTo.trim() || 'family' } });
+      setSharing(false);
+      setPassword('');
+      toast('Family file shared. Tell them the password separately.');
     } catch {
-      ask('Could not open the share sheet');
+      ask('Could not create the file', 'Please try again.');
     }
   };
+
+  const cat = draft ? VAULT_CATEGORIES.find((c) => c.key === draft.section) : undefined;
+
+  if (draft && cat) {
+    const set = (k: keyof Draft, v: string) => setDraft({ ...draft, [k]: v });
+    return (
+      <Screen>
+        <Row>
+          <Icon name={cat.icon} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { flex: 1 }]}>{cat.label}</Text>
+        </Row>
+        {draft.linkedId ? <Text style={styles.hint}>From your FamilyFin data. Add what your family needs to know.</Text> : null}
+        <Field label="Name / institution" value={draft.title} onChangeText={(v) => set('title', v)} placeholder={cat.hint} editable={!draft.linkedId} />
+        {(cat.extra ?? []).map((x) => (
+          <Field key={x.key} label={x.label} value={draft.extra[x.key] ?? ''} onChangeText={(v) => setDraft({ ...draft, extra: { ...draft.extra, [x.key]: v } })} placeholder={x.placeholder} />
+        ))}
+        <Field label="In whose name" value={draft.holder} onChangeText={(v) => set('holder', v)} placeholder="e.g. Me, joint with Priya" />
+        {cat.nominee ? <Field label="Nominee" value={draft.nominee} onChangeText={(v) => set('nominee', v)} placeholder="e.g. Priya (wife)" /> : null}
+        <Field label="Where to find it" value={draft.where} onChangeText={(v) => set('where', v)} placeholder="e.g. Blue file, bedroom cupboard · HDFC app" />
+        <Field label="Contact" value={draft.contact} onChangeText={(v) => set('contact', v)} placeholder="Branch, agent or HR phone" />
+        {!draft.linkedId ? <Field label="Approx. value" value={draft.value} onChangeText={(v) => set('value', v)} keyboardType="decimal-pad" /> : null}
+        <Field label="Note" value={draft.detail} onChangeText={(v) => set('detail', v)} placeholder="Anything else they should know" multiline />
+        <Text style={styles.hint}>Never write PINs, passwords, CVVs or full account numbers.</Text>
+        <Button title="Save" icon="checkmark" onPress={() => save(draft)} />
+        {draft.id ? (
+          <Button
+            title={draft.linkedId ? 'Remove my details' : 'Delete'}
+            variant="danger"
+            icon="trash-outline"
+            onPress={() => {
+              deleteItem('vault', draft.id!);
+              setDraft(null);
+            }}
+          />
+        ) : null}
+        <Button title="Cancel" variant="secondary" onPress={() => setDraft(null)} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -70,45 +139,90 @@ function Vault() {
           <Text style={[styles.insightText, { color: colors.warning }]}>Turn on App lock (More → Security) so the vault needs your PIN to open.</Text>
         </Card>
       ) : null}
-      <Text style={styles.itemSub}>Information your family needs if the earning member can’t help. Never store passwords or PINs here.</Text>
-      {SECTIONS.map((s) => {
-        const items = data.vault.filter((e) => e.section === s.key);
-        return (
-          <Card key={s.key}>
-            <Text style={styles.itemTitle}>{s.label}</Text>
-            {items.length === 0 ? <Text style={styles.hint}>{s.hint}</Text> : null}
-            {items.map((e) => (
-              <ListItem key={e.id} icon={s.icon} title={e.title} subtitle={e.detail} onPress={() => edit(e)} />
-            ))}
-          </Card>
-        );
-      })}
-      {policyLines.length ? (
-        <Card>
-          <Text style={styles.itemTitle}>Insurance policies (from Policies)</Text>
-          {policyLines.map((l) => (
-            <Text key={l} style={styles.itemSub}>• {l}</Text>
-          ))}
-        </Card>
-      ) : null}
 
-      <SectionTitle title={editing ? 'Edit entry' : 'Add to vault'} />
       <Card>
-        <ChipRow>
-          {SECTIONS.map((s) => (
-            <Chip key={s.key} label={s.label} icon={s.icon} selected={section === s.key} onPress={() => setSection(s.key)} />
-          ))}
-        </ChipRow>
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder={section === 'contact' ? 'e.g. Rajesh (brother)' : 'e.g. Bank locker'} />
-        <Field label="Details" value={detail} onChangeText={setDetail} placeholder={SECTIONS.find((s) => s.key === section)!.hint} multiline style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]} />
-        <Button title={editing ? 'Save' : 'Add'} icon="checkmark" onPress={save} />
-        {editing ? <Button title={t('Delete')} variant="danger" icon="trash-outline" onPress={() => { deleteItem('vault', editing); setEditing(null); setTitle(''); setDetail(''); }} /> : null}
+        <Text style={styles.itemTitle}>Your family file is {ready.percent}% ready</Text>
+        <ProgressBar value={ready.percent / 100} color={colors.success} plain />
+        <Text style={styles.hint}>
+          {ready.done} of {ready.total} topics done. Tap a topic to add details, or mark it “I don’t have this”.
+        </Text>
+        {ready.missingNominee.length ? (
+          <Text style={[styles.insightText, { color: colors.warning }]}>
+            ⚠️ No nominee for: {ready.missingNominee.slice(0, 4).map((r) => r.title).join(', ')}
+            {ready.missingNominee.length > 4 ? ` and ${ready.missingNominee.length - 4} more` : ''}
+          </Text>
+        ) : null}
+        {sharedDaysAgo !== null && sharedDaysAgo >= 180 ? (
+          <Text style={[styles.insightText, { color: colors.warning }]}>Your family file is {Math.floor(sharedDaysAgo / 30)} months old. Update and share again.</Text>
+        ) : null}
+        <Text style={styles.hint}>
+          {data.settings.vaultShared ? `Last shared ${formatDate(data.settings.vaultShared.at.slice(0, 10))} with ${data.settings.vaultShared.with}.` : 'Not shared yet.'}
+        </Text>
+        {sharing ? (
+          <View style={{ gap: 8 }}>
+            <Field label="Family password (to open the PDF)" value={password} onChangeText={setPassword} secureTextEntry placeholder="At least 6 characters" autoCapitalize="none" />
+            <Field label="Sending to" value={sendTo} onChangeText={setSendTo} placeholder="e.g. Priya (wife)" />
+            <Text style={styles.hint}>Tell the password in person or by phone. Never send it in the same message as the file.</Text>
+            <Button title="Create locked PDF & share" icon="lock-closed-outline" onPress={share} />
+            <Button title="Cancel" variant="secondary" onPress={() => setSharing(false)} />
+          </View>
+        ) : (
+          <Button title="Share with my family" icon="share-outline" onPress={() => setSharing(true)} />
+        )}
       </Card>
-      <View>
-        <Button title="Share vault with spouse" variant="secondary" icon="share-outline" onPress={shareAll} />
-      </View>
+
+      {VAULT_GROUPS.map((g) => (
+        <View key={g} style={{ gap: 8 }}>
+          <SectionTitle title={g} />
+          {VAULT_CATEGORIES.filter((c) => c.group === g).map((c) => {
+            const items = rows.filter((r) => r.section === c.key);
+            const isNA = na.has(c.key);
+            const expanded = open === c.key;
+            return (
+              <Card key={c.key} style={{ padding: 12, gap: 6 }}>
+                <Pressable onPress={() => setOpen(expanded ? null : c.key)} accessibilityRole="button" accessibilityState={{ expanded }}>
+                  <Row>
+                    <Icon name={c.icon} color={items.length ? colors.success : isNA ? colors.muted : colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemTitle}>{c.label}</Text>
+                      <Text style={styles.itemSub}>{items.length ? `${items.length} added` : isNA ? 'I don’t have this' : c.hint}</Text>
+                    </View>
+                    <Icon name={items.length || isNA ? 'checkmark-circle' : expanded ? 'chevron-up' : 'chevron-down'} color={items.length || isNA ? colors.success : colors.muted} />
+                  </Row>
+                </Pressable>
+                {expanded ? (
+                  <View style={{ gap: 6 }}>
+                    {items.map((r) => (
+                      <Pressable key={r.key} onPress={() => edit(r)} accessibilityRole="button" style={{ backgroundColor: colors.bg, borderRadius: 10, padding: 10, gap: 2 }}>
+                        <Row style={{ justifyContent: 'space-between' }}>
+                          <Text style={[styles.itemTitle, { flex: 1 }]}>{r.title}</Text>
+                          {r.value ? <Text style={styles.itemSub}>{money(r.value)}</Text> : null}
+                        </Row>
+                        <Text style={styles.itemSub}>
+                          {[r.auto ? 'From your app' : null, r.nominee ? `Nominee: ${r.nominee}` : c.nominee ? '⚠️ No nominee' : null, r.entry?.where ? `📍 ${r.entry.where}` : null].filter(Boolean).join(' · ') || 'Tap to add details'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    <Row style={{ flexWrap: 'wrap' }}>
+                      <Chip label="Add" icon="add" onPress={() => setDraft(emptyDraft(c.key))} />
+                      {!items.length ? (
+                        <Chip
+                          label={isNA ? 'I have this' : 'I don’t have this'}
+                          icon={isNA ? 'arrow-undo-outline' : 'remove-circle-outline'}
+                          onPress={() => updateSettings({ vaultNA: isNA ? [...na].filter((k) => k !== c.key) : [...na, c.key] })}
+                        />
+                      ) : null}
+                    </Row>
+                  </View>
+                ) : null}
+              </Card>
+            );
+          })}
+        </View>
+      ))}
+      <Text style={[styles.hint, { textAlign: 'center' }]}>Never store PINs, passwords or full card numbers. Account numbers: last 4 digits only.</Text>
     </Screen>
   );
 }
 
-export default premiumOnly(Vault, 'Money Vault', 'Keep accounts, nominees and emergency contacts ready, so your family knows what to do if something happens to you.');
+export default premiumOnly(Vault, 'Money Vault', 'Everything your family should know (accounts, lockers, insurance, PF, property, who to call) in one password-locked file you can share.');

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.11.1",
     "@expo/vector-icons": "^15.0.2",
     "@infinitered/react-native-mlkit-core": "^3.1.0",
     "@infinitered/react-native-mlkit-text-recognition": "^5.0.1",
