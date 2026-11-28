@@ -69,7 +69,8 @@ function Remittance() {
     <Screen>
       {/* This year at a glance */}
       <Card gradient>
-        <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Sent home in {year}</Text>
+        <Text style={{ color: '#ffffffd9', fontSize: 12 }}>Record money you send to family in another country: the fee, the exchange rate and what they received.</Text>
+        <Text style={{ color: '#ffffffb3', fontSize: 13, marginTop: 6 }}>Sent home in {year}</Text>
         <Text style={{ color: '#fff', fontSize: 30, fontWeight: '900' }}>{money(stats.sent)}</Text>
         <Row>
           <Stat light label="Transfers" value={`${stats.count}`} />
@@ -166,4 +167,4 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
-export default premiumOnly(Remittance, 'Money sent home', 'Track remittances, exchange rates and fees.');
+export default premiumOnly(Remittance, 'Money sent home', 'For families living abroad: record the money you send to family back home, the fee and exchange rate, and see how much they received.');

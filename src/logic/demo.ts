@@ -95,7 +95,18 @@ export function buildDemoData(on: Date = new Date()): AppData {
     { id: 'upi', name: 'UPI wallet', type: 'wallet', openingBalance: 15000, createdAt: now },
     { id: 'hdfc', name: 'Rewards Card', type: 'credit_card', openingBalance: 0, creditLimit: 150000, billingDay: 5, dueDay: 25, rewardRate: 1.5, rewardPoints: 4200, pointValue: 0.25, createdAt: now },
     { id: 'sbi', name: 'Shopping Card', type: 'credit_card', openingBalance: 0, creditLimit: 60000, billingDay: 18, dueDay: 7, rewardRate: 1, createdAt: now },
-    { id: 'mf', name: 'Mutual funds (SIP)', type: 'investment', openingBalance: 240000, sipAmount: 5000, sipDay: 5, sipLast: toISODate(clampedDate(on.getFullYear(), on.getMonth() - (on.getDate() >= 5 ? 0 : 1), 5)), createdAt: now },
+    {
+      id: 'mf', name: 'Groww mutual funds', type: 'investment', investKind: 'mutual_fund', openingBalance: 240000, createdAt: now,
+      // Several SIPs in one account; `last` is the latest debit already past, so the demo doesn't record extra ones.
+      sips: [
+        { name: 'Nifty 50 index fund', amount: 5000, day: 5 },
+        { name: 'Flexi cap fund', amount: 3000, day: 10 },
+        { name: 'Small cap fund', amount: 2000, day: 20 },
+      ].map((s) => ({ ...s, last: toISODate(clampedDate(on.getFullYear(), on.getMonth() - (on.getDate() >= s.day ? 0 : 1), s.day)) })),
+    },
+    { id: 'stocks', name: 'Zerodha shares', type: 'investment', investKind: 'stocks', openingBalance: 185000, createdAt: now },
+    { id: 'ppf', name: 'PPF account', type: 'investment', investKind: 'ppf', openingBalance: 420000, interestRate: 7.1, createdAt: now },
+    { id: 'epf', name: 'EPF', type: 'investment', investKind: 'epf', openingBalance: 610000, createdAt: now },
     { id: 'fd', name: 'Fixed deposit', type: 'deposit', openingBalance: 100000, interestRate: 7.25, maturityDate: toISODate(addDays(on, 12)), maturityAmount: 107500, createdAt: now },
     { id: 'gold', name: 'Gold jewellery', type: 'gold', openingBalance: 324000, goldGrams: 45, createdAt: now },
     { id: 'people', name: 'Lent & borrowed', type: 'people', openingBalance: 0, createdAt: now },

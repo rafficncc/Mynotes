@@ -3,12 +3,12 @@ import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Button, Card, Chip, ChipRow, Field, Row, Screen, styles } from '../components/ui';
-import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, isLiability } from '../logic/balances';
+import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
+import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, INVEST_OPTIONS, investOption, isLiability } from '../logic/balances';
 import { accountLimitReached, FREE_PER_CATEGORY, limitLabel } from '../logic/region';
 import { interestFreeDays } from '../logic/creditCard';
 import { addDays, clampedDate } from '../logic/dates';
-import type { AccountType } from '../logic/types';
+import type { AccountType, InvestKind } from '../logic/types';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 
@@ -35,8 +35,17 @@ export default function AccountForm() {
   const [remindCard, setRemindCard] = useState(existing?.remindDaysBefore ?? 5);
   const [maturityDate, setMaturityDate] = useState(existing?.maturityDate ?? '');
   const [maturityAmount, setMaturityAmount] = useState(existing?.maturityAmount ? String(existing.maturityAmount) : '');
-  const [sipAmount, setSipAmount] = useState(existing?.sipAmount ? String(existing.sipAmount) : '');
-  const [sipDay, setSipDay] = useState(existing?.sipDay ? String(existing.sipDay) : '');
+  const [investKind, setInvestKind] = useState<InvestKind>(existing?.investKind ?? 'mutual_fund');
+  // SIP list being edited; an older single SIP (sipAmount/sipDay) becomes the first row.
+  const [sips, setSips] = useState(() =>
+    [
+      ...(existing?.sipAmount && existing.sipDay ? [{ name: existing.name, amount: existing.sipAmount, day: existing.sipDay, last: existing.sipLast }] : []),
+      ...(existing?.sips ?? []),
+    ].map((s) => ({ name: s.name, amount: String(s.amount), day: String(s.day), last: s.last })),
+  );
+  const setSip = (i: number, patch: Partial<(typeof sips)[number]>) => setSips((l) => l.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  // Opened from Investments (or editing one): only investment choices, no loans or cards.
+  const investOnly = group === 'investment' && (params.type === 'investment' || !!existing);
   const [goldGrams, setGoldGrams] = useState(existing?.goldGrams ? String(existing.goldGrams) : '');
   const [points, setPoints] = useState(existing?.rewardPoints ? String(existing.rewardPoints) : '');
   const [pointValue, setPointValue] = useState(existing?.pointValue ? String(existing.pointValue) : '');
@@ -74,8 +83,11 @@ export default function AccountForm() {
       interestRate: type === 'loan' || type === 'deposit' || isCard ? parseFloat(interest) || undefined : undefined,
       maturityDate: type === 'deposit' ? maturityDate || undefined : undefined,
       maturityAmount: type === 'deposit' ? parseFloat(maturityAmount) || undefined : undefined,
-      sipAmount: type === 'investment' ? parseFloat(sipAmount) || undefined : undefined,
-      sipDay: type === 'investment' ? validDay(sipDay) : undefined,
+      investKind: type === 'investment' ? investKind : undefined,
+      sips: type === 'investment' ? sips.map((s) => ({ name: s.name.trim() || name.trim(), amount: parseFloat(s.amount) || 0, day: validDay(s.day) ?? 0, last: s.last })).filter((s) => s.amount > 0 && s.day > 0) : undefined,
+      sipAmount: undefined,
+      sipDay: undefined,
+      sipLast: undefined,
       goldGrams: type === 'gold' ? parseFloat(goldGrams) || undefined : undefined,
       rewardPoints: isCard ? parseFloat(points) || undefined : undefined,
       pointValue: isCard ? parseFloat(pointValue) || undefined : undefined,
@@ -99,13 +111,26 @@ export default function AccountForm() {
 
   return (
     <Screen>
-      <Text style={styles.label}>Category</Text>
-      <ChipRow>
-        {ACCOUNT_GROUPS.map((g) => (
-          <Chip key={g.key} label={g.label} icon={g.icon} selected={group === g.key} onPress={() => { setGroup(g.key); setType(g.types[0]); }} />
-        ))}
-      </ChipRow>
-      {(ACCOUNT_GROUPS.find((g) => g.key === group)?.types.length ?? 0) > 1 ? (
+      {!investOnly ? (
+        <>
+          <Text style={styles.label}>Category</Text>
+          <ChipRow>
+            {ACCOUNT_GROUPS.map((g) => (
+              <Chip key={g.key} label={g.label} icon={g.icon} selected={group === g.key} onPress={() => { setGroup(g.key); setType(g.types[0]); }} />
+            ))}
+          </ChipRow>
+        </>
+      ) : null}
+      {group === 'investment' ? (
+        <>
+          <Text style={styles.label}>Type of investment</Text>
+          <ChipRow>
+            {INVEST_OPTIONS.map((o) => (
+              <Chip key={o.key} label={o.label} icon={o.icon} selected={investOption({ type, investKind })?.key === o.key} onPress={() => { setType(o.type); if (o.kind) setInvestKind(o.kind); }} color={colors.info} />
+            ))}
+          </ChipRow>
+        </>
+      ) : (ACCOUNT_GROUPS.find((g) => g.key === group)?.types.length ?? 0) > 1 ? (
         <>
           <Text style={styles.label}>Type</Text>
           <ChipRow>
@@ -115,7 +140,7 @@ export default function AccountForm() {
           </ChipRow>
         </>
       ) : null}
-      <Field label="Name" value={name} onChangeText={setName} placeholder={isCard ? 'e.g. HDFC Millennia' : 'e.g. SBI Savings'} />
+      <Field label="Name" value={name} onChangeText={setName} placeholder={isCard ? 'e.g. HDFC Millennia' : group === 'investment' ? 'e.g. Groww, Zerodha, HDFC MF' : 'e.g. SBI Savings'} />
 
       {type === 'debit_card' ? (
         <>
@@ -150,11 +175,23 @@ export default function AccountForm() {
         </Card>
       ) : null}
       {type === 'investment' ? (
-        <Card>
-          <Row style={{ alignItems: 'flex-start' }}>
-            <View style={{ flex: 1 }}><Field label="Monthly SIP" value={sipAmount} onChangeText={setSipAmount} keyboardType="decimal-pad" /></View>
-            <View style={{ flex: 1 }}><Field label="SIP debit day" value={sipDay} onChangeText={setSipDay} keyboardType="number-pad" placeholder="1-31" /></View>
-          </Row>
+        <Card style={{ gap: 10 }}>
+          <Text style={styles.itemTitle}>Monthly SIPs{sips.length ? ` · ${sips.length}` : ''}</Text>
+          <Text style={styles.hint}>Add one row per fund or plan. Each is recorded from your bank on its day every month.</Text>
+          {sips.map((s, i) => (
+            <View key={i} style={{ gap: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Row>
+                <View style={{ flex: 1 }}><Field label={`SIP ${i + 1} – fund or plan`} value={s.name} onChangeText={(v) => setSip(i, { name: v })} placeholder="e.g. Nifty 50 index fund" /></View>
+                <Icon name="close-circle" color={colors.danger} />
+                <Text style={{ color: colors.danger, fontWeight: '700' }} onPress={() => setSips((l) => l.filter((_, j) => j !== i))} accessibilityRole="button">Remove</Text>
+              </Row>
+              <Row style={{ alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}><Field label="Amount each month" value={s.amount} onChangeText={(v) => setSip(i, { amount: v })} keyboardType="decimal-pad" placeholder="0" /></View>
+                <View style={{ flex: 1 }}><Field label="Debit day" value={s.day} onChangeText={(v) => setSip(i, { day: v })} keyboardType="number-pad" placeholder="1-31" /></View>
+              </Row>
+            </View>
+          ))}
+          <Button title={sips.length ? 'Add another SIP' : 'Add a SIP'} variant="secondary" icon="add" onPress={() => setSips((l) => [...l, { name: '', amount: '', day: '', last: undefined }])} />
         </Card>
       ) : null}
       {type === 'gold' ? (

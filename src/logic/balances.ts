@@ -1,4 +1,4 @@
-import type { Account, AccountGroup, AccountType, Transaction } from './types';
+import type { Account, AccountGroup, AccountType, InvestKind, Transaction } from './types';
 
 /**
  * Debit cards linked to a bank account do not hold money themselves – their spends
@@ -127,3 +127,21 @@ export const ACCOUNT_GROUPS: { key: AccountGroup; label: string; icon: string; t
 export function isLiability(type: AccountType): boolean {
   return LIABILITY_TYPES.includes(type);
 }
+
+/** Investment choices shown in the account form: deposits and gold are their own account types, the rest are 'investment' with a kind. */
+export const INVEST_OPTIONS: { key: string; label: string; icon: string; type: AccountType; kind?: InvestKind }[] = [
+  { key: 'mutual_fund', label: 'Mutual funds & SIPs', icon: 'pie-chart-outline', type: 'investment', kind: 'mutual_fund' },
+  { key: 'stocks', label: 'Stocks & shares', icon: 'stats-chart-outline', type: 'investment', kind: 'stocks' },
+  { key: 'deposit', label: 'Fixed / recurring deposit', icon: 'lock-closed-outline', type: 'deposit' },
+  { key: 'bonds', label: 'Bonds', icon: 'ribbon-outline', type: 'investment', kind: 'bonds' },
+  { key: 'gold', label: 'Gold & jewellery', icon: 'diamond-outline', type: 'gold' },
+  { key: 'ppf', label: 'PPF', icon: 'shield-checkmark-outline', type: 'investment', kind: 'ppf' },
+  { key: 'epf', label: 'EPF / PF / gratuity', icon: 'briefcase-outline', type: 'investment', kind: 'epf' },
+  { key: 'nps', label: 'NPS / pension', icon: 'umbrella-outline', type: 'investment', kind: 'nps' },
+  { key: 'crypto', label: 'Crypto', icon: 'logo-bitcoin', type: 'investment', kind: 'crypto' },
+  { key: 'other', label: 'Other investment', icon: 'briefcase-outline', type: 'investment', kind: 'other' },
+];
+
+/** The investment option an account belongs to (older 'investment' accounts with no kind are mutual funds). */
+export const investOption = (a: Pick<Account, 'type' | 'investKind'>) =>
+  INVEST_OPTIONS.find((o) => (a.type === 'investment' ? o.kind === (a.investKind ?? 'mutual_fund') : o.type === a.type));

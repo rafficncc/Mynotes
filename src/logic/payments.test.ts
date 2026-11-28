@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDate } from './dates';
-import { alreadyPaid, billPayment, dueSipTransfers, emiPayment, premiumPayment } from './payments';
+import { alreadyPaid, billPayment, dueSipListTransfers, dueSipTransfers, emiPayment, monthlySip, premiumPayment } from './payments';
 import type { Account, Transaction } from './types';
 
 const on = parseDate('2026-11-18');
@@ -32,5 +32,13 @@ describe('payments from other screens become transactions', () => {
     expect(dueSipTransfers(fund, [...accounts, fund], on)).toEqual([{ type: 'transfer', amount: 5000, date: '2026-11-05', accountId: 'bank', toAccountId: 'mf', note: 'mf SIP' }]);
     expect(dueSipTransfers({ ...fund, sipLast: '2026-09-05' }, [...accounts, fund], on).map((t) => t.date)).toEqual(['2026-10-05', '2026-11-05']);
     expect(dueSipTransfers({ ...fund, sipLast: '2026-11-05' }, [...accounts, fund], on)).toEqual([]);
+  });
+
+  it('records each SIP in a fund account on its own day', () => {
+    const fund = acc('mf', 'investment', { sips: [{ name: 'Index fund', amount: 5000, day: 5, last: '2026-10-05' }, { name: 'Small cap', amount: 2000, day: 25, last: '2026-10-25' }] });
+    const r = dueSipListTransfers(fund, [...accounts, fund], on);
+    expect(r.txns.map((t) => [t.note, t.amount, t.date])).toEqual([['Index fund SIP', 5000, '2026-11-05']]);
+    expect(r.sips.map((s) => s.last)).toEqual(['2026-11-05', '2026-10-25']);
+    expect(monthlySip({ ...fund, sipAmount: 1000 })).toBe(8000);
   });
 });

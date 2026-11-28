@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
-import { ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, isLiability } from '../logic/balances';
+import { ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, investOption, isLiability } from '../logic/balances';
 import type { PersonBalance } from '../logic/money2';
 import type { Account } from '../logic/types';
 import { colors } from '../theme';
@@ -30,7 +30,7 @@ export function BalanceList({ accounts, balances, people, money }: { accounts: A
     if (linked) return `Debit card · uses ${linked.name}`;
     if (a.type === 'loan' && a.interestRate) return `${a.interestRate}% interest`;
     if (a.type === 'gold' && a.goldGrams) return `${a.goldGrams} g`;
-    return ACCOUNT_TYPE_LABEL[a.type];
+    return a.type === 'investment' ? investOption(a)?.label : ACCOUNT_TYPE_LABEL[a.type];
   };
   return (
     <>
@@ -45,7 +45,7 @@ export function BalanceList({ accounts, balances, people, money }: { accounts: A
             return (
               <ListItem
                 key={a.id}
-                icon={ACCOUNT_TYPE_ICON[a.type]}
+                icon={a.type === 'investment' ? investOption(a)?.icon ?? ACCOUNT_TYPE_ICON.investment : ACCOUNT_TYPE_ICON[a.type]}
                 iconColor={sec.color}
                 title={a.name}
                 subtitle={sub(a)}

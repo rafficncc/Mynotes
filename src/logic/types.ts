@@ -13,6 +13,18 @@ export type AccountType =
   | 'other';
 
 /** How accounts are grouped on screen and in net worth. */
+/** What an 'investment' account holds. Older accounts have none and count as mutual funds. */
+export type InvestKind = 'mutual_fund' | 'stocks' | 'bonds' | 'ppf' | 'epf' | 'nps' | 'crypto' | 'other';
+
+/** One monthly SIP into an investment account (an account can hold several, e.g. one per fund). */
+export interface Sip {
+  name: string;
+  amount: number;
+  day: number;
+  /** Last debit recorded automatically (YYYY-MM-DD). */
+  last?: string;
+}
+
 export type AccountGroup = 'savings' | 'investment' | 'credit' | 'loan' | 'real_estate' | 'other';
 
 export interface Account {
@@ -45,6 +57,9 @@ export interface Account {
   sipDay?: number;
   /** Last SIP debit recorded automatically (YYYY-MM-DD). */
   sipLast?: string;
+  /** Investments: several SIPs into this account. Replaces sipAmount/sipDay once the account is edited. */
+  sips?: Sip[];
+  investKind?: InvestKind;
   /** Gold / jewellery weight in grams */
   goldGrams?: number;
   /** Credit cards: reward points balance and value of one point */

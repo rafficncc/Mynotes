@@ -234,9 +234,12 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
   }
   // SIP debits: a reminder the day before, so the bank account has enough money
   for (const a of data.accounts) {
-    if (a.archived || !a.sipAmount || !a.sipDay) continue;
-    const next = firstOccurrenceFrom({ dueDate: toISODate(new Date(on.getFullYear(), on.getMonth(), a.sipDay)), frequency: 'monthly' }, addDays(on, 1));
-    if (next) push(`sip-${a.id}-${toISODate(next)}`, `${a.name} SIP`, next, 1, a.sipAmount);
+    if (a.archived) continue;
+    const list = [...(a.sipAmount && a.sipDay ? [{ name: a.name, amount: a.sipAmount, day: a.sipDay }] : []), ...(a.sips ?? [])];
+    list.forEach((s, i) => {
+      const next = firstOccurrenceFrom({ dueDate: toISODate(new Date(on.getFullYear(), on.getMonth(), s.day)), frequency: 'monthly' }, addDays(on, 1));
+      if (next) push(`sip-${a.id}-${i}-${toISODate(next)}`, `${s.name} SIP`, next, 1, s.amount);
+    });
   }
   const balances = computeBalances(data.accounts, data.transactions);
   for (const card of data.accounts) {

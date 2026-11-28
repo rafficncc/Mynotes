@@ -21,9 +21,9 @@ const groups = (): [string, Item[]][] => [
     [
       { icon: 'wallet-outline', title: t('Accounts'), subtitle: 'Savings, investments, credit cards, loans, real estate', href: '/accounts', color: colors.primary },
       { icon: 'people-outline', title: t('Lend & borrow'), subtitle: 'Who owes whom, split bills', href: '/people', color: colors.info },
-      { icon: 'paper-plane-outline', title: t('Money sent home'), subtitle: 'Remittances, rates and fees', href: '/remittance', color: colors.info },
+      { icon: 'paper-plane-outline', title: t('Money sent home'), subtitle: 'Money you send to family in another country', href: '/remittance', color: colors.info },
       { icon: 'flag-outline', title: t('Events & trips'), subtitle: 'Budget for a wedding, trip or festival', href: '/events', color: colors.accent },
-      { icon: 'trending-up-outline', title: t('Investments'), subtitle: 'Fixed deposits, SIPs, gold', href: '/investments', color: colors.success },
+      { icon: 'trending-up-outline', title: t('Investments'), subtitle: 'Mutual funds, SIPs, stocks, FD, PPF, EPF, NPS, gold', href: '/investments', color: colors.success },
       { icon: 'trending-down-outline', title: t('Debt payoff planner'), subtitle: 'Which debt to clear first, debt-free date', href: '/debts', color: colors.danger },
       { icon: 'calculator-outline', title: t('Loan prepayment'), subtitle: 'How much interest a prepayment saves', href: '/prepay', color: colors.warning },
     ],

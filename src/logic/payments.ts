@@ -1,7 +1,7 @@
 import { addDays, addMonths, clampedDate, parseDate, toISODate } from './dates';
 import { normalize } from './text';
 import { SPENDABLE_TYPES } from './balances';
-import type { Account, Bill, EmiPlan, InsurancePolicy, Transaction } from './types';
+import type { Account, Bill, EmiPlan, InsurancePolicy, Sip, Transaction } from './types';
 
 /** Payments and money movements made from other screens become real transactions, so balances follow. */
 
@@ -61,3 +61,19 @@ export function dueSipTransfers(fund: Account, accounts: Account[], on: Date): N
   if (!from) return [];
   return monthlyDueDates(fund.sipDay, fund.sipLast, on).map((date) => ({ type: 'transfer', amount: fund.sipAmount!, date, accountId: from, toAccountId: fund.id, note: `${fund.name} SIP` }));
 }
+
+/** Several SIPs in one account: transfers that fell due, and the SIP list with each one's last date moved on. */
+export function dueSipListTransfers(fund: Account, accounts: Account[], on: Date): { txns: NewTxn[]; sips: Sip[] } {
+  const from = defaultPayAccount(accounts);
+  if (fund.archived || !fund.sips?.length || !from) return { txns: [], sips: fund.sips ?? [] };
+  const txns: NewTxn[] = [];
+  const sips = fund.sips.map((s) => {
+    const dates = monthlyDueDates(s.day, s.last, on);
+    for (const date of dates) txns.push({ type: 'transfer', amount: s.amount, date, accountId: from, toAccountId: fund.id, note: `${s.name} SIP` });
+    return dates.length ? { ...s, last: dates[dates.length - 1] } : s;
+  });
+  return { txns, sips };
+}
+
+/** Total monthly SIP into an account (old single SIP plus the SIP list). */
+export const monthlySip = (a: Account) => (a.sipAmount ?? 0) + (a.sips ?? []).reduce((s, x) => s + x.amount, 0);
