@@ -268,7 +268,7 @@ export default function Settings() {
           <Button title="Cancel" variant="secondary" onPress={() => setPinFor(null)} />
         </View>
       </Modal>
-      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.5</Text>
+      <Text style={[styles.hint, { textAlign: 'center' }]}>FamilyFin v1.6</Text>
     </Screen>
   );
 }
