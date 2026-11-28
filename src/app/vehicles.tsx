@@ -1,10 +1,10 @@
 import { premiumOnly } from '../components/PremiumGate';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
-import { Button, Card, Chip, ChipRow, Empty, Field, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, Row, Screen, SectionTitle, Stat, styles, HeaderAdd } from '../components/ui';
 import { diffDays, formatDate, parseDate } from '../logic/dates';
 import { mileage } from '../logic/trackers';
 import type { Vehicle } from '../logic/types';
@@ -19,6 +19,15 @@ function Vehicles() {
   const blank = { name: '', regNo: '', insuranceExpiry: '', pucExpiry: '', nextServiceDate: '', nextServiceKm: '', remindDaysBefore: 15 };
   const [f, setF] = useState(blank);
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a vehicle" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => {
+    setEditing(null);
+    setAdding(false);
+    setF(blank);
+  };
   const set = (patch: Partial<typeof blank>) => setF((x) => ({ ...x, ...patch }));
 
   const edit = (v: Vehicle) => {
@@ -37,8 +46,7 @@ function Vehicles() {
       nextServiceKm: parseFloat(f.nextServiceKm) || undefined,
       remindDaysBefore: f.remindDaysBefore,
     });
-    setEditing(null);
-    setF(blank);
+    close();
   };
 
   const due = (label: string, date?: string) => {
@@ -50,6 +58,37 @@ function Vehicles() {
       </Text>
     );
   };
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit vehicle' : 'Add a vehicle'} />
+        <Card>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Name" value={f.name} onChangeText={(v) => set({ name: v })} placeholder="e.g. Swift" /></View>
+            <View style={{ flex: 1 }}><Field label="Registration no." value={f.regNo} onChangeText={(v) => set({ regNo: v })} placeholder="KA 01 AB 1234" /></View>
+          </Row>
+          <DateField label="Insurance expires" value={f.insuranceExpiry} onChange={(v) => set({ insuranceExpiry: v })} optional quick={false} />
+          <DateField label="PUC / emission test expires" value={f.pucExpiry} onChange={(v) => set({ pucExpiry: v })} optional quick={false} />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><DateField label="Next service date" value={f.nextServiceDate} onChange={(v) => set({ nextServiceDate: v })} optional quick={false} /></View>
+            <View style={{ flex: 1 }}><Field label="…or at km" value={f.nextServiceKm} onChangeText={(v) => set({ nextServiceKm: v })} keyboardType="number-pad" /></View>
+          </Row>
+          <Text style={styles.label}>Remind me</Text>
+          <ChipRow>
+            {[7, 15, 30].map((d) => (
+              <Chip key={d} label={`${d} days before`} selected={f.remindDaysBefore === d} onPress={() => set({ remindDaysBefore: d })} />
+            ))}
+          </ChipRow>
+          <Button title={editing ? 'Save vehicle' : 'Add vehicle'} icon="checkmark" onPress={save} />
+          {editing ? (
+            <Button title="Delete vehicle" variant="danger" icon="trash-outline" onPress={() => ask('Delete this vehicle?', 'Its fuel expenses stay.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { deleteItem('vehicles', editing); close(); } }])} />
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -78,29 +117,7 @@ function Vehicles() {
         );
       })}
 
-      <SectionTitle title={editing ? 'Edit vehicle' : 'Add a vehicle'} />
-      <Card>
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Name" value={f.name} onChangeText={(v) => set({ name: v })} placeholder="e.g. Swift" /></View>
-          <View style={{ flex: 1 }}><Field label="Registration no." value={f.regNo} onChangeText={(v) => set({ regNo: v })} placeholder="KA 01 AB 1234" /></View>
-        </Row>
-        <DateField label="Insurance expires" value={f.insuranceExpiry} onChange={(v) => set({ insuranceExpiry: v })} optional quick={false} />
-        <DateField label="PUC / emission test expires" value={f.pucExpiry} onChange={(v) => set({ pucExpiry: v })} optional quick={false} />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><DateField label="Next service date" value={f.nextServiceDate} onChange={(v) => set({ nextServiceDate: v })} optional quick={false} /></View>
-          <View style={{ flex: 1 }}><Field label="…or at km" value={f.nextServiceKm} onChangeText={(v) => set({ nextServiceKm: v })} keyboardType="number-pad" /></View>
-        </Row>
-        <Text style={styles.label}>Remind me</Text>
-        <ChipRow>
-          {[7, 15, 30].map((d) => (
-            <Chip key={d} label={`${d} days before`} selected={f.remindDaysBefore === d} onPress={() => set({ remindDaysBefore: d })} />
-          ))}
-        </ChipRow>
-        <Button title={editing ? 'Save vehicle' : 'Add vehicle'} icon="checkmark" onPress={save} />
-        {editing ? (
-          <Button title="Delete vehicle" variant="danger" icon="trash-outline" onPress={() => ask('Delete this vehicle?', 'Its fuel expenses stay.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => { deleteItem('vehicles', editing); setEditing(null); setF(blank); } }])} />
-        ) : null}
-      </Card>
+      <Button title="Add a vehicle" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

@@ -1,10 +1,10 @@
 import { ask } from '../components/Dialog';
-import { useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { GradientBg } from '../components/GradientBg';
 import { DateField } from '../components/DateField';
-import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, SectionTitle, styles, HeaderAdd } from '../components/ui';
 import { DOCUMENT_TYPES, documentTypeInfo } from '../logic/actions';
 import { diffDays, parseDate } from '../logic/dates';
 import type { DocumentRecord, DocumentType } from '../logic/types';
@@ -33,6 +33,11 @@ export default function Documents() {
   // Opened from the Actions tab with ?edit=<id> → start in edit mode for that document.
   const initial = data.documents.find((x) => x.id === params.edit);
   const [editing, setEditing] = useState<string | null>(initial?.id ?? null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a document" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => reset();
   const [type, setType] = useState<DocumentType>(initial?.type ?? 'passport');
   const [name, setName] = useState(initial?.name ?? '');
   const [memberId, setMemberId] = useState(initial?.memberId ?? '');
@@ -55,6 +60,7 @@ export default function Documents() {
 
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
     setNumber('');
     setExpiry('');
@@ -92,6 +98,55 @@ export default function Documents() {
   };
   const count = (k: DocStatus) => sorted.filter((d) => statusOf(d) === k).length;
   const sel = STATUS.find((x) => x.key === filter);
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit document' : 'Add a document'} />
+        <Card>
+          <ChipRow>
+            {DOCUMENT_TYPES.map((t) => (
+              <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => pickType(t.key)} />
+            ))}
+          </ChipRow>
+          <Field label="Name" value={name} onChangeText={setName} placeholder={documentTypeInfo(type).label} />
+          <Text style={styles.label}>Belongs to</Text>
+          <ChipRow>
+            <Chip label="Not set" selected={!memberId} onPress={() => setMemberId('')} />
+            {data.members.map((m) => (
+              <Chip key={m.id} label={m.name} icon="person-outline" selected={memberId === m.id} onPress={() => setMemberId(m.id)} />
+            ))}
+          </ChipRow>
+          <Field label="Document number (optional)" value={number} onChangeText={setNumber} placeholder="Stored only on this phone" />
+          <DateField label="Expiry date" value={expiry} onChange={setExpiry} optional quick={false} />
+          <Text style={styles.label}>Remind me before expiry</Text>
+          <ChipRow>
+            {REMIND.map((d) => (
+              <Chip key={d} label={d >= 30 ? `${d / 30} month${d === 30 ? '' : 's'}` : `${d} days`} selected={remind === d} onPress={() => setRemind(d)} />
+            ))}
+          </ChipRow>
+          <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="e.g. renewal centre, documents needed" />
+          <Button title={editing ? 'Save document' : 'Add document'} icon="checkmark" onPress={save} />
+          {editing ? (
+            <View style={{ gap: 8 }}>
+              <Button
+                title="Delete document"
+                variant="danger"
+                icon="trash-outline"
+                onPress={() =>
+                  ask('Delete this document?', undefined, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => { deleteDocument(editing); reset(); } },
+                  ])
+                }
+              />
+            </View>
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -211,48 +266,7 @@ export default function Documents() {
         );
       })}
 
-      <SectionTitle title={editing ? 'Edit document' : 'Add a document'} />
-      <Card>
-        <ChipRow>
-          {DOCUMENT_TYPES.map((t) => (
-            <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => pickType(t.key)} />
-          ))}
-        </ChipRow>
-        <Field label="Name" value={name} onChangeText={setName} placeholder={documentTypeInfo(type).label} />
-        <Text style={styles.label}>Belongs to</Text>
-        <ChipRow>
-          <Chip label="Not set" selected={!memberId} onPress={() => setMemberId('')} />
-          {data.members.map((m) => (
-            <Chip key={m.id} label={m.name} icon="person-outline" selected={memberId === m.id} onPress={() => setMemberId(m.id)} />
-          ))}
-        </ChipRow>
-        <Field label="Document number (optional)" value={number} onChangeText={setNumber} placeholder="Stored only on this phone" />
-        <DateField label="Expiry date" value={expiry} onChange={setExpiry} optional quick={false} />
-        <Text style={styles.label}>Remind me before expiry</Text>
-        <ChipRow>
-          {REMIND.map((d) => (
-            <Chip key={d} label={d >= 30 ? `${d / 30} month${d === 30 ? '' : 's'}` : `${d} days`} selected={remind === d} onPress={() => setRemind(d)} />
-          ))}
-        </ChipRow>
-        <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="e.g. renewal centre, documents needed" />
-        <Button title={editing ? 'Save document' : 'Add document'} icon="checkmark" onPress={save} />
-        {editing ? (
-          <View style={{ gap: 8 }}>
-            <Button title="Cancel" variant="secondary" onPress={reset} />
-            <Button
-              title="Delete document"
-              variant="danger"
-              icon="trash-outline"
-              onPress={() =>
-                ask('Delete this document?', undefined, [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => { deleteDocument(editing); reset(); } },
-                ])
-              }
-            />
-          </View>
-        ) : null}
-      </Card>
+      <Button title="Add a document" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

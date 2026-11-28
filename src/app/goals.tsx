@@ -1,8 +1,9 @@
+import { useNavigation } from 'expo-router';
 import { ask } from '../components/Dialog';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DateField } from '../components/DateField';
 import { Text, View } from 'react-native';
-import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, Stat, styles, HeaderAdd } from '../components/ui';
 import { diffDays, formatDate, parseDate, toISODate } from '../logic/dates';
 import { toast } from '../components/Toast';
 import { notifyBalance, useAppData, useMoney } from '../store/hooks';
@@ -14,6 +15,11 @@ export default function Goals() {
   const { addGoal, updateGoal, deleteGoal, addTransaction } = useStore();
   const { money } = useMoney();
   const [name, setName] = useState('');
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a goal" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => setAdding(false);
   const [target, setTarget] = useState('');
   const [deadline, setDeadline] = useState('');
   const [autoFor, setAutoFor] = useState<string | null>(null);
@@ -57,10 +63,28 @@ export default function Goals() {
     setName('');
     setTarget('');
     setDeadline('');
+    setAdding(false);
   };
 
   const totalSaved = data.goals.reduce((s, g) => s + g.saved, 0);
   const totalTarget = data.goals.reduce((s, g) => s + g.target, 0);
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title="New goal" />
+        <Card>
+          <Field label="Goal" value={name} onChangeText={setName} placeholder="e.g. Kids school fees, Goa trip" />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Target amount" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="50000" /></View>
+          </Row>
+          <DateField label="Deadline (optional)" value={deadline} onChange={setDeadline} optional quick={false} />
+          <Button title="Add goal" icon="add" onPress={add} />
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       {data.goals.length ? (
@@ -144,15 +168,7 @@ export default function Goals() {
           </Row>
         </Card>
       ) : null}
-      <SectionTitle title="New goal" />
-      <Card>
-        <Field label="Goal" value={name} onChangeText={setName} placeholder="e.g. Kids school fees, Goa trip" />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Target amount" value={target} onChangeText={setTarget} keyboardType="decimal-pad" placeholder="50000" /></View>
-        </Row>
-        <DateField label="Deadline (optional)" value={deadline} onChange={setDeadline} optional quick={false} />
-        <Button title="Add goal" icon="add" onPress={add} />
-      </Card>
+      <Button title="Add a goal" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

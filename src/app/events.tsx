@@ -1,10 +1,11 @@
+import { useNavigation } from 'expo-router';
 import { premiumOnly } from '../components/PremiumGate';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { HBars } from '../components/charts';
 import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
-import { Button, Card, Chip, ChipRow, Empty, Field, ListItem, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, ListItem, ProgressBar, Row, Screen, SectionTitle, styles, HeaderAdd } from '../components/ui';
 import { spendByCategory } from '../logic/analytics';
 import { formatDate, toISODate } from '../logic/dates';
 import type { EventBudget } from '../logic/types';
@@ -26,6 +27,11 @@ function Events() {
   const { saveItem, deleteItem } = useStore();
   const { money } = useMoney();
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add an event or trip" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => reset();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<EventBudget['kind']>('trip');
   const [budget, setBudget] = useState('');
@@ -49,6 +55,7 @@ function Events() {
   };
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
     setBudget('');
     setEnd('');
@@ -60,6 +67,29 @@ function Events() {
   };
 
   const sorted = [...data.events].sort((a, b) => Number(!!a.closed) - Number(!!b.closed) || b.startDate.localeCompare(a.startDate));
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit event' : 'New event'} />
+        <Card>
+          <ChipRow>
+            {KINDS.map((k) => (
+              <Chip key={k.key} label={k.label} icon={k.icon} selected={kind === k.key} onPress={() => setKind(k.key)} />
+            ))}
+          </ChipRow>
+          <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Kerala trip" />
+          <Field label="Budget (optional)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="60000" />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><DateField label="Starts" value={start} onChange={setStart} quick={false} /></View>
+            <View style={{ flex: 1 }}><DateField label="Ends (optional)" value={end} onChange={setEnd} optional quick={false} /></View>
+          </Row>
+          <Button title={editing ? 'Save event' : 'Create event'} icon="checkmark" onPress={save} />
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -108,22 +138,7 @@ function Events() {
         );
       })}
 
-      <SectionTitle title={editing ? 'Edit event' : 'New event'} />
-      <Card>
-        <ChipRow>
-          {KINDS.map((k) => (
-            <Chip key={k.key} label={k.label} icon={k.icon} selected={kind === k.key} onPress={() => setKind(k.key)} />
-          ))}
-        </ChipRow>
-        <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Kerala trip" />
-        <Field label="Budget (optional)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="60000" />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><DateField label="Starts" value={start} onChange={setStart} quick={false} /></View>
-          <View style={{ flex: 1 }}><DateField label="Ends (optional)" value={end} onChange={setEnd} optional quick={false} /></View>
-        </Row>
-        <Button title={editing ? 'Save event' : 'Create event'} icon="checkmark" onPress={save} />
-        {editing ? <Button title="Cancel" variant="secondary" onPress={reset} /> : null}
-      </Card>
+      <Button title="Add an event or trip" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

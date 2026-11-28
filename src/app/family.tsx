@@ -1,8 +1,9 @@
+import { useNavigation } from 'expo-router';
 import { premiumOnly } from '../components/PremiumGate';
 import { ask } from '../components/Dialog';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Share, Text, TextInput, View } from 'react-native';
-import { Button, Card, Chip, ChipRow, Field, Icon, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, Icon, ProgressBar, Row, Screen, SectionTitle, styles, HeaderAdd } from '../components/ui';
 import { expenses, inMonth } from '../logic/analytics';
 import { formatDate, toISODate } from '../logic/dates';
 import { makeInvite, makeUpdate, newGroupCode, parseInvite, parseUpdate } from '../logic/familySync';
@@ -20,6 +21,11 @@ function Family() {
   const [relation, setRelation] = useState('');
   const [budget, setBudget] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a family member" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => reset();
   const [groupName, setGroupName] = useState('');
   const [paste, setPaste] = useState('');
 
@@ -41,6 +47,7 @@ function Family() {
   };
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
     setRelation('');
     setBudget('');
@@ -87,6 +94,41 @@ function Family() {
     }
   };
 
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit member' : 'Add member'} />
+        <Card>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Name" value={name} onChangeText={setName} placeholder="Name" /></View>
+            <View style={{ flex: 1 }}><Field label="Relation" value={relation} onChangeText={setRelation} placeholder="Spouse, Son…" /></View>
+          </Row>
+          <Field label="Allowance per cycle (optional)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
+          <Button title={editing ? 'Save member' : 'Add member'} icon="person-add-outline" onPress={save} />
+          {editing ? (
+            <ChipRow>
+              <Chip label="This phone is theirs" icon="phone-portrait-outline" onPress={() => { updateSettings({ currentMemberId: editing }); reset(); }} />
+              <Chip label="Cancel" onPress={reset} />
+              {editing !== 'me' ? (
+                <Chip
+                  label="Remove"
+                  icon="trash-outline"
+                  onPress={() =>
+                    ask('Remove member?', 'Past spends stay, shown as “Whole family”.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Remove', style: 'destructive', onPress: () => { deleteMember(editing); reset(); } },
+                    ])
+                  }
+                />
+              ) : null}
+            </ChipRow>
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <Card>
@@ -116,33 +158,7 @@ function Family() {
         {(spent.get('_family') ?? 0) > 0 ? <Text style={styles.itemSub}>Shared family spends: {money(spent.get('_family') ?? 0)}</Text> : null}
       </Card>
 
-      <SectionTitle title={editing ? 'Edit member' : 'Add member'} />
-      <Card>
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Name" value={name} onChangeText={setName} placeholder="Name" /></View>
-          <View style={{ flex: 1 }}><Field label="Relation" value={relation} onChangeText={setRelation} placeholder="Spouse, Son…" /></View>
-        </Row>
-        <Field label="Allowance per cycle (optional)" value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
-        <Button title={editing ? 'Save member' : 'Add member'} icon="person-add-outline" onPress={save} />
-        {editing ? (
-          <ChipRow>
-            <Chip label="This phone is theirs" icon="phone-portrait-outline" onPress={() => { updateSettings({ currentMemberId: editing }); reset(); }} />
-            <Chip label="Cancel" onPress={reset} />
-            {editing !== 'me' ? (
-              <Chip
-                label="Remove"
-                icon="trash-outline"
-                onPress={() =>
-                  ask('Remove member?', 'Past spends stay, shown as “Whole family”.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Remove', style: 'destructive', onPress: () => { deleteMember(editing); reset(); } },
-                  ])
-                }
-              />
-            ) : null}
-          </ChipRow>
-        ) : null}
-      </Card>
+      <Button title="Add a family member" icon="add" onPress={() => setAdding(true)} />
 
       <SectionTitle title="Family group" />
       <Card>

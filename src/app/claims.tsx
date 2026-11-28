@@ -1,10 +1,11 @@
+import { useNavigation } from 'expo-router';
 import { premiumOnly } from '../components/PremiumGate';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { HBars } from '../components/charts';
 import { DateField } from '../components/DateField';
 import { ask, choose } from '../components/Dialog';
-import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles, HeaderAdd } from '../components/ui';
 import { formatDate, toISODate } from '../logic/dates';
 import type { ClaimStatus, MedicalClaim } from '../logic/types';
 import { defaultPayAccount } from '../logic/payments';
@@ -28,6 +29,15 @@ function Claims() {
   const blank = { title: '', memberId: '', policyId: '', amount: '', date: toISODate(new Date()), status: 'to_submit' as ClaimStatus, approvedAmount: '', notes: '' };
   const [f, setF] = useState(blank);
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a claim" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => {
+    setEditing(null);
+    setAdding(false);
+    setF(blank);
+  };
   const set = (patch: Partial<typeof blank>) => setF((x) => ({ ...x, ...patch }));
   const year = new Date().getFullYear().toString();
 
@@ -92,9 +102,50 @@ function Claims() {
       approvedAmount: parseFloat(f.approvedAmount) || undefined,
       notes: f.notes.trim() || undefined,
     });
-    setEditing(null);
-    setF(blank);
+    close();
   };
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Update claim' : 'New claim'} />
+        <Card>
+          <Field label="What for" value={f.title} onChangeText={(v) => set({ title: v })} placeholder="e.g. Hospital stay, dental treatment" />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Claimed amount" value={f.amount} onChangeText={(v) => set({ amount: v })} keyboardType="decimal-pad" /></View>
+            <View style={{ flex: 1 }}><Field label="Approved amount" value={f.approvedAmount} onChangeText={(v) => set({ approvedAmount: v })} keyboardType="decimal-pad" /></View>
+          </Row>
+          <DateField label="Treatment date" value={f.date} onChange={(v) => set({ date: v })} />
+          <Text style={styles.label}>Status</Text>
+          <ChipRow>
+            {STATUS.map((s) => (
+              <Chip key={s.key} label={s.label} color={s.color} selected={f.status === s.key} onPress={() => set({ status: s.key })} />
+            ))}
+          </ChipRow>
+          <Text style={styles.label}>Patient</Text>
+          <ChipRow>
+            {data.members.map((m) => (
+              <Chip key={m.id} label={m.name} selected={f.memberId === m.id} onPress={() => set({ memberId: m.id })} />
+            ))}
+          </ChipRow>
+          {data.policies.length ? (
+            <>
+              <Text style={styles.label}>Policy</Text>
+              <ChipRow>
+                {data.policies.map((p) => (
+                  <Chip key={p.id} label={p.name} selected={f.policyId === p.id} onPress={() => set({ policyId: p.id })} />
+                ))}
+              </ChipRow>
+            </>
+          ) : null}
+          <Field label="Notes" value={f.notes} onChangeText={(v) => set({ notes: v })} placeholder="Claim no., documents still needed…" />
+          <Button title={editing ? 'Save claim' : 'Add claim'} icon="checkmark" onPress={save} />
+          {editing ? <Button title="Delete claim" variant="danger" icon="trash-outline" onPress={() => { deleteItem('claims', editing); close(); }} /> : null}
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -132,40 +183,7 @@ function Claims() {
         </Card>
       ) : null}
 
-      <SectionTitle title={editing ? 'Update claim' : 'New claim'} />
-      <Card>
-        <Field label="What for" value={f.title} onChangeText={(v) => set({ title: v })} placeholder="e.g. Hospital stay, dental treatment" />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Claimed amount" value={f.amount} onChangeText={(v) => set({ amount: v })} keyboardType="decimal-pad" /></View>
-          <View style={{ flex: 1 }}><Field label="Approved amount" value={f.approvedAmount} onChangeText={(v) => set({ approvedAmount: v })} keyboardType="decimal-pad" /></View>
-        </Row>
-        <DateField label="Treatment date" value={f.date} onChange={(v) => set({ date: v })} />
-        <Text style={styles.label}>Status</Text>
-        <ChipRow>
-          {STATUS.map((s) => (
-            <Chip key={s.key} label={s.label} color={s.color} selected={f.status === s.key} onPress={() => set({ status: s.key })} />
-          ))}
-        </ChipRow>
-        <Text style={styles.label}>Patient</Text>
-        <ChipRow>
-          {data.members.map((m) => (
-            <Chip key={m.id} label={m.name} selected={f.memberId === m.id} onPress={() => set({ memberId: m.id })} />
-          ))}
-        </ChipRow>
-        {data.policies.length ? (
-          <>
-            <Text style={styles.label}>Policy</Text>
-            <ChipRow>
-              {data.policies.map((p) => (
-                <Chip key={p.id} label={p.name} selected={f.policyId === p.id} onPress={() => set({ policyId: p.id })} />
-              ))}
-            </ChipRow>
-          </>
-        ) : null}
-        <Field label="Notes" value={f.notes} onChangeText={(v) => set({ notes: v })} placeholder="Claim no., documents still needed…" />
-        <Button title={editing ? 'Save claim' : 'Add claim'} icon="checkmark" onPress={save} />
-        {editing ? <Button title="Delete claim" variant="danger" icon="trash-outline" onPress={() => { deleteItem('claims', editing); setEditing(null); setF(blank); }} /> : null}
-      </Card>
+      <Button title="Add a claim" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

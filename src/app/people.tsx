@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Card, Empty, ListItem, Row, Screen, SectionTitle, Stat } from '../components/ui';
+import { router, useNavigation } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Card, Empty, ListItem, Row, Screen, SectionTitle, Stat, HeaderAdd, Button } from '../components/ui';
 import { LendForm, type LendKind } from '../components/LendForm';
 import { formatDate } from '../logic/dates';
 import { personBalances } from '../logic/money2';
@@ -11,12 +11,27 @@ export default function People() {
   const data = useAppData();
   const { money } = useMoney();
   const [kind, setKind] = useState<LendKind>('lent');
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Record lent or borrowed money" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => setAdding(false);
   const [person, setPerson] = useState('');
   const [amount, setAmount] = useState('');
 
   const balances = useMemo(() => personBalances(data.transactions), [data.transactions]);
   const owedToMe = balances.filter((b) => b.balance > 0).reduce((s, b) => s + b.balance, 0);
   const iOwe = -balances.filter((b) => b.balance < 0).reduce((s, b) => s + b.balance, 0);
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title="Record" />
+        <LendForm onSaved={close} kind={kind} setKind={setKind} person={person} setPerson={setPerson} amount={amount} setAmount={setAmount} known={balances} />
+        <Button title="Cancel" variant="secondary" onPress={close} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -46,8 +61,7 @@ export default function People() {
         </Card>
       )}
 
-      <SectionTitle title="Record" />
-      <LendForm kind={kind} setKind={setKind} person={person} setPerson={setPerson} amount={amount} setAmount={setAmount} known={balances} />
+      <Button title="Record lent or borrowed money" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }

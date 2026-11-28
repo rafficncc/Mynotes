@@ -1,8 +1,8 @@
 import { ask } from '../components/Dialog';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Button, Card, Chip, ChipRow, Field, Icon, ListItem, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, HeaderAdd, Icon, ListItem, Screen, SectionTitle, styles } from '../components/ui';
 import type { CategoryKind } from '../logic/types';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
@@ -30,6 +30,11 @@ export default function Categories() {
   const [icon, setIcon] = useState(ICONS[0]);
   const [color, setColor] = useState(COLORS[0]);
   const [editing, setEditing] = useState<string | null>(null);
+  // Opened from Add transaction with ?kind= → go straight to the new-category form.
+  const [adding, setAdding] = useState(!!params.kind);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a category" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
 
   const startEdit = (id: string) => {
     const c = categories.find((x) => x.id === id)!;
@@ -41,6 +46,7 @@ export default function Categories() {
   };
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
   };
 
@@ -61,35 +67,47 @@ export default function Categories() {
 
   const custom = categories.filter((c) => c.custom);
 
+  if (formOpen) {
+    return (
+      <Screen>
+        <Card>
+          <Text style={styles.itemTitle}>{editing ? 'Edit category' : 'New category'}</Text>
+          <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Pet care, Maid salary, Gym" />
+          <Text style={styles.label}>Type</Text>
+          <ChipRow>
+            {KINDS.map((k) => (
+              <Chip key={k.key} label={k.label} selected={kind === k.key} onPress={() => setKind(k.key)} />
+            ))}
+          </ChipRow>
+          <Text style={styles.hint}>{KINDS.find((k) => k.key === kind)?.hint}. Used for the 50-30-20 check.</Text>
+          <Text style={styles.label}>Icon</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {ICONS.map((i) => (
+              <Pressable key={i} onPress={() => setIcon(i)} style={{ padding: 8, borderRadius: 10, backgroundColor: icon === i ? `${color}22` : colors.bg, borderWidth: 1, borderColor: icon === i ? color : 'transparent' }}>
+                <Icon name={i} color={icon === i ? color : colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.label}>Colour</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {COLORS.map((c) => (
+              <Pressable key={c} onPress={() => setColor(c)} accessibilityLabel={`Colour ${c}`} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 3, borderColor: color === c ? colors.text : 'transparent' }} />
+            ))}
+          </View>
+          <Button title={editing ? 'Save changes' : 'Add category'} icon="checkmark" onPress={save} />
+          {editing && categories.find((c) => c.id === editing)?.custom ? (
+            <Button title="Delete this category" variant="danger" icon="trash-outline" onPress={() => remove(editing, name)} />
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={reset} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
-      <Card>
-        <Text style={styles.itemTitle}>{editing ? 'Edit category' : 'New category'}</Text>
-        <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Pet care, Maid salary, Gym" />
-        <Text style={styles.label}>Type</Text>
-        <ChipRow>
-          {KINDS.map((k) => (
-            <Chip key={k.key} label={k.label} selected={kind === k.key} onPress={() => setKind(k.key)} />
-          ))}
-        </ChipRow>
-        <Text style={styles.hint}>{KINDS.find((k) => k.key === kind)?.hint}. Used for the 50-30-20 check.</Text>
-        <Text style={styles.label}>Icon</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {ICONS.map((i) => (
-            <Pressable key={i} onPress={() => setIcon(i)} style={{ padding: 8, borderRadius: 10, backgroundColor: icon === i ? `${color}22` : colors.bg, borderWidth: 1, borderColor: icon === i ? color : 'transparent' }}>
-              <Icon name={i} color={icon === i ? color : colors.muted} />
-            </Pressable>
-          ))}
-        </View>
-        <Text style={styles.label}>Colour</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {COLORS.map((c) => (
-            <Pressable key={c} onPress={() => setColor(c)} accessibilityLabel={`Colour ${c}`} style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 3, borderColor: color === c ? colors.text : 'transparent' }} />
-          ))}
-        </View>
-        <Button title={editing ? 'Save changes' : 'Add category'} icon="checkmark" onPress={save} />
-        {editing ? <Button title="Cancel" variant="secondary" onPress={reset} /> : null}
-      </Card>
+      <Button title="Add a category" icon="add" onPress={() => setAdding(true)} />
+
 
       <SectionTitle title={`Your categories · ${custom.length}`} />
       <Card>
@@ -97,9 +115,6 @@ export default function Categories() {
         {custom.map((c) => (
           <ListItem key={c.id} icon={c.icon} iconColor={c.color} title={c.name} subtitle={KINDS.find((k) => k.key === c.kind)?.label} right="Edit" onPress={() => startEdit(c.id)} />
         ))}
-        {editing && categories.find((c) => c.id === editing)?.custom ? (
-          <Button title="Delete this category" variant="danger" icon="trash-outline" onPress={() => remove(editing, name)} />
-        ) : null}
       </Card>
 
       <SectionTitle title="Built-in categories" />

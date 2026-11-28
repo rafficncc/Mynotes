@@ -22,7 +22,7 @@ export const LEND_KINDS: { key: LendKind; label: string; icon: string }[] = [
 export const isOut = (k: LendKind) => k === 'lent' || k === 'paid_back';
 
 /** Records money lent, borrowed or repaid as a transfer between your account and the lend & borrow ledger. */
-export function LendForm({ kind, setKind, person, setPerson, amount, setAmount, known, fixedPerson }: {
+export function LendForm({ kind, setKind, person, setPerson, amount, setAmount, known, fixedPerson, onSaved }: {
   kind: LendKind;
   setKind: (k: LendKind) => void;
   person: string;
@@ -31,6 +31,7 @@ export function LendForm({ kind, setKind, person, setPerson, amount, setAmount, 
   setAmount: (a: string) => void;
   known: PersonBalance[];
   fixedPerson?: boolean;
+  onSaved?: () => void;
 }) {
   const data = useAppData();
   const { addTransaction, ensurePeopleAccount } = useStore();
@@ -58,6 +59,7 @@ export function LendForm({ kind, setKind, person, setPerson, amount, setAmount, 
     setAmount('');
     setNote('');
     notifyBalance(accountId, 'Saved');
+    onSaved?.();
   };
 
   return (

@@ -1,9 +1,9 @@
 import { ask } from '../components/Dialog';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
-import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, styles, HeaderAdd } from '../components/ui';
 import { formatShortDate, toISODate } from '../logic/dates';
 import { EMI_KIND_LABEL, emiAmount, emiStatus } from '../logic/emi';
 import type { EmiKind, EmiPlan } from '../logic/types';
@@ -19,6 +19,11 @@ export default function Emis() {
   const on = new Date();
 
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add an EMI" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
+  const close = () => reset();
   const [kind, setKind] = useState<EmiKind>('card_emi');
   const [name, setName] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -48,6 +53,7 @@ export default function Emis() {
   };
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
     setPrincipal('');
     setMonthly('');
@@ -80,6 +86,63 @@ export default function Emis() {
   const finished = data.emis.filter((e) => emiStatus(e, on).finished);
   const monthlyTotal = active.reduce((s, e) => s + e.monthlyAmount, 0);
   const remainingTotal = active.reduce((s, e) => s + emiStatus(e, on).remainingAmount, 0);
+
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit EMI' : 'Add a running EMI'} />
+        <Card>
+          <ChipRow>
+            {KINDS.map((k) => (
+              <Chip key={k} label={EMI_KIND_LABEL[k]} selected={kind === k} onPress={() => { setKind(k); setAccountId(''); }} />
+            ))}
+          </ChipRow>
+          <Field label="Name" value={name} onChangeText={setName} placeholder={kind === 'card_emi' ? 'e.g. Phone on Rewards Card' : 'e.g. Home loan'} />
+          {accounts.length ? (
+            <>
+              <Text style={styles.label}>{kind === 'card_emi' ? 'Credit card' : 'Loan / paid from'}</Text>
+              <ChipRow>
+                {accounts.map((a) => (
+                  <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
+                ))}
+              </ChipRow>
+              {kind === 'loan_emi' ? <Text style={styles.hint}>Pick the loan account so each EMI reduces the loan balance (the interest part is recorded as an expense). Add the loan under Accounts first if it isn’t here.</Text> : null}
+            </>
+          ) : null}
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Loan / purchase amount" value={principal} onChangeText={setPrincipal} keyboardType="decimal-pad" placeholder="60000" /></View>
+            <View style={{ flex: 1 }}><Field label="Months" value={months} onChangeText={setMonths} keyboardType="number-pad" placeholder="12" /></View>
+          </Row>
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Interest % / year" value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="0 = no-cost" /></View>
+            <View style={{ flex: 1 }}><Field label="EMI amount" value={monthly} onChangeText={setMonthly} keyboardType="decimal-pad" placeholder={computed ? String(computed) : 'auto'} hint={computed ? `Calculated: ${money(computed)}` : 'Leave blank to calculate'} /></View>
+          </Row>
+          <DateField label="First instalment date" value={startDate} onChange={setStartDate} quick={false} hint="For an EMI that's already running, pick the date of the first instalment – paid ones are counted automatically." />
+          <Text style={styles.label}>Remind me</Text>
+          <ChipRow>
+            {[0, 1, 2, 3, 5, 7].map((d) => (
+              <Chip key={d} label={d === 0 ? 'On the day' : `${d} days before`} selected={remind === d} onPress={() => setRemind(d)} />
+            ))}
+          </ChipRow>
+          <Button title={editing ? 'Save EMI' : 'Add EMI'} icon="checkmark" onPress={save} />
+          {editing ? (
+            <Button
+              title="Delete EMI"
+              variant="danger"
+              icon="trash-outline"
+              onPress={() =>
+                ask('Delete this EMI?', 'A converted card purchase goes back to being billed in full.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => { deleteEmi(editing); reset(); } },
+                ])
+              }
+            />
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={close} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -126,55 +189,7 @@ export default function Emis() {
         </Card>
       ) : null}
 
-      <SectionTitle title={editing ? 'Edit EMI' : 'Add a running EMI'} />
-      <Card>
-        <ChipRow>
-          {KINDS.map((k) => (
-            <Chip key={k} label={EMI_KIND_LABEL[k]} selected={kind === k} onPress={() => { setKind(k); setAccountId(''); }} />
-          ))}
-        </ChipRow>
-        <Field label="Name" value={name} onChangeText={setName} placeholder={kind === 'card_emi' ? 'e.g. Phone on Rewards Card' : 'e.g. Home loan'} />
-        {accounts.length ? (
-          <>
-            <Text style={styles.label}>{kind === 'card_emi' ? 'Credit card' : 'Loan / paid from'}</Text>
-            <ChipRow>
-              {accounts.map((a) => (
-                <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
-              ))}
-            </ChipRow>
-            {kind === 'loan_emi' ? <Text style={styles.hint}>Pick the loan account so each EMI reduces the loan balance (the interest part is recorded as an expense). Add the loan under Accounts first if it isn’t here.</Text> : null}
-          </>
-        ) : null}
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Loan / purchase amount" value={principal} onChangeText={setPrincipal} keyboardType="decimal-pad" placeholder="60000" /></View>
-          <View style={{ flex: 1 }}><Field label="Months" value={months} onChangeText={setMonths} keyboardType="number-pad" placeholder="12" /></View>
-        </Row>
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Interest % / year" value={rate} onChangeText={setRate} keyboardType="decimal-pad" placeholder="0 = no-cost" /></View>
-          <View style={{ flex: 1 }}><Field label="EMI amount" value={monthly} onChangeText={setMonthly} keyboardType="decimal-pad" placeholder={computed ? String(computed) : 'auto'} hint={computed ? `Calculated: ${money(computed)}` : 'Leave blank to calculate'} /></View>
-        </Row>
-        <DateField label="First instalment date" value={startDate} onChange={setStartDate} quick={false} hint="For an EMI that's already running, pick the date of the first instalment – paid ones are counted automatically." />
-        <Text style={styles.label}>Remind me</Text>
-        <ChipRow>
-          {[0, 1, 2, 3, 5, 7].map((d) => (
-            <Chip key={d} label={d === 0 ? 'On the day' : `${d} days before`} selected={remind === d} onPress={() => setRemind(d)} />
-          ))}
-        </ChipRow>
-        <Button title={editing ? 'Save EMI' : 'Add EMI'} icon="checkmark" onPress={save} />
-        {editing ? (
-          <Button
-            title="Delete EMI"
-            variant="danger"
-            icon="trash-outline"
-            onPress={() =>
-              ask('Delete this EMI?', 'A converted card purchase goes back to being billed in full.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: () => { deleteEmi(editing); reset(); } },
-              ])
-            }
-          />
-        ) : null}
-      </Card>
+      <Button title="Add an EMI" icon="add" onPress={() => setAdding(true)} />
     </Screen>
   );
 }
