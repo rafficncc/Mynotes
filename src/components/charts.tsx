@@ -95,16 +95,16 @@ export function DonutChart({
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: dim(s.key), paddingVertical: pick ? 2 : 0 }}
           >
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: s.color }} />
-            <Text style={{ flex: 1, fontSize: 12, color: colors.text, fontWeight: selected === s.key ? '800' : '400' }} numberOfLines={1}>
+            <Text style={{ flex: 1, fontSize: 12, color: light ? '#fff' : colors.text, fontWeight: selected === s.key ? '800' : '400' }} numberOfLines={1}>
               {s.label}
             </Text>
-            <Text style={{ fontSize: 12, color: colors.muted }}>
+            <Text style={{ fontSize: 12, color: light ? '#ffffffb3' : colors.muted }}>
               {total > 0 ? Math.round((s.value / total) * 100) : 0}%
             </Text>
           </Pressable>
         ))}
         {slices.length === 0 ? <Text style={{ color: colors.muted, fontSize: 12 }}>No spending yet</Text> : null}
-        {total > 0 ? <Text style={{ fontSize: 11, color: colors.muted }}>Total {format(total)}</Text> : null}
+        {total > 0 ? <Text style={{ fontSize: 11, color: light ? '#ffffffb3' : colors.muted }}>Total {format(total)}</Text> : null}
       </View> : null}
     </View>
   );
@@ -298,16 +298,16 @@ export function AreaChart({ values, labels, width, height = 90, color = colors.p
 }
 
 /** Ring gauge: how much of something is used, with the text in the middle. Turns orange near the limit, red over it. */
-export function Gauge({ value, size = 92, label, sub }: { value: number; size?: number; label: string; sub?: string }) {
+export function Gauge({ value, size = 92, label, sub, light }: { value: number; size?: number; label: string; sub?: string; light?: boolean }) {
   const stroke = 10;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const shown = Math.max(0, Math.min(1, value));
-  const color = value > 1 ? colors.danger : value > 0.85 ? colors.warning : colors.success;
+  const color = light ? (value > 1 ? '#FF9E8A' : value > 0.85 ? '#FFD978' : '#7EE3B5') : value > 1 ? colors.danger : value > 0.85 ? colors.warning : colors.success;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(value * 100) }}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={colors.border} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={r} stroke={light ? '#ffffff2e' : colors.border} strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}
@@ -321,7 +321,7 @@ export function Gauge({ value, size = 92, label, sub }: { value: number; size?: 
         />
       </Svg>
       <Text style={{ fontSize: 18, fontWeight: '800', color }}>{label}</Text>
-      {sub ? <Text style={{ fontSize: 10, color: colors.muted }}>{sub}</Text> : null}
+      {sub ? <Text style={{ fontSize: 10, color: light ? '#ffffffb3' : colors.muted }}>{sub}</Text> : null}
     </View>
   );
 }

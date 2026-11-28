@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { AreaChart, BarChart, CompareLines, HealthGauge } from '../../components/charts';
-import { GradientBg } from '../../components/GradientBg';
+import { GradientBg, HeroCard } from '../../components/GradientBg';
 import { t } from '../../i18n';
 import { Button, Card, Chip, ChipRow, Icon, InsightCard, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import {
@@ -133,16 +133,16 @@ export default function Insights() {
 
       {/* Pace: are we spending faster than last cycle? */}
       <SectionTitle title="Spending pace" />
-      <Hero id="pacebg">
+      <HeroCard id="pacebg">
         <CardHead icon="speedometer-outline" title={thenSpent === 0 && nowSpent === 0 ? 'No spending yet this cycle' : paceDiff > 0 ? `${money(paceDiff)} more than last cycle` : `${money(-paceDiff)} less than last cycle`} note={`By day ${day} · spent ${money(nowSpent)} · ${progress.left} days left`} tone={paceDiff > 0 ? CORAL : MINT} />
         <CompareLines current={v.pace.current} previous={v.pace.previous} width={chartW - 4} format={compact} labels={['This cycle', 'Last cycle']} light />
-      </Hero>
+      </HeroCard>
 
       {/* What changed */}
       {v.changes.length ? (
         <>
           <SectionTitle title="What changed vs last cycle" />
-          <Hero id="changebg">
+          <HeroCard id="changebg">
             {v.changes.map((c) => {
               const max = Math.max(...v.changes.map((x) => Math.abs(x.diff)));
               const up = c.diff > 0;
@@ -165,16 +165,16 @@ export default function Insights() {
                 </View>
               );
             })}
-          </Hero>
+          </HeroCard>
         </>
       ) : null}
 
       {/* Savings rate trend */}
       <SectionTitle title="Savings rate · 6 months" />
-      <Hero id="ratebg">
+      <HeroCard id="ratebg">
         <CardHead icon="leaf-outline" title={avgRate === null ? 'Add income to see your savings rate' : `You keep ${avgRate}% of income`} note="A healthy target is 20% or more" tone={avgRate !== null && avgRate >= 20 ? MINT : GOLD} />
         <AreaChart values={v.rates} labels={v.months.map((m) => `${monthLabel(m.key).slice(0, 3)} ${v.rates[v.months.indexOf(m)]}%`)} width={chartW - 4} height={110} light lineColor={MINT} />
-      </Hero>
+      </HeroCard>
 
       {/* Spending patterns, for the chosen period */}
       <SectionTitle title="Spending patterns" />
@@ -184,7 +184,7 @@ export default function Insights() {
         <Chip label="Last 3 cycles" selected={range === '3m'} onPress={() => setRange('3m')} />
       </ChipRow>
 
-      <Hero id="nwsbg">
+      <HeroCard id="nwsbg">
         <CardHead icon="pie-chart-outline" title="Needs · Wants · Savings" note="Compared with the 50-30-20 rule" tone={BLUE} />
         {(
           [
@@ -210,17 +210,17 @@ export default function Insights() {
           </View>
         ))}
         {v.income === 0 ? <Text style={{ color: DIM, fontSize: 12 }}>Add your income to compare against the 50-30-20 rule.</Text> : null}
-      </Hero>
+      </HeroCard>
 
       {v.weekday.some((x) => x > 0) ? (
-        <Hero id="weekbg">
+        <HeroCard id="weekbg">
           <CardHead icon="calendar-outline" title="Spending by day of the week" note={`Most spent on ${WEEKDAY_NAMES[topDay]}s`} tone={GOLD} />
           <BarChart labels={WEEKDAYS} series={[{ name: 'Spent', color: GOLD, values: v.weekday }]} width={chartW - 4} height={150} format={compact} light />
-        </Hero>
+        </HeroCard>
       ) : null}
 
       {v.byMode.length ? (
-        <Hero id="paybg">
+        <HeroCard id="paybg">
           <CardHead icon="card-outline" title="How you pay" note={`Most by ${v.byMode[0].label} · ${pct(v.byMode[0].value, spentTotal)}%`} tone={BLUE} />
           <Breakdown
             rows={v.byMode.map((m) => ({ key: m.key, label: m.label, value: m.value, color: MODE_COLOR[m.key] ?? GOLD, icon: MODE_ICON[m.key] ?? 'ellipsis-horizontal' }))}
@@ -229,11 +229,11 @@ export default function Insights() {
           {pct(v.byMode.find((m) => m.key === 'credit_card')?.value ?? 0, spentTotal) >= 40 ? (
             <Text style={{ color: GOLD, fontSize: 12 }}>💡 Over 40% goes on credit cards. Pay the full bill each month to avoid interest.</Text>
           ) : null}
-        </Hero>
+        </HeroCard>
       ) : null}
 
       {v.merchants.length ? (
-        <Hero id="shopbg">
+        <HeroCard id="shopbg">
           <CardHead icon="storefront-outline" title="Top places you spend" note={`${v.merchants[0].merchant} leads with ${money(v.merchants[0].total)}`} tone={GOLD} />
           {v.merchants.map((m, i) => (
             <Row key={m.merchant} style={{ gap: 12 }}>
@@ -255,14 +255,14 @@ export default function Insights() {
               </View>
             </Row>
           ))}
-        </Hero>
+        </HeroCard>
       ) : null}
 
       {v.members.length > 1 || (v.members[0] && v.members[0].id !== '_family') ? (
-        <Hero id="whobg">
+        <HeroCard id="whobg">
           <CardHead icon="people-outline" title="Who spends" note={`Shared and personal spending · ${money(spentTotal)}`} tone={MINT} />
           <Breakdown rows={v.members.map((m, i) => ({ key: m.id, label: m.name, value: m.total, color: PEOPLE_COLORS[i % PEOPLE_COLORS.length], initial: m.id === '_family' ? '👪' : m.name.slice(0, 1).toUpperCase() }))} money={money} />
-        </Hero>
+        </HeroCard>
       ) : null}
     </Screen>
   );
@@ -281,16 +281,6 @@ const MODE_ICON: Record<string, string> = { bank: 'business-outline', credit_car
 const MODE_COLOR: Record<string, string> = { bank: BLUE, credit_card: CORAL, debit_card: '#7FDBEA', wallet: '#C9A7FF', cash: MINT };
 const MEDALS = [GOLD, '#D5DCE4', '#E9A36A'];
 const PEOPLE_COLORS = [BLUE, CORAL, MINT, GOLD, '#C9A7FF', '#7FDBEA'];
-
-function Hero({ id, children }: { id: string; children: ReactNode }) {
-  return (
-    <View style={{ borderRadius: 20, overflow: 'hidden' }}>
-      <GradientBg id={id} />
-      <View pointerEvents="none" style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: '#ffffff10', top: -70, right: -60 }} />
-      <View style={{ padding: 16, gap: 12 }}>{children}</View>
-    </View>
-  );
-}
 
 function CardHead({ icon, title, note, tone }: { icon: string; title: string; note: string; tone: string }) {
   return (

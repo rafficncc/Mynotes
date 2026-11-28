@@ -1,7 +1,7 @@
 import { router, type Href } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { GradientBg } from '../../components/GradientBg';
+import { GradientBg, HeroCard } from '../../components/GradientBg';
 import { AreaChart, BarChart, DonutChart, Gauge } from '../../components/charts';
 import { ask } from '../../components/Dialog';
 import { Card, Icon, Row, Screen, SectionTitle, styles } from '../../components/ui';
@@ -18,6 +18,18 @@ import { useStore } from '../../store/useStore';
 import { colors } from '../../theme';
 
 /** % change from `prev` to `cur`, or null when there is nothing to compare with. */
+// Accents used on the gradient cards, matching the net worth card.
+const TILE_ACCENT = ['#7EE3B5', '#FF9E8A', '#9CC3FF', '#FFD978', '#C9A7FF', '#FFB86B'];
+// Each Home tile has its own gradient (dark → lighter), styled like the net worth card.
+const TILE_GRADIENT = [
+  ['#0B5D3B', '#14915F'], // Income – green
+  ['#7A1F33', '#C2414F'], // Expenses – red
+  ['#123C7A', '#2F6FC4'], // Money left – blue
+  ['#6B4A07', '#B9860F'], // Investments – gold
+  ['#3B2275', '#6E48C2'], // Cash & bank – purple
+  ['#7A3A0C', '#C9671C'], // Debt – orange
+];
+
 const change = (cur: number, prev: number) => (prev ? Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10 : null);
 
 export default function Home() {
@@ -149,24 +161,31 @@ export default function Home() {
         {/* This cycle at a glance */}
         <SectionTitle title={`${cycleText} · ${progress.left} days left`} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {tiles.map((x) => {
+          {tiles.map((x, i) => {
             const good = x.pct === null ? null : x.good === 'up' ? x.pct >= 0 : x.pct <= 0;
+            const accent = TILE_ACCENT[i];
             return (
-              <Pressable key={x.label} onPress={() => router.push(x.href)} accessibilityRole="button" style={{ flexBasis: '47%', flexGrow: 1 }}>
-                <View style={{ backgroundColor: x.bg, borderRadius: 16, padding: 12, gap: 2 }}>
+              <Pressable key={x.label} onPress={() => router.push(x.href)} accessibilityRole="button" style={{ flexBasis: '47%', flexGrow: 1, borderRadius: 16, overflow: 'hidden' }}>
+                <GradientBg id={`tile${i}`} colors={TILE_GRADIENT[i]} />
+                <View pointerEvents="none" style={{ position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: '#ffffff10', top: -35, right: -30 }} />
+                <View style={{ padding: 12, gap: 2 }}>
                   <Row style={{ justifyContent: 'space-between' }}>
-                    <View style={{ backgroundColor: colors.card, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name={x.icon} color={x.fg} size={18} />
+                    <View style={{ backgroundColor: '#ffffff26', width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={x.icon} color={accent} size={18} />
                     </View>
                     {x.pct !== null ? (
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: good ? colors.success : colors.danger }}>
-                        {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
-                      </Text>
+                      <View style={{ backgroundColor: '#ffffff1f', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: good ? '#7EE3B5' : '#FF9E8A' }}>
+                          {x.pct >= 0 ? '↑' : '↓'} {Math.abs(x.pct)}%
+                        </Text>
+                      </View>
                     ) : null}
                   </Row>
-                  <Text style={styles.itemSub}>{x.label}</Text>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{compact(x.value)}</Text>
-                  <AreaChart values={x.trend} width={tileChartW} height={34} color={x.fg} />
+                  <Text style={{ color: '#ffffffb3', fontSize: 12, marginTop: 4 }}>{x.label}</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '900', color: '#fff' }}>{compact(x.value)}</Text>
+                  <View>
+                    <AreaChart values={x.trend} width={tileChartW} height={34} light lineColor={accent} />
+                  </View>
                 </View>
               </Pressable>
             );
@@ -175,58 +194,56 @@ export default function Home() {
 
         {view.budgetTotal > 0 ? (
           <Pressable onPress={() => router.push('/budgets')} accessibilityRole="button">
-            <Card>
+            <HeroCard id="budgetbg">
               <Row style={{ gap: 16 }}>
-                <Gauge value={view.budgetSpent / view.budgetTotal} label={`${budgetPct}%`} sub="used" />
+                <Gauge value={view.budgetSpent / view.budgetTotal} label={`${budgetPct}%`} sub="used" light />
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={styles.itemTitle}>This cycle’s budget</Text>
-                  <Text style={styles.itemSub}>Spent {money(view.budgetSpent)} of {money(view.budgetTotal)}</Text>
-                  <Text style={[styles.itemSub, { fontWeight: '700', color: budgetPct > 100 ? colors.danger : colors.success }]}>
+                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>This cycle’s budget</Text>
+                  <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Spent {money(view.budgetSpent)} of {money(view.budgetTotal)}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: budgetPct > 100 ? '#FF9E8A' : '#7EE3B5' }}>
                     {budgetPct > 100 ? `${money(view.budgetSpent - view.budgetTotal)} over budget` : `${money(view.budgetTotal - view.budgetSpent)} left · ${progress.left} days`}
                   </Text>
                 </View>
               </Row>
-            </Card>
+            </HeroCard>
           </Pressable>
         ) : null}
 
         {view.upcoming.length ? (
-          <Card style={{ gap: 4 }}>
+          <HeroCard id="upbg" style={{ gap: 4 }}>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={styles.itemTitle}>Upcoming payments ({view.upcoming.length})</Text>
-              <Text style={{ color: colors.primary, fontWeight: '700' }} onPress={() => router.push('/actions')}>
-                View all
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Upcoming payments ({view.upcoming.length})</Text>
+              <Text style={{ color: '#FFD978', fontWeight: '800' }} onPress={() => router.push('/actions')}>
+                View all ›
               </Text>
             </Row>
-            {view.upcoming.slice(0, 3).map((a) => (
-              <Pressable key={a.id} onPress={() => router.push('/actions')} accessibilityRole="button">
-                <Row style={{ paddingVertical: 6 }}>
-                  <View style={{ backgroundColor: a.status === 'overdue' ? colors.dangerSoft : colors.primarySoft, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon name={a.icon} color={a.status === 'overdue' ? colors.danger : colors.primary} size={20} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{a.title}</Text>
-                    <Text style={styles.itemSub}>{formatShortDate(a.date)}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                    <Text style={styles.itemTitle}>{money(a.amount ?? 0)}</Text>
-                    {(() => {
-                      const d = diffDays(a.date, on);
-                      const late = d < 0;
-                      return (
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: late ? colors.danger : d <= 3 ? colors.warning : colors.muted, backgroundColor: late ? colors.dangerSoft : d <= 3 ? colors.warningSoft : colors.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' }}>
-                          {late ? `${-d} days late` : d === 0 ? 'Today' : `in ${d} days`}
-                        </Text>
-                      );
-                    })()}
-                  </View>
-                </Row>
-              </Pressable>
-            ))}
-          </Card>
+            {view.upcoming.slice(0, 3).map((a) => {
+              const d = diffDays(a.date, on);
+              const tone = d < 0 ? '#FF9E8A' : d <= 3 ? '#FFD978' : '#9CC3FF';
+              return (
+                <Pressable key={a.id} onPress={() => router.push('/actions')} accessibilityRole="button">
+                  <Row style={{ paddingVertical: 6 }}>
+                    <View style={{ backgroundColor: '#ffffff1f', width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name={a.icon} color={tone} size={20} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{a.title}</Text>
+                      <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{formatShortDate(a.date)}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>{money(a.amount ?? 0)}</Text>
+                      <View style={{ backgroundColor: tone + '33', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: tone }}>{d < 0 ? `${-d} days late` : d === 0 ? 'Today' : `in ${d} days`}</Text>
+                      </View>
+                    </View>
+                  </Row>
+                </Pressable>
+              );
+            })}
+          </HeroCard>
         ) : null}
 
-        <Card style={{ gap: 10 }}>
+        <HeroCard id="chartbg" style={{ gap: 10 }}>
           <Row>
             {(
               [
@@ -239,9 +256,9 @@ export default function Home() {
                 onPress={() => setChart(k)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: chart === k }}
-                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: chart === k ? colors.primary : colors.bg }}
+                style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: chart === k ? '#fff' : '#ffffff1f' }}
               >
-                <Text style={{ fontWeight: '700', fontSize: 13, color: chart === k ? '#fff' : colors.text }}>{label}</Text>
+                <Text style={{ fontWeight: '800', fontSize: 13, color: chart === k ? '#1B1F5E' : '#fff' }}>{label}</Text>
               </Pressable>
             ))}
           </Row>
@@ -249,20 +266,21 @@ export default function Home() {
             <BarChart
               labels={view.months.map((m) => monthLabel(m.key).slice(0, 3))}
               series={[
-                { name: t('Income'), color: colors.success, values: view.months.map((m) => m.income) },
-                { name: t('Expenses'), color: colors.danger, values: view.months.map((m) => m.expense) },
-                { name: 'Savings', color: colors.info, values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
+                { name: t('Income'), color: '#7EE3B5', values: view.months.map((m) => m.income) },
+                { name: t('Expenses'), color: '#FF9E8A', values: view.months.map((m) => m.expense) },
+                { name: 'Money left', color: '#9CC3FF', values: view.months.map((m) => Math.max(0, m.income - m.expense)) },
               ]}
               width={chartW}
               height={160}
               format={compact}
+              light
             />
           ) : view.byCat.length ? (
-            <DonutChart data={view.byCat} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} />
+            <DonutChart data={view.byCat.map((c, i) => ({ ...c, color: TILE_ACCENT[i] ?? '#B0BEC5' }))} centerLabel="Spent" centerValue={compact(view.spent)} format={money} maxSlices={5} light />
           ) : (
-            <Text style={styles.hint}>No spending yet this cycle.</Text>
+            <Text style={{ color: '#ffffffb3', fontSize: 13 }}>No spending yet this cycle.</Text>
           )}
-        </Card>
+        </HeroCard>
       </Screen>
       <Pressable
         accessibilityRole="button"
