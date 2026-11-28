@@ -382,3 +382,26 @@ export function healthScore(data: AppData, on: Date = new Date()): HealthScore {
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
+
+export interface SafetyNet {
+  /** Cash, bank and wallet money against 6 months of spending. */
+  emergency: { amount: number; months: number; target: number };
+  /** Life and term cover against 10 × yearly income (a common rule of thumb). */
+  protection: { cover: number; target: number; times: number };
+}
+
+/** Emergency fund and life cover, from the last 3 full cycles of income and spending. */
+export function safetyNet(data: AppData, on: Date = new Date()): SafetyNet {
+  const sd = data.settings.cycleStartDay ?? 1;
+  const thisKey = currentCycleKey(on, sd);
+  const months = [1, 2, 3].map((i) => inMonth(data.transactions, shiftMonthKey(thisKey, -i), sd));
+  const income = months.reduce((s, m) => s + sum(incomes(m)), 0) / 3;
+  const spend = months.reduce((s, m) => s + sum(expenses(m).filter((t) => data.categories.find((c) => c.id === t.categoryId)?.kind !== 'saving')), 0) / 3;
+  const liquid = computeNetWorth(data.accounts, computeBalances(data.accounts, data.transactions)).liquid;
+  const cover = data.policies.filter((p) => p.type === 'life' || p.type === 'term').reduce((s, p) => s + (p.sumAssured ?? 0), 0);
+  const yearly = income * 12;
+  return {
+    emergency: { amount: liquid, months: spend > 0 ? liquid / spend : 0, target: Math.round(spend * 6) },
+    protection: { cover, target: Math.round(yearly * 10), times: yearly > 0 ? cover / yearly : 0 },
+  };
+}

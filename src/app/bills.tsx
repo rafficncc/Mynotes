@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
 import { Button, Card, Chip, ChipRow, Field, HeaderAdd, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
-import { diffDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
-import { BILL_TYPES, FREQUENCY_LABEL, billTypeInfo, detectSubscriptions, nextBillDate } from '../logic/recurring';
+import { addMonths, diffDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
+import { BILL_TYPES, FREQUENCY_LABEL, billTypeInfo, detectSubscriptions, nextBillDate, type DetectedSubscription } from '../logic/recurring';
+import { normalize } from '../logic/text';
+import { toast } from '../components/Toast';
 import type { Bill, BillType, Frequency } from '../logic/types';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
@@ -41,6 +43,23 @@ export default function Bills() {
     [data.bills], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const subs = useMemo(() => detectSubscriptions(data.transactions), [data.transactions]);
+  // Charges already set up as a bill (same name) don't need suggesting again.
+  // Savings and investments (SIPs) repeat too, but aren't charges to review.
+  const untracked = subs.filter((x) => data.categories.find((c) => c.id === x.categoryId)?.kind !== 'saving' && !data.bills.some((b) => normalize(b.name) === normalize(x.merchant)));
+  // Turns a spotted charge into a monthly reminder, due a month after the last payment.
+  const trackSub = (x: DetectedSubscription) => {
+    saveBill({
+      name: x.merchant,
+      type: 'subscription',
+      amount: x.amount,
+      frequency: 'monthly',
+      dueDate: toISODate(addMonths(parseDate(x.lastDate), 1)),
+      remindDaysBefore: 2,
+      categoryId: x.categoryId ?? 'subscriptions',
+      lastPaid: x.lastDate,
+    });
+    toast(`${x.merchant} added to your reminders`);
+  };
   const groups = [
     { title: 'Mobile & internet', types: ['mobile', 'internet'] },
     { title: 'Home & utilities', types: ['electricity', 'water', 'gas', 'rent', 'school', 'insurance', 'subscription', 'other'] },
@@ -188,13 +207,27 @@ export default function Bills() {
 
       <Button title="Add a bill or reminder" icon="add" onPress={() => setAdding(true)} />
 
-      <SectionTitle title="Detected recurring charges" />
-      <Card>
-        {subs.length === 0 ? (
-          <Text style={styles.itemSub}>Charges of a similar amount at the same merchant for 3+ months show up here.</Text>
+      <SectionTitle title="Repeating charges we spotted" />
+      <Card style={{ gap: 8 }}>
+        <Text style={styles.itemSub}>
+          FamilyFin looks for the same amount paid at the same place every month (streaming, gym, apps, school transport). Add them as reminders so nothing surprises you, and cancel the ones you no longer use.
+        </Text>
+        {untracked.length ? (
+          <View style={{ backgroundColor: colors.warningSoft, borderRadius: 12, padding: 10 }}>
+            <Text style={{ color: colors.text, fontWeight: '800' }}>
+              {money(untracked.reduce((s2, x) => s2 + x.amount, 0))} a month · {money(untracked.reduce((s2, x) => s2 + x.amount, 0) * 12)} a year
+            </Text>
+            <Text style={styles.hint}>in {untracked.length} repeating charge{untracked.length === 1 ? '' : 's'} not yet in your reminders.</Text>
+          </View>
+        ) : null}
+        {untracked.length === 0 ? (
+          <Text style={styles.hint}>{subs.length ? 'All repeating charges are already in your reminders.' : 'Nothing yet. Charges seen in 3 or more months show up here.'}</Text>
         ) : (
-          subs.map((s) => (
-            <ListItem key={s.merchant} icon="repeat" iconColor={colors.info} title={s.merchant} subtitle={`${s.months} months · last ${formatShortDate(parseDate(s.lastDate))}`} right={money(s.amount)} />
+          untracked.map((x) => (
+            <View key={x.merchant} style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 6 }}>
+              <ListItem icon="repeat" iconColor={colors.info} title={x.merchant} subtitle={`Paid ${x.months} months in a row · last ${formatShortDate(parseDate(x.lastDate))} · ${money(x.amount * 12)} a year`} right={money(x.amount)} rightSub="a month" />
+              <Button title="Add as a monthly reminder" variant="secondary" icon="notifications-outline" onPress={() => trackSub(x)} />
+            </View>
           ))
         )}
       </Card>

@@ -13,13 +13,14 @@ import { diffDays, formatShortDate, monthLabel, shiftMonthKey, toISODate } from 
 import { personBalances } from '../../logic/money2';
 import { netWorthHistory } from '../../logic/reports';
 import { savingsThisYear } from '../../logic/savings';
+import { safetyNet } from '../../logic/insights';
 import { useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
 import { colors } from '../../theme';
 
 /** % change from `prev` to `cur`, or null when there is nothing to compare with. */
 // Accents used on the gradient cards, matching the net worth card.
-const TILE_ACCENT = ['#7EE3B5', '#FF9E8A', '#9CC3FF', '#FFD978', '#C9A7FF', '#FFB86B'];
+const TILE_ACCENT = ['#7EE3B5', '#FF9E8A', '#9CC3FF', '#FFD978', '#C9A7FF', '#FFB86B', '#7FE0D8', '#B9C4FF'];
 // Each Home tile has its own gradient (dark → lighter), styled like the net worth card.
 const TILE_GRADIENT = [
   ['#0B5D3B', '#14915F'], // Income – green
@@ -28,6 +29,8 @@ const TILE_GRADIENT = [
   ['#6B4A07', '#B9860F'], // Investments – gold
   ['#3B2275', '#6E48C2'], // Cash & bank – purple
   ['#7A3A0C', '#C9671C'], // Debt – orange
+  ['#0B5450', '#14918B'], // Emergency fund – teal
+  ['#232C6B', '#4A5BC4'], // Life protection – indigo
 ];
 
 const change = (cur: number, prev: number) => (prev ? Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10 : null);
@@ -75,17 +78,21 @@ export default function Home() {
       byCat: spendByCategory(month, data.categories),
       upcoming: generateActions(data, on).filter((a) => a.status !== 'done' && a.amount).sort((a, b) => a.date.getTime() - b.date.getTime()),
       saved: savingsThisYear(data, on),
+      safety: safetyNet(data, on),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, balances, key, startDay]);
 
-  const tiles: { label: string; value: number; pct: number | null; icon: string; bg: string; fg: string; good: 'up' | 'down'; href: Href; trend: number[] }[] = [
+  const tiles: { label: string; value: number; pct: number | null; icon: string; bg: string; fg: string; good: 'up' | 'down'; href: Href; trend: number[]; meter?: { share: number; note: string } }[] = [
     { label: t('Income'), value: view.earned, pct: view.changes.income, icon: 'wallet-outline', bg: colors.successSoft, fg: colors.success, good: 'up', href: '/transactions?type=income', trend: view.months.map((m) => m.income) },
     { label: t('Expenses'), value: view.spent, pct: view.changes.spent, icon: 'cart-outline', bg: colors.dangerSoft, fg: colors.danger, good: 'down', href: '/transactions?type=expense', trend: view.months.map((m) => m.expense) },
     { label: 'Money left', value: view.savings, pct: view.changes.savings, icon: 'leaf-outline', bg: colors.infoSoft, fg: colors.info, good: 'up', href: '/transactions?type=all', trend: view.months.map((m) => m.income - m.expense) },
     { label: 'Investments', value: view.net.byGroup.investment, pct: change(view.net.byGroup.investment, view.history.at(-2)?.investments ?? 0), icon: 'trending-up-outline', bg: colors.primarySoft, fg: colors.primary, good: 'up', href: data.settings.premium ? '/investments' : '/accounts?only=investment', trend: view.history.map((h) => h.investments) },
     { label: 'Cash & bank', value: view.net.liquid, pct: change(view.net.liquid, view.history.at(-2)?.liquid ?? 0), icon: 'cash-outline', bg: '#7C5CDB1f', fg: '#7C5CDB', good: 'up', href: '/accounts?only=cash', trend: view.history.map((h) => h.liquid) },
     { label: 'Debt', value: view.net.liabilities, pct: view.changes.debt, icon: 'trending-down-outline', bg: colors.warningSoft, fg: colors.warning, good: 'down', href: data.settings.premium ? '/debts' : '/accounts?only=debt', trend: view.history.map((h) => h.liabilities) },
+    // Safety net: progress bars toward a target instead of a trend line
+    { label: 'Emergency fund', value: view.safety.emergency.amount, pct: null, icon: 'umbrella-outline', bg: '', fg: '', good: 'up', href: '/accounts?only=cash', trend: [], meter: { share: view.safety.emergency.target ? view.safety.emergency.amount / view.safety.emergency.target : 0, note: view.safety.emergency.target ? `${view.safety.emergency.months.toFixed(1)} of 6 months` : 'Add a few months of expenses' } },
+    { label: 'Life protection', value: view.safety.protection.cover, pct: null, icon: 'shield-checkmark-outline', bg: '', fg: '', good: 'up', href: '/policies', trend: [], meter: { share: view.safety.protection.target ? view.safety.protection.cover / view.safety.protection.target : 0, note: view.safety.protection.cover ? `${view.safety.protection.times.toFixed(1)}× income (aim 10×)` : 'No life or term cover yet' } },
   ];
   const tileChartW = Math.floor((Math.min(width, 760) - 42) / 2) - 24;
   const budgetPct = view.budgetTotal ? Math.round((view.budgetSpent / view.budgetTotal) * 100) : 0;
@@ -183,9 +190,18 @@ export default function Home() {
                   </Row>
                   <Text style={{ color: '#ffffffb3', fontSize: 12, marginTop: 4 }}>{x.label}</Text>
                   <Text style={{ fontSize: 19, fontWeight: '900', color: '#fff' }}>{compact(x.value)}</Text>
-                  <View>
-                    <AreaChart values={x.trend} width={tileChartW} height={34} light lineColor={accent} />
-                  </View>
+                  {x.meter ? (
+                    <View style={{ gap: 5, height: 34, justifyContent: 'flex-end' }}>
+                      <View style={{ height: 8, borderRadius: 4, backgroundColor: '#ffffff26', overflow: 'hidden' }}>
+                        <View style={{ width: `${Math.max(3, Math.min(100, x.meter.share * 100))}%`, height: '100%', borderRadius: 4, backgroundColor: accent }} />
+                      </View>
+                      <Text style={{ color: '#ffffffd9', fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{x.meter.note}</Text>
+                    </View>
+                  ) : (
+                    <View>
+                      <AreaChart values={x.trend} width={tileChartW} height={34} light lineColor={accent} />
+                    </View>
+                  )}
                 </View>
               </Pressable>
             );
