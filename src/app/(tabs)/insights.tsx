@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { AreaChart, BarChart, CompareLines, HealthGauge } from '../../components/charts';
 import { GradientBg } from '../../components/GradientBg';
 import { t } from '../../i18n';
-import { Button, Card, Chip, ChipRow, Icon, InsightCard, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
+import { Button, Card, Chip, ChipRow, Icon, InsightCard, Row, Screen, SectionTitle, styles } from '../../components/ui';
 import {
   categoryChanges,
   cumulativeDaily,
@@ -133,57 +133,48 @@ export default function Insights() {
 
       {/* Pace: are we spending faster than last cycle? */}
       <SectionTitle title="Spending pace" />
-      <Card style={{ gap: 6 }}>
-        <Text style={[styles.itemTitle, { color: paceDiff > 0 ? colors.danger : colors.success }]}>
-          {thenSpent === 0 && nowSpent === 0
-            ? 'No spending yet this cycle'
-            : paceDiff > 0
-              ? `${money(paceDiff)} more than last cycle by day ${day}`
-              : `${money(-paceDiff)} less than last cycle by day ${day}`}
-        </Text>
-        <Text style={styles.hint}>
-          Spent {money(nowSpent)} so far · {progress.left} days left
-        </Text>
-        <CompareLines current={v.pace.current} previous={v.pace.previous} width={chartW} format={compact} labels={['This cycle', 'Last cycle']} />
-      </Card>
+      <Hero id="pacebg">
+        <CardHead icon="speedometer-outline" title={thenSpent === 0 && nowSpent === 0 ? 'No spending yet this cycle' : paceDiff > 0 ? `${money(paceDiff)} more than last cycle` : `${money(-paceDiff)} less than last cycle`} note={`By day ${day} · spent ${money(nowSpent)} · ${progress.left} days left`} tone={paceDiff > 0 ? CORAL : MINT} />
+        <CompareLines current={v.pace.current} previous={v.pace.previous} width={chartW - 4} format={compact} labels={['This cycle', 'Last cycle']} light />
+      </Hero>
 
       {/* What changed */}
       {v.changes.length ? (
         <>
           <SectionTitle title="What changed vs last cycle" />
-          <Card style={{ gap: 8 }}>
+          <Hero id="changebg">
             {v.changes.map((c) => {
               const max = Math.max(...v.changes.map((x) => Math.abs(x.diff)));
               const up = c.diff > 0;
               return (
-                <View key={c.key} style={{ gap: 3 }}>
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <Text style={styles.insightText}>{c.label}</Text>
-                    <Text style={[styles.insightText, { fontWeight: '700', color: up ? colors.danger : colors.success }]}>
-                      {up ? '↑ +' : '↓ −'}
+                <View key={c.key} style={{ gap: 5 }}>
+                  <Row style={{ gap: 10 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: (up ? CORAL : MINT) + '33' }}>
+                      <Icon name={up ? 'arrow-up' : 'arrow-down'} size={15} color={up ? CORAL : MINT} />
+                    </View>
+                    <Text style={{ flex: 1, color: WHITE, fontWeight: '700', fontSize: 14 }}>{c.label}</Text>
+                    <Text style={{ fontWeight: '900', fontSize: 14, color: up ? CORAL : MINT }}>
+                      {up ? '+' : '−'}
                       {money(Math.abs(c.diff))}
                     </Text>
                   </Row>
-                  <ProgressBar value={Math.abs(c.diff) / max} color={up ? colors.danger : colors.success} plain />
-                  <Text style={styles.hint}>
+                  <Bar value={Math.abs(c.diff) / max} color={up ? CORAL : MINT} />
+                  <Text style={{ color: DIM, fontSize: 12 }}>
                     {money(c.before)} → {money(c.now)}
                   </Text>
                 </View>
               );
             })}
-          </Card>
+          </Hero>
         </>
       ) : null}
 
       {/* Savings rate trend */}
       <SectionTitle title="Savings rate · 6 months" />
-      <Card style={{ gap: 6 }}>
-        <Text style={styles.itemTitle}>
-          {avgRate === null ? 'Add income to see your savings rate' : `You keep ${avgRate}% of income on average`}
-        </Text>
-        <Text style={styles.hint}>A healthy target is 20% or more.</Text>
-        <AreaChart values={v.rates} labels={v.months.map((m) => `${monthLabel(m.key).slice(0, 3)} ${v.rates[v.months.indexOf(m)]}%`)} width={chartW} height={110} color={colors.success} />
-      </Card>
+      <Hero id="ratebg">
+        <CardHead icon="leaf-outline" title={avgRate === null ? 'Add income to see your savings rate' : `You keep ${avgRate}% of income`} note="A healthy target is 20% or more" tone={avgRate !== null && avgRate >= 20 ? MINT : GOLD} />
+        <AreaChart values={v.rates} labels={v.months.map((m) => `${monthLabel(m.key).slice(0, 3)} ${v.rates[v.months.indexOf(m)]}%`)} width={chartW - 4} height={110} light lineColor={MINT} />
+      </Hero>
 
       {/* Spending patterns, for the chosen period */}
       <SectionTitle title="Spending patterns" />
@@ -193,106 +184,137 @@ export default function Insights() {
         <Chip label="Last 3 cycles" selected={range === '3m'} onPress={() => setRange('3m')} />
       </ChipRow>
 
-      <Card style={{ gap: 6 }}>
-        <Text style={styles.itemTitle}>Needs · Wants · Savings (50-30-20)</Text>
+      <Hero id="nwsbg">
+        <CardHead icon="pie-chart-outline" title="Needs · Wants · Savings" note="Compared with the 50-30-20 rule" tone={BLUE} />
         {(
           [
-            ['Needs', v.nws.needs, 0.5, colors.info],
-            ['Wants', v.nws.wants, 0.3, colors.accent],
-            ['Savings & investments', v.nws.savings, 0.2, colors.success],
+            ['Needs', v.nws.needs, 0.5, BLUE],
+            ['Wants', v.nws.wants, 0.3, GOLD],
+            ['Savings & investments', v.nws.savings, 0.2, MINT],
           ] as const
         ).map(([label, value, target, color]) => (
-          <View key={label} style={{ gap: 3 }}>
+          <View key={label} style={{ gap: 5 }}>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Text style={styles.insightText}>{label}</Text>
-              <Text style={styles.insightText}>
-                {v.income > 0 ? `${Math.round((value / v.income) * 100)}% · ideal ${target * 100}%` : money(value)}
+              <Text style={{ color: WHITE, fontWeight: '700', fontSize: 14 }}>{label}</Text>
+              <Text style={{ color: DIM, fontSize: 12 }}>
+                {v.income > 0 ? (
+                  <>
+                    <Text style={{ color, fontWeight: '900', fontSize: 14 }}>{Math.round((value / v.income) * 100)}%</Text> · ideal {target * 100}%
+                  </>
+                ) : (
+                  money(value)
+                )}
               </Text>
             </Row>
-            <ProgressBar value={v.income > 0 ? value / v.income : 0} color={color} plain />
+            <Bar value={v.income > 0 ? value / v.income : 0} color={color} mark={target} />
           </View>
         ))}
-        {v.income === 0 ? <Text style={styles.hint}>Add your income to compare against the 50-30-20 rule.</Text> : null}
-      </Card>
+        {v.income === 0 ? <Text style={{ color: DIM, fontSize: 12 }}>Add your income to compare against the 50-30-20 rule.</Text> : null}
+      </Hero>
 
       {v.weekday.some((x) => x > 0) ? (
-        <Card style={{ gap: 6 }}>
-          <Text style={styles.itemTitle}>Spending by day of the week</Text>
-          <Text style={styles.hint}>Most spent on {WEEKDAY_NAMES[topDay]}s.</Text>
-          <BarChart labels={WEEKDAYS} series={[{ name: 'Spent', color: colors.accent, values: v.weekday }]} width={chartW} height={150} format={compact} />
-        </Card>
+        <Hero id="weekbg">
+          <CardHead icon="calendar-outline" title="Spending by day of the week" note={`Most spent on ${WEEKDAY_NAMES[topDay]}s`} tone={GOLD} />
+          <BarChart labels={WEEKDAYS} series={[{ name: 'Spent', color: GOLD, values: v.weekday }]} width={chartW - 4} height={150} format={compact} light />
+        </Hero>
       ) : null}
 
       {v.byMode.length ? (
-        <Card style={{ gap: 12 }}>
-          <CardHead icon="card-outline" color={colors.info} title="How you pay" note={`Most by ${v.byMode[0].label} · ${pct(v.byMode[0].value, spentTotal)}%`} />
+        <Hero id="paybg">
+          <CardHead icon="card-outline" title="How you pay" note={`Most by ${v.byMode[0].label} · ${pct(v.byMode[0].value, spentTotal)}%`} tone={BLUE} />
           <Breakdown
-            rows={v.byMode.map((m) => ({ key: m.key, label: m.label, value: m.value, color: MODE_COLOR[m.key] ?? m.color, icon: MODE_ICON[m.key] ?? 'ellipsis-horizontal' }))}
+            rows={v.byMode.map((m) => ({ key: m.key, label: m.label, value: m.value, color: MODE_COLOR[m.key] ?? GOLD, icon: MODE_ICON[m.key] ?? 'ellipsis-horizontal' }))}
             money={money}
           />
           {pct(v.byMode.find((m) => m.key === 'credit_card')?.value ?? 0, spentTotal) >= 40 ? (
-            <Text style={[styles.hint, { color: colors.warning }]}>💡 Over 40% goes on credit cards. Pay the full bill each month to avoid interest.</Text>
+            <Text style={{ color: GOLD, fontSize: 12 }}>💡 Over 40% goes on credit cards. Pay the full bill each month to avoid interest.</Text>
           ) : null}
-        </Card>
+        </Hero>
       ) : null}
 
       {v.merchants.length ? (
-        <Card style={{ gap: 10 }}>
-          <CardHead icon="storefront-outline" color={colors.accent} title="Top places you spend" note={`${v.merchants[0].merchant} leads with ${money(v.merchants[0].total)}`} />
+        <Hero id="shopbg">
+          <CardHead icon="storefront-outline" title="Top places you spend" note={`${v.merchants[0].merchant} leads with ${money(v.merchants[0].total)}`} tone={GOLD} />
           {v.merchants.map((m, i) => (
             <Row key={m.merchant} style={{ gap: 12 }}>
-              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: (MEDALS[i] ?? colors.muted) + '2e' }}>
-                <Text style={{ color: MEDALS[i] ?? colors.muted, fontWeight: '900', fontSize: 13 }}>{i + 1}</Text>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: (MEDALS[i] ?? WHITE) + '33' }}>
+                <Text style={{ color: MEDALS[i] ?? WHITE, fontWeight: '900', fontSize: 13 }}>{i + 1}</Text>
               </View>
               <View style={{ flex: 1, gap: 4 }}>
                 <Row style={{ gap: 8 }}>
-                  <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                  <Text style={{ flex: 1, color: WHITE, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
                     {m.merchant}
                   </Text>
-                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>{money(m.total)}</Text>
+                  <Text style={{ color: WHITE, fontWeight: '800', fontSize: 14 }}>{money(m.total)}</Text>
                 </Row>
-                <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' }}>
-                  <View style={{ width: `${Math.max(3, (m.total / v.merchants[0].total) * 100)}%`, height: '100%', borderRadius: 3, backgroundColor: MEDALS[i] ?? colors.accent }} />
-                </View>
-                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                <Bar value={m.total / v.merchants[0].total} color={MEDALS[i] ?? BLUE} />
+                <Text style={{ color: DIM, fontSize: 12 }}>
                   {m.count} visit{m.count === 1 ? '' : 's'}
                   {m.count > 1 ? ` · about ${money(Math.round(m.total / m.count))} each time` : ''}
                 </Text>
               </View>
             </Row>
           ))}
-        </Card>
+        </Hero>
       ) : null}
 
       {v.members.length > 1 || (v.members[0] && v.members[0].id !== '_family') ? (
-        <Card style={{ gap: 12 }}>
-          <CardHead icon="people-outline" color={colors.primary} title="Who spends" note={`Shared and personal spending · ${money(spentTotal)}`} />
+        <Hero id="whobg">
+          <CardHead icon="people-outline" title="Who spends" note={`Shared and personal spending · ${money(spentTotal)}`} tone={MINT} />
           <Breakdown rows={v.members.map((m, i) => ({ key: m.id, label: m.name, value: m.total, color: PEOPLE_COLORS[i % PEOPLE_COLORS.length], initial: m.id === '_family' ? '👪' : m.name.slice(0, 1).toUpperCase() }))} money={money} />
-        </Card>
+        </Hero>
       ) : null}
     </Screen>
   );
 }
 
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+// Same look as the Financial health card: hero gradient, white text, bright accents.
+const WHITE = '#fff';
+const DIM = '#ffffffb3';
+const TRACK = '#ffffff26';
+const GOLD = '#FFD978';
+const MINT = '#7EE3B5';
+const CORAL = '#FF9E8A';
+const BLUE = '#9CC3FF';
 const MODE_ICON: Record<string, string> = { bank: 'business-outline', credit_card: 'card-outline', debit_card: 'card-outline', wallet: 'phone-portrait-outline', cash: 'cash-outline', people: 'people-outline' };
-const MODE_COLOR: Record<string, string> = { bank: '#4C8DF6', credit_card: '#F0616D', debit_card: '#22B8CF', wallet: '#A066E8', cash: '#3BB273' };
-const MEDALS = ['#F5B700', '#9AA5B1', '#CD7F32'];
-const PEOPLE_COLORS = ['#4C8DF6', '#F0616D', '#3BB273', '#F5A524', '#A066E8', '#22B8CF'];
+const MODE_COLOR: Record<string, string> = { bank: BLUE, credit_card: CORAL, debit_card: '#7FDBEA', wallet: '#C9A7FF', cash: MINT };
+const MEDALS = [GOLD, '#D5DCE4', '#E9A36A'];
+const PEOPLE_COLORS = [BLUE, CORAL, MINT, GOLD, '#C9A7FF', '#7FDBEA'];
 
-function CardHead({ icon, color, title, note }: { icon: string; color: string; title: string; note: string }) {
+function Hero({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+      <GradientBg id={id} />
+      <View pointerEvents="none" style={{ position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: '#ffffff10', top: -70, right: -60 }} />
+      <View style={{ padding: 16, gap: 12 }}>{children}</View>
+    </View>
+  );
+}
+
+function CardHead({ icon, title, note, tone }: { icon: string; title: string; note: string; tone: string }) {
   return (
     <Row style={{ gap: 10 }}>
-      <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: color + '22' }}>
-        <Icon name={icon} size={18} color={color} />
+      <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: TRACK }}>
+        <Icon name={icon} size={18} color={tone} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.itemTitle}>{title}</Text>
-        <Text style={{ color: colors.muted, fontSize: 12 }} numberOfLines={1}>
+        <Text style={{ color: WHITE, fontSize: 16, fontWeight: '800' }}>{title}</Text>
+        <Text style={{ color: DIM, fontSize: 12 }} numberOfLines={1}>
           {note}
         </Text>
       </View>
     </Row>
+  );
+}
+
+/** Thin bar on a white track; `mark` draws a target line (e.g. the 50-30-20 ideal). */
+function Bar({ value, color, mark }: { value: number; color: string; mark?: number }) {
+  return (
+    <View style={{ height: 6, borderRadius: 3, backgroundColor: TRACK }}>
+      <View style={{ width: `${Math.min(100, Math.max(2, value * 100))}%`, height: '100%', borderRadius: 3, backgroundColor: color }} />
+      {mark ? <View style={{ position: 'absolute', left: `${mark * 100}%`, top: -3, width: 2, height: 12, borderRadius: 1, backgroundColor: WHITE }} /> : null}
+    </View>
   );
 }
 
@@ -309,14 +331,14 @@ function Breakdown({ rows, money }: { rows: { key: string; label: string; value:
       <View style={{ gap: 10 }}>
         {rows.map((r) => (
           <Row key={r.key} style={{ gap: 10 }}>
-            <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: r.color + '26' }}>
+            <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: r.color + '33' }}>
               {r.icon ? <Icon name={r.icon} size={16} color={r.color} /> : <Text style={{ color: r.color, fontWeight: '900', fontSize: 14 }}>{r.initial}</Text>}
             </View>
-            <Text style={{ flex: 1, color: colors.text, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>
+            <Text style={{ flex: 1, color: WHITE, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>
               {r.label}
             </Text>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>{money(r.value)}</Text>
+              <Text style={{ color: WHITE, fontWeight: '800', fontSize: 14 }}>{money(r.value)}</Text>
               <Text style={{ color: r.color, fontWeight: '700', fontSize: 11 }}>{pct(r.value, total)}%</Text>
             </View>
           </Row>

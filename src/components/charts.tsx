@@ -117,13 +117,18 @@ export function BarChart({
   width,
   height = 180,
   format,
+  light,
 }: {
   labels: string[];
   series: { name: string; color: string; values: number[] }[];
   width: number;
   height?: number;
   format: (n: number) => string;
+  /** White grid and labels, for gradient cards. */
+  light?: boolean;
 }) {
+  const grid = light ? '#ffffff2e' : colors.border;
+  const muted = light ? '#ffffffb3' : colors.muted;
   const padTop = 16;
   const padBottom = 22;
   const padLeft = 44;
@@ -140,8 +145,8 @@ export function BarChart({
           const y = padTop + chartH * (1 - t);
           return (
             <G key={t}>
-              <Line x1={padLeft} x2={width} y1={y} y2={y} stroke={colors.border} strokeDasharray="3 3" />
-              <SvgText x={padLeft - 6} y={y + 4} fontSize={10} fill={colors.muted} textAnchor="end">
+              <Line x1={padLeft} x2={width} y1={y} y2={y} stroke={grid} strokeDasharray="3 3" />
+              <SvgText x={padLeft - 6} y={y + 4} fontSize={10} fill={muted} textAnchor="end">
                 {format(max * t)}
               </SvgText>
             </G>
@@ -165,7 +170,7 @@ export function BarChart({
                   />
                 );
               })}
-              <SvgText x={padLeft + i * groupW + groupW / 2} y={height - 6} fontSize={10} fill={colors.muted} textAnchor="middle">
+              <SvgText x={padLeft + i * groupW + groupW / 2} y={height - 6} fontSize={10} fill={muted} textAnchor="middle">
                 {label}
               </SvgText>
             </G>
@@ -176,7 +181,7 @@ export function BarChart({
         {series.map((s) => (
           <View key={s.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: s.color }} />
-            <Text style={{ fontSize: 12, color: colors.muted }}>{s.name}</Text>
+            <Text style={{ fontSize: 12, color: muted }}>{s.name}</Text>
           </View>
         ))}
       </View>
@@ -322,7 +327,10 @@ export function Gauge({ value, size = 92, label, sub }: { value: number; size?: 
 }
 
 /** Two running lines on one scale: `current` (solid, may stop early) against `previous` (dashed). */
-export function CompareLines({ current, previous, width, height = 150, format, labels }: { current: number[]; previous: number[]; width: number; height?: number; format: (n: number) => string; labels: [string, string] }) {
+export function CompareLines({ current, previous, width, height = 150, format, labels, light }: { current: number[]; previous: number[]; width: number; height?: number; format: (n: number) => string; labels: [string, string]; light?: boolean }) {
+  const grid = light ? '#ffffff2e' : colors.border;
+  const muted = light ? '#ffffffb3' : colors.muted;
+  const main = light ? '#FFD978' : colors.primary;
   const n = Math.max(current.length, previous.length);
   if (n < 2) return null;
   const left = 44;
@@ -337,21 +345,21 @@ export function CompareLines({ current, previous, width, height = 150, format, l
       <Svg width={width} height={height}>
         {[0, 0.5, 1].map((f) => (
           <G key={f}>
-            <Line x1={left} x2={width - pad} y1={y(max * f)} y2={y(max * f)} stroke={colors.border} strokeDasharray="3 4" />
-            <SvgText x={left - 4} y={y(max * f) + 3} fontSize={9} fill={colors.muted} textAnchor="end">
+            <Line x1={left} x2={width - pad} y1={y(max * f)} y2={y(max * f)} stroke={grid} strokeDasharray="3 4" />
+            <SvgText x={left - 4} y={y(max * f) + 3} fontSize={9} fill={muted} textAnchor="end">
               {format(max * f)}
             </SvgText>
           </G>
         ))}
-        <Path d={path(previous)} stroke={colors.muted} strokeWidth={2} strokeDasharray="5 4" fill="none" />
-        <Path d={path(current)} stroke={colors.primary} strokeWidth={3} fill="none" strokeLinejoin="round" />
-        {current.length ? <Circle cx={x(current.length - 1)} cy={y(current[current.length - 1])} r={4} fill={colors.primary} /> : null}
-        <SvgText x={left} y={height - 2} fontSize={10} fill={colors.muted}>Day 1</SvgText>
-        <SvgText x={width - pad} y={height - 2} fontSize={10} fill={colors.muted} textAnchor="end">Day {n}</SvgText>
+        <Path d={path(previous)} stroke={muted} strokeWidth={2} strokeDasharray="5 4" fill="none" />
+        <Path d={path(current)} stroke={main} strokeWidth={3} fill="none" strokeLinejoin="round" />
+        {current.length ? <Circle cx={x(current.length - 1)} cy={y(current[current.length - 1])} r={4} fill={main} /> : null}
+        <SvgText x={left} y={height - 2} fontSize={10} fill={muted}>Day 1</SvgText>
+        <SvgText x={width - pad} y={height - 2} fontSize={10} fill={muted} textAnchor="end">Day {n}</SvgText>
       </Svg>
       <View style={{ flexDirection: 'row', gap: 14 }}>
-        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '700' }}>━ {labels[0]}</Text>
-        <Text style={{ fontSize: 12, color: colors.muted }}>┅ {labels[1]}</Text>
+        <Text style={{ fontSize: 12, color: main, fontWeight: '700' }}>━ {labels[0]}</Text>
+        <Text style={{ fontSize: 12, color: muted }}>┅ {labels[1]}</Text>
       </View>
     </View>
   );
