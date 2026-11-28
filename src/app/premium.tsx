@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { ask } from '../components/Dialog';
+import { GradientBg } from '../components/GradientBg';
 import { Button, Card, Field, Icon, Row, Screen, styles } from '../components/ui';
 import * as Crypto from 'expo-crypto';
 import { FREE_PER_CATEGORY, LIMIT_CATEGORIES, limitUsage, premiumPrice } from '../logic/region';
@@ -105,38 +106,58 @@ export default function Premium() {
 
   return (
     <Screen>
-      <View style={{ alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-        {/* Tapping the icon 7 times opens the developer code box. */}
-        <Pressable onPress={() => setTaps((n) => n + 1)} accessible={false} style={{ backgroundColor: colors.accent, padding: 14, borderRadius: 20 }}>
-          <Icon name="diamond" size={34} color="#fff" />
-        </Pressable>
-        {taps >= 7 && !settings.premium ? (
-          <Row style={{ alignSelf: 'stretch' }}>
-            <View style={{ flex: 1 }}><Field label="" value={devCode} onChangeText={setDevCode} placeholder="Developer code" autoCapitalize="characters" /></View>
-            <Button title="Unlock" variant="secondary" onPress={devUnlock} />
-          </Row>
-        ) : null}
-        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text }}>FamilyFin Premium</Text>
-        <Text style={[styles.itemSub, { fontSize: 14 }]}>One plan covers your whole family on this phone</Text>
+      {/* Hero in the app's gradient with a gold diamond. Tapping the diamond 7 times opens the developer code box. */}
+      <View style={{ borderRadius: 24, overflow: 'hidden' }}>
+        <GradientBg id="prembg" colors={['#141A4A', '#3B2275', '#7A5A12']} />
+        <View pointerEvents="none" style={{ position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: '#FFD97814', top: -90, right: -70 }} />
+        <View style={{ padding: 20, alignItems: 'center', gap: 8 }}>
+          <Pressable onPress={() => setTaps((n) => n + 1)} accessible={false} style={{ width: 72, height: 72, borderRadius: 36, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <GradientBg id="premdiamond" colors={['#FFE7A0', '#F5B841', '#D98E04']} />
+            <Icon name="diamond" size={34} color="#5A3E00" />
+          </Pressable>
+          <Text style={{ fontSize: 26, fontWeight: '900', color: '#fff' }}>FamilyFin Premium</Text>
+          <Text style={{ color: '#ffffffcc', fontSize: 14, textAlign: 'center' }}>One plan covers your whole family on this phone</Text>
+          {settings.premium ? (
+            <View style={{ backgroundColor: '#7EE3B533', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              <Icon name="checkmark-circle" color="#7EE3B5" size={18} />
+              <Text style={{ color: '#7EE3B5', fontWeight: '900' }}>
+                Premium is active{settings.premiumPlan === 'yearly' ? ' · yearly' : settings.premiumPlan === 'lifetime' ? ' · lifetime' : ''}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
+      {taps >= 7 && !settings.premium ? (
+        <Row>
+          <View style={{ flex: 1 }}><Field label="" value={devCode} onChangeText={setDevCode} placeholder="Developer code" autoCapitalize="characters" /></View>
+          <Button title="Unlock" variant="secondary" onPress={devUnlock} />
+        </Row>
+      ) : null}
+      {settings.premium && settings.premiumPlan === 'yearly' ? <Text style={[styles.hint, { textAlign: 'center' }]}>Manage or cancel in Google Play → Payments & subscriptions.</Text> : null}
 
-      {settings.premium ? (
-        <Card style={{ backgroundColor: colors.successSoft }}>
-          <Row>
-            <Icon name="checkmark-circle" color={colors.success} size={24} />
-            <Text style={[styles.itemTitle, { color: colors.success, flex: 1 }]}>
-              Premium is active{settings.premiumPlan === 'yearly' ? ' (yearly plan)' : settings.premiumPlan === 'lifetime' ? ' (lifetime)' : ''}
-            </Text>
-          </Row>
-          {settings.premiumPlan === 'yearly' ? <Text style={styles.hint}>Manage or cancel in Google Play → Payments & subscriptions.</Text> : null}
+      {!settings.premium ? (
+        <Card style={{ gap: 10 }}>
+          <Text style={styles.itemTitle}>Your free plan</Text>
+          {LIMIT_CATEGORIES.map((c) => {
+            const used = limitUsage(accounts, c.key);
+            const full = used >= FREE_PER_CATEGORY;
+            return (
+              <View key={c.key} style={{ gap: 4 }}>
+                <Row style={{ justifyContent: 'space-between' }}>
+                  <Text style={styles.insightText}>{c.label[0].toUpperCase() + c.label.slice(1)}</Text>
+                  <Text style={{ fontWeight: '800', color: full ? colors.warning : colors.text }}>
+                    {Math.min(used, FREE_PER_CATEGORY)} of {FREE_PER_CATEGORY}{full ? ' · full' : ''}
+                  </Text>
+                </Row>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' }}>
+                  <View style={{ width: `${Math.min(100, (used / FREE_PER_CATEGORY) * 100)}%`, height: '100%', borderRadius: 3, backgroundColor: full ? colors.warning : colors.success }} />
+                </View>
+              </View>
+            );
+          })}
+          <Text style={styles.hint}>Accounts you already have keep working. Premium removes the limit for new ones.</Text>
         </Card>
-      ) : (
-        <Card>
-          <Text style={styles.itemSub}>
-            Free plan use: {LIMIT_CATEGORIES.map((c) => `${limitUsage(accounts, c.key)}/${FREE_PER_CATEGORY} ${c.label}`).join(' · ')}.
-          </Text>
-        </Card>
-      )}
+      ) : null}
 
       <Card>
         {PERKS.map(([icon, title, text]) => (
