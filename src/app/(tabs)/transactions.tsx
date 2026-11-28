@@ -30,7 +30,7 @@ export default function Transactions() {
   const [month, setMonth] = useState(cycle.key);
   const [calendar, setCalendar] = useState(false);
   const [day, setDay] = useState('');
-  const params = useLocalSearchParams<{ type?: TxnType }>();
+  const params = useLocalSearchParams<{ type?: TxnType | 'all' }>();
   const [type, setType] = useState<TxnType | 'all'>(params.type ?? 'all');
   // Opened again from a Home tile with another filter: follow it (tabs stay mounted).
   const [lastParam, setLastParam] = useState(params.type);

@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { BalanceList } from '../components/BalanceList';
 import { Button, Card, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
-import { computeNetWorth } from '../logic/balances';
+import { ACCOUNT_GROUP_OF, computeNetWorth, LIQUID_TYPES } from '../logic/balances';
 import { personBalances } from '../logic/money2';
 import { FREE_PER_CATEGORY, LIMIT_CATEGORIES, limitUsage } from '../logic/region';
 import { useAppData, useBalances, useMoney } from '../store/hooks';
@@ -14,15 +14,39 @@ export default function Accounts() {
   const data = useAppData();
   const balances = useBalances();
   const { money, compact } = useMoney();
-  const { only } = useLocalSearchParams<{ only?: 'debt' }>();
+  const { only } = useLocalSearchParams<{ only?: 'debt' | 'cash' | 'investment' }>();
   const navigation = useNavigation();
   const debtOnly = only === 'debt';
-  useEffect(() => navigation.setOptions({ title: debtOnly ? 'What we owe' : 'Accounts' }), [navigation, debtOnly]);
+  // "Cash & bank" and "Investments" tiles on Home show just those accounts.
+  const group = only === 'cash' ? { title: 'Cash & bank', total: 'Money you can use now', keep: (t: string) => (LIQUID_TYPES as string[]).includes(t) } : only === 'investment' ? { title: 'Investments', total: 'Total invested value', keep: (t: string) => ACCOUNT_GROUP_OF[t as keyof typeof ACCOUNT_GROUP_OF] === 'investment' } : null;
+  useEffect(() => navigation.setOptions({ title: debtOnly ? 'What we owe' : group?.title ?? 'Accounts' }), [navigation, debtOnly, group?.title]);
   // "Debt" from Home shows only cards, loans and money borrowed from people.
   const allPeople = personBalances(data.transactions);
   const accounts = debtOnly ? data.accounts.filter((a) => a.type === 'credit_card' || a.type === 'loan') : data.accounts;
   const people = debtOnly ? allPeople.filter((p) => p.balance < 0) : allPeople;
   const nw = computeNetWorth(accounts, balances, people);
+
+  if (group) {
+    const list = data.accounts.filter((a) => !a.archived && group.keep(a.type));
+    const total = list.reduce((sum, a) => sum + Math.max(0, balances[a.id] ?? 0), 0);
+    return (
+      <Screen>
+        <Card style={{ backgroundColor: colors.primarySoft }}>
+          <Text style={styles.itemSub}>{group.total}</Text>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.primary }}>{money(total)}</Text>
+          <Text style={styles.hint}>
+            {list.length} account{list.length === 1 ? '' : 's'}
+          </Text>
+        </Card>
+        {list.length ? (
+          <BalanceList accounts={list} balances={balances} nw={computeNetWorth(list, balances, [])} people={[]} money={money} />
+        ) : (
+          <Card><Text style={styles.itemSub}>Nothing added yet.</Text></Card>
+        )}
+        <Button title="Add account" icon="add" onPress={() => router.push('/account-form')} />
+      </Screen>
+    );
+  }
 
   if (debtOnly) {
     return (
