@@ -31,10 +31,10 @@ export default function Accounts() {
     const total = list.reduce((sum, a) => sum + Math.max(0, balances[a.id] ?? 0), 0);
     return (
       <Screen>
-        <Card style={{ backgroundColor: colors.primarySoft }}>
-          <Text style={styles.itemSub}>{group.total}</Text>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.primary }}>{money(total)}</Text>
-          <Text style={styles.hint}>
+        <Card gradient>
+          <Text style={{ color: '#ffffffb3', fontSize: 13 }}>{group.total}</Text>
+          <Text style={{ fontSize: 28, fontWeight: '900', color: '#fff' }}>{money(total)}</Text>
+          <Text style={{ color: '#FFD978', fontSize: 12, fontWeight: '700' }}>
             {list.length} account{list.length === 1 ? '' : 's'}
           </Text>
         </Card>
@@ -51,13 +51,13 @@ export default function Accounts() {
   if (debtOnly) {
     return (
       <Screen>
-        <Card style={{ backgroundColor: colors.dangerSoft }}>
-          <Text style={styles.itemSub}>Total we owe</Text>
-          <Text style={{ fontSize: 28, fontWeight: '800', color: colors.danger }}>{money(nw.liabilities)}</Text>
+        <Card gradient>
+          <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Total we owe</Text>
+          <Text style={{ fontSize: 28, fontWeight: '900', color: '#FF9E8A' }}>{money(nw.liabilities)}</Text>
           <Row>
-            <Stat label="Credit cards" value={compact(-nw.byGroup.credit)} />
-            <Stat label="Loans" value={compact(-nw.byGroup.loan)} />
-            <Stat label="To people" value={compact(-nw.byGroup.other)} />
+            <Stat light label="Credit cards" value={compact(-nw.byGroup.credit)} />
+            <Stat light label="Loans" value={compact(-nw.byGroup.loan)} />
+            <Stat light label="To people" value={compact(-nw.byGroup.other)} />
           </Row>
         </Card>
         {nw.liabilities > 0 ? (
@@ -73,11 +73,11 @@ export default function Accounts() {
 
   return (
     <Screen>
-      <Card>
+      <Card gradient>
         <Row>
-          <Stat label="You own" value={compact(nw.assets)} color={colors.success} />
-          <Stat label="You owe" value={compact(nw.liabilities)} color={colors.danger} />
-          <Stat label="Net worth" value={compact(nw.net)} />
+          <Stat light label="You own" value={compact(nw.assets)} color={colors.success} />
+          <Stat light label="You owe" value={compact(nw.liabilities)} color={colors.danger} />
+          <Stat light label="Net worth" value={compact(nw.net)} color={colors.warning} />
         </Row>
       </Card>
       {!data.settings.premium ? (

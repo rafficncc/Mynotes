@@ -31,12 +31,12 @@ function Debts() {
 
   return (
     <Screen>
-      <Card>
+      <Card gradient>
         <Row>
-          <Stat label="Total debt" value={money(total)} color={colors.danger} />
-          <Stat label="Paying each month" value={money(monthly)} />
+          <Stat light label="Total debt" value={money(total)} color={colors.danger} />
+          <Stat light label="Paying each month" value={money(monthly)} />
         </Row>
-        <Text style={[styles.itemTitle, { color: plan.months === null ? colors.danger : colors.success }]}>
+        <Text style={[styles.itemTitle, { color: plan.months === null ? '#FF9E8A' : '#7EE3B5' }]}>
           {plan.months === null ? 'At this payment the interest grows faster than you pay. Add an extra amount below.' : `Debt-free by ${monthName(plan.months)} · interest ${money(plan.totalInterest)}`}
         </Text>
       </Card>

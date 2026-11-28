@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
-import { Button, Card, Chip, ChipRow, Empty, Field, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, ListItem, Row, Screen, Stat, SectionTitle, styles } from '../components/ui';
 import { formatDate, toISODate } from '../logic/dates';
 import { FREQUENCY_LABEL, nextBillDate } from '../logic/recurring';
 import { policyBills } from '../logic/trackers';
@@ -66,9 +66,13 @@ function Policies() {
 
   return (
     <Screen>
-      <Card>
-        <Text style={styles.itemTitle}>{data.policies.length} policies · {money(yearly)} premiums a year</Text>
-        <Text style={styles.itemSub}>Total cover {money(cover)}. Premium reminders appear on the Actions tab.</Text>
+      <Card gradient>
+        <Row>
+          <Stat light label="Policies" value={`${data.policies.length}`} />
+          <Stat light label="Premiums a year" value={money(yearly)} color={colors.warning} />
+          <Stat light label="Total cover" value={money(cover)} color={colors.success} />
+        </Row>
+        <Text style={{ color: '#ffffffb3', fontSize: 12 }}>Premium reminders appear on the Actions tab.</Text>
       </Card>
       {data.policies.length === 0 ? <Empty icon="shield-checkmark-outline" title="No policies yet" text="Add health, term, vehicle and other policies to never miss a premium." /> : null}
       {data.policies.map((p) => {

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
-import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { diffDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { BILL_TYPES, FREQUENCY_LABEL, billTypeInfo, detectSubscriptions, nextBillDate } from '../logic/recurring';
 import type { Bill, BillType, Frequency } from '../logic/types';
@@ -81,8 +81,23 @@ export default function Bills() {
     reset();
   };
 
+  const soon = bills.filter(({ due }) => due && diffDays(due, on) <= 30);
   return (
     <Screen>
+      {bills.length ? (
+        <Card gradient>
+          <Row>
+            <Stat light label="Bills tracked" value={`${bills.length}`} />
+            <Stat light label="Due in 30 days" value={`${soon.length}`} color={colors.warning} />
+            <Stat light label="Amount due" value={money(soon.reduce((s, { b }) => s + b.amount, 0))} color={colors.danger} />
+          </Row>
+          {bills[0].due ? (
+            <Text style={{ color: '#ffffffb3', fontSize: 12 }}>
+              Next: {bills[0].b.name} on {formatShortDate(bills[0].due)}
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
       {groups.map((g) => {
         const list = bills.filter(({ b }) => g.types.includes(b.type));
         if (!list.length) return null;

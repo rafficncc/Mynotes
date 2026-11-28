@@ -38,10 +38,10 @@ function Investments() {
 
   return (
     <Screen>
-      <Card>
+      <Card gradient>
         <Row>
-          <Stat label="Total invested value" value={money(total)} color={colors.success} />
-          <Stat label="SIPs every month" value={money(sipMonthly)} />
+          <Stat light label="Total invested value" value={money(total)} color={colors.success} />
+          <Stat light label="SIPs every month" value={money(sipMonthly)} />
         </Row>
       </Card>
 

@@ -103,7 +103,7 @@ export default function Home() {
 
         {/* Net worth and how it grew */}
         <Pressable onPress={() => router.push('/accounts')} accessibilityRole="button" accessibilityLabel="Net worth. Open all account balances">
-          <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden' }}>
+          <Card style={{ backgroundColor: '#1B1F5E', gap: 4, overflow: 'hidden', borderWidth: 0 }}>
             {/* indigo → emerald background */}
             <GradientBg id="nwbg" />
             {/* soft circles for depth */}

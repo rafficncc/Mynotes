@@ -20,10 +20,10 @@ export default function People() {
 
   return (
     <Screen>
-      <Card>
+      <Card gradient>
         <Row>
-          <Stat label="Others owe you" value={`+${money(owedToMe)}`} color={colors.success} />
-          <Stat label="You owe others" value={`−${money(iOwe)}`} color={colors.danger} />
+          <Stat light label="Others owe you" value={`+${money(owedToMe)}`} color={colors.success} />
+          <Stat light label="You owe others" value={`−${money(iOwe)}`} color={colors.danger} />
         </Row>
       </Card>
 

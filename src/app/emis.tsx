@@ -9,7 +9,6 @@ import { EMI_KIND_LABEL, emiAmount, emiStatus } from '../logic/emi';
 import type { EmiKind, EmiPlan } from '../logic/types';
 import { useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
-import { colors } from '../theme';
 
 const KINDS: EmiKind[] = ['card_emi', 'loan_emi', 'other'];
 
@@ -84,7 +83,7 @@ export default function Emis() {
 
   return (
     <Screen>
-      <Card style={{ backgroundColor: colors.primary }}>
+      <Card gradient>
         <Text style={{ color: '#ffffffcc' }}>EMIs every month</Text>
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>{money(monthlyTotal)}</Text>
         <Text style={{ color: '#ffffffdd' }}>{money(remainingTotal)} still to pay across {active.length} EMI{active.length === 1 ? '' : 's'}</Text>

@@ -98,10 +98,10 @@ function Claims() {
 
   return (
     <Screen>
-      <Card>
+      <Card gradient>
         <Row>
-          <Stat label="Claims pending" value={money(pending)} color={colors.warning} />
-          <Stat label="Received" value={money(received)} color={colors.success} />
+          <Stat light label="Claims pending" value={money(pending)} color={colors.warning} />
+          <Stat light label="Received" value={money(received)} color={colors.success} />
         </Row>
       </Card>
       {byMember.length ? (

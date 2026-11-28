@@ -35,7 +35,7 @@ export default function Simulator() {
 
   return (
     <Screen>
-      <Card style={{ backgroundColor: colors.primary }}>
+      <Card gradient>
         <Text style={{ color: '#ffffffcc' }}>You would save</Text>
         <Text style={{ color: '#fff', fontSize: 30, fontWeight: '800' }}>{money(monthly)}/month</Text>
         <Text style={{ color: '#ffffffdd' }}>

@@ -2,11 +2,12 @@ import { ask } from '../components/Dialog';
 import { useState } from 'react';
 import { DateField } from '../components/DateField';
 import { Text, View } from 'react-native';
-import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Empty, Field, ProgressBar, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { diffDays, formatDate, parseDate, toISODate } from '../logic/dates';
 import { toast } from '../components/Toast';
 import { notifyBalance, useAppData, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
+import { colors } from '../theme';
 
 export default function Goals() {
   const data = useAppData();
@@ -58,8 +59,23 @@ export default function Goals() {
     setDeadline('');
   };
 
+  const totalSaved = data.goals.reduce((s, g) => s + g.saved, 0);
+  const totalTarget = data.goals.reduce((s, g) => s + g.target, 0);
   return (
     <Screen>
+      {data.goals.length ? (
+        <Card gradient>
+          <Row>
+            <Stat light label="Saved so far" value={money(totalSaved)} color={colors.success} />
+            <Stat light label="Target" value={money(totalTarget)} />
+            <Stat light label="Goals" value={`${data.goals.filter((g) => g.saved < g.target).length} active`} color={colors.warning} />
+          </Row>
+          <View style={{ height: 8, borderRadius: 4, backgroundColor: '#ffffff26', overflow: 'hidden' }}>
+            <View style={{ width: `${totalTarget ? Math.min(100, (totalSaved / totalTarget) * 100) : 0}%`, height: '100%', borderRadius: 4, backgroundColor: '#7EE3B5' }} />
+          </View>
+          <Text style={{ color: '#ffffffb3', fontSize: 12 }}>{totalTarget ? `${Math.round((totalSaved / totalTarget) * 100)}% of all goals reached` : ''}</Text>
+        </Card>
+      ) : null}
       {data.goals.length === 0 ? <Empty icon="flag-outline" title="No goals yet" text="Saving for something specific makes it much easier to cut spending." /> : null}
       {data.goals.map((g) => {
         const left = Math.max(0, g.target - g.saved);

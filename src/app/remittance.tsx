@@ -62,7 +62,7 @@ function Remittance() {
 
   return (
     <Screen>
-      <Card style={{ backgroundColor: colors.primary }}>
+      <Card gradient>
         <Text style={{ color: '#ffffffcc' }}>Sent home in {year}</Text>
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>{money(stats.sent)}</Text>
         <Text style={{ color: '#ffffffdd' }}>
