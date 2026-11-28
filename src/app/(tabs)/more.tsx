@@ -2,6 +2,7 @@ import { router, type Href } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { GradientBg } from '../../components/GradientBg';
+import { PremiumBadge } from '../../components/PremiumGate';
 import { Icon, Row, Screen } from '../../components/ui';
 import { t } from '../../i18n';
 import { colors } from '../../theme';
@@ -83,7 +84,7 @@ export default function More() {
   const data = useAppData();
   const ready = useMemo(() => readiness(data), [data]);
   const shared = data.settings.vaultShared;
-  const crown = (i: Item) => !premium && PREMIUM_ROUTES.includes(i.href as string);
+  const locked = (i: Item) => !premium && PREMIUM_ROUTES.includes(i.href as string);
   return (
     <Screen>
       {/* Family safety net: the Money Vault is FamilyFin's signature feature, so it leads the page */}
@@ -97,7 +98,7 @@ export default function More() {
               <View style={{ backgroundColor: '#FFD97833', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
                 <Text style={{ color: GOLD, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 }}>★ FAMILY SAFETY NET</Text>
               </View>
-              {!premium ? <Text style={{ color: GOLD, fontSize: 12, fontWeight: '800' }}>👑 Premium</Text> : null}
+              {!premium ? <PremiumBadge id="vaultbadge" /> : null}
             </Row>
 
             <Row style={{ gap: 14 }}>
@@ -171,10 +172,12 @@ export default function More() {
                     <Icon name={i.icon} size={19} color="#fff" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>
-                      {i.title}
-                      {crown(i) ? '  👑' : ''}
-                    </Text>
+                    <Row style={{ gap: 6 }}>
+                      <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>
+                        {i.title}
+                      </Text>
+                      {locked(i) ? <PremiumBadge id={`pb${gi}-${ii}`} /> : null}
+                    </Row>
                     <Text style={{ color: colors.muted, fontSize: 12 }} numberOfLines={1}>
                       {i.subtitle}
                     </Text>

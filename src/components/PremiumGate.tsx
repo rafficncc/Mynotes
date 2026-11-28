@@ -1,11 +1,25 @@
 import { router } from 'expo-router';
 import type { ComponentType } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import { GradientBg } from './GradientBg';
 import { FREE_MONTHLY, countUse, usesLeft, type UseKind } from '../logic/premium';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
 import { ask } from './Dialog';
 import { Button, Card, Icon, Screen, styles } from './ui';
+
+const GOLD_GRADIENT = ['#FFE7A0', '#F5B841', '#D98E04'];
+
+/** Small gold "PREMIUM" pill with a diamond, shown next to paid features. */
+export function PremiumBadge({ id = 'pbadge' }: { id?: string }) {
+  return (
+    <View accessibilityLabel="Premium" style={{ flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: 999, overflow: 'hidden', paddingHorizontal: 7, paddingVertical: 2 }}>
+      <GradientBg id={id} colors={GOLD_GRADIENT} />
+      <Icon name="diamond" size={10} color="#5A3E00" />
+      <Text style={{ color: '#5A3E00', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 }}>PREMIUM</Text>
+    </View>
+  );
+}
 
 /** Wraps a screen so free users see what it offers and how to unlock it. */
 export function premiumOnly<P extends object>(Screen_: ComponentType<P>, title: string, text: string) {
@@ -15,7 +29,11 @@ export function premiumOnly<P extends object>(Screen_: ComponentType<P>, title: 
     return (
       <Screen>
         <Card style={{ alignItems: 'center', gap: 10, paddingVertical: 28 }}>
-          <Text style={{ fontSize: 40 }} accessibilityLabel="Premium feature">👑</Text>
+          <View accessibilityLabel="Premium feature" style={{ width: 76, height: 76, borderRadius: 38, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+            <GradientBg id="gatebadge" colors={GOLD_GRADIENT} />
+            <Icon name="diamond" size={36} color="#5A3E00" />
+          </View>
+          <PremiumBadge />
           <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>{title}</Text>
           <Text style={[styles.itemSub, { textAlign: 'center' }]}>{text}</Text>
           <Text style={[styles.hint, { textAlign: 'center' }]}>Part of FamilyFin Premium. Try it free for 7 days with the yearly plan.</Text>
