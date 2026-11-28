@@ -137,6 +137,15 @@ export function Chip({
   );
 }
 
+/** Round "+" for a screen's top bar (navigation.setOptions({ headerRight })). */
+export function HeaderAdd({ onPress, label }: { onPress: () => void; label: string }) {
+  return (
+    <Pressable onPress={onPress} hitSlop={10} accessibilityRole="button" accessibilityLabel={label} style={{ marginRight: 12 }}>
+      <Ionicons name="add-circle" size={30} color={colors.primary} />
+    </Pressable>
+  );
+}
+
 export function ChipRow({ children }: { children: ReactNode }) {
   return <View style={styles.chipRow}>{children}</View>;
 }

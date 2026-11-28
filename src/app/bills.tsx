@@ -1,9 +1,9 @@
 import { ask } from '../components/Dialog';
-import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import { DateField } from '../components/DateField';
-import { Button, Card, Chip, ChipRow, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, HeaderAdd, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { diffDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { BILL_TYPES, FREQUENCY_LABEL, billTypeInfo, detectSubscriptions, nextBillDate } from '../logic/recurring';
 import type { Bill, BillType, Frequency } from '../logic/types';
@@ -21,6 +21,10 @@ export default function Bills() {
   const on = new Date();
 
   const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const formOpen = adding || !!editing;
+  const navigation = useNavigation();
+  useEffect(() => navigation.setOptions({ headerRight: formOpen ? undefined : () => <HeaderAdd label="Add a bill or reminder" onPress={() => setAdding(true)} /> }), [navigation, formOpen]);
   const [type, setType] = useState<BillType>('mobile');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -55,6 +59,7 @@ export default function Bills() {
   };
   const reset = () => {
     setEditing(null);
+    setAdding(false);
     setName('');
     setAmount('');
     setReference('');
@@ -82,6 +87,57 @@ export default function Bills() {
   };
 
   const soon = bills.filter(({ due }) => due && diffDays(due, on) <= 30);
+  if (formOpen) {
+    return (
+      <Screen>
+        <SectionTitle title={editing ? 'Edit bill' : 'Add a bill'} />
+        <Card>
+          <ChipRow>
+            {BILL_TYPES.map((t) => (
+              <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => setType(t.key)} />
+            ))}
+          </ChipRow>
+          <Field label="Name" value={name} onChangeText={setName} placeholder={billTypeInfo(type).label} hint="Use the same name as the shop/merchant when you log the payment – it'll be ticked off automatically." />
+          <Row style={{ alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}><Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0" /></View>
+            <View style={{ flex: 1 }}><Field label={type === 'mobile' ? 'Mobile number' : type === 'fine' ? 'Challan / reason' : 'Reference (optional)'} value={reference} onChangeText={setReference} placeholder={type === 'mobile' ? '98xxxxxx21' : 'Account / consumer no.'} /></View>
+          </Row>
+          <Text style={styles.label}>How often</Text>
+          <ChipRow>
+            {FREQS.map((f) => (
+              <Chip key={f} label={FREQUENCY_LABEL[f]} selected={frequency === f} onPress={() => setFrequency(f)} />
+            ))}
+          </ChipRow>
+          <DateField label={frequency === 'once' ? 'Due date' : 'Next due date'} value={dueDate} onChange={setDueDate} quick={false} />
+          <Text style={styles.label}>Remind me</Text>
+          <ChipRow>
+            {REMIND.map((d) => (
+              <Chip key={d} label={d === 0 ? 'On the day' : `${d} day${d === 1 ? '' : 's'} before`} selected={remind === d} onPress={() => setRemind(d)} />
+            ))}
+          </ChipRow>
+          <Button title={editing ? 'Save bill' : 'Add bill'} icon="checkmark" onPress={save} />
+          {editing ? (
+            <>
+              <Button title="Pay & record now" variant="secondary" icon="wallet-outline" onPress={() => router.push(`/add?type=expense&billId=${editing}`)} />
+              <Button
+                title="Delete bill"
+                variant="danger"
+                icon="trash-outline"
+                onPress={() =>
+                  ask('Delete this bill?', undefined, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => { deleteBill(editing); reset(); } },
+                  ])
+                }
+              />
+            </>
+          ) : null}
+          <Button title="Cancel" variant="secondary" onPress={reset} />
+        </Card>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       {bills.length ? (
@@ -130,49 +186,7 @@ export default function Bills() {
       })}
       {bills.length === 0 ? <Card><Text style={styles.itemSub}>Add mobile, internet, electricity, taxes, fines and other bills. FamilyFin reminds you before each due date.</Text></Card> : null}
 
-      <SectionTitle title={editing ? 'Edit bill' : 'Add a bill'} />
-      <Card>
-        <ChipRow>
-          {BILL_TYPES.map((t) => (
-            <Chip key={t.key} label={t.label} icon={t.icon} selected={type === t.key} onPress={() => setType(t.key)} />
-          ))}
-        </ChipRow>
-        <Field label="Name" value={name} onChangeText={setName} placeholder={billTypeInfo(type).label} hint="Use the same name as the shop/merchant when you log the payment – it'll be ticked off automatically." />
-        <Row style={{ alignItems: 'flex-start' }}>
-          <View style={{ flex: 1 }}><Field label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0" /></View>
-          <View style={{ flex: 1 }}><Field label={type === 'mobile' ? 'Mobile number' : type === 'fine' ? 'Challan / reason' : 'Reference (optional)'} value={reference} onChangeText={setReference} placeholder={type === 'mobile' ? '98xxxxxx21' : 'Account / consumer no.'} /></View>
-        </Row>
-        <Text style={styles.label}>How often</Text>
-        <ChipRow>
-          {FREQS.map((f) => (
-            <Chip key={f} label={FREQUENCY_LABEL[f]} selected={frequency === f} onPress={() => setFrequency(f)} />
-          ))}
-        </ChipRow>
-        <DateField label={frequency === 'once' ? 'Due date' : 'Next due date'} value={dueDate} onChange={setDueDate} quick={false} />
-        <Text style={styles.label}>Remind me</Text>
-        <ChipRow>
-          {REMIND.map((d) => (
-            <Chip key={d} label={d === 0 ? 'On the day' : `${d} day${d === 1 ? '' : 's'} before`} selected={remind === d} onPress={() => setRemind(d)} />
-          ))}
-        </ChipRow>
-        <Button title={editing ? 'Save bill' : 'Add bill'} icon="checkmark" onPress={save} />
-        {editing ? (
-          <>
-            <Button title="Pay & record now" variant="secondary" icon="wallet-outline" onPress={() => router.push(`/add?type=expense&billId=${editing}`)} />
-            <Button
-              title="Delete bill"
-              variant="danger"
-              icon="trash-outline"
-              onPress={() =>
-                ask('Delete this bill?', undefined, [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Delete', style: 'destructive', onPress: () => { deleteBill(editing); reset(); } },
-                ])
-              }
-            />
-          </>
-        ) : null}
-      </Card>
+      <Button title="Add a bill or reminder" icon="add" onPress={() => setAdding(true)} />
 
       <SectionTitle title="Detected recurring charges" />
       <Card>
