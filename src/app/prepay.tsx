@@ -44,6 +44,7 @@ export default function Prepay() {
   const [emi, setEmi] = useState('');
   const [amount, setAmount] = useState('');
   const [charges, setCharges] = useState('');
+  const [chargeIn, setChargeIn] = useState<'amount' | 'percent'>('amount');
   const [date, setDate] = useState(toISODate(on));
   const [fromId, setFromId] = useState(defaultPayAccount(data.accounts) ?? '');
   const [choice, setChoice] = useState<'shorter' | 'lower'>('shorter');
@@ -61,7 +62,7 @@ export default function Prepay() {
   const r = parseFloat(rate) || 0;
   const e = parseFloat(emi) || 0;
   const p = Math.min(parseFloat(amount) || 0, o);
-  const fee = parseFloat(charges) || 0;
+  const fee = chargeIn === 'percent' ? Math.round((p * (parseFloat(charges) || 0)) / 100) : parseFloat(charges) || 0;
   const result = loan && r && e && p ? prepayment(o, r, e, p) : null;
   const plan = loan?.plan;
 
@@ -123,7 +124,19 @@ export default function Prepay() {
           <Step n={2} title="Part payment details">
             <Card style={{ gap: 10 }}>
               <Field label="Part payment amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={`Up to ${money(o)}`} />
-              <Field label="Prepayment charges (if any)" value={charges} onChangeText={setCharges} keyboardType="decimal-pad" placeholder="0" hint="Fee or penalty your bank charges. Many floating-rate loans have none; fixed-rate loans often charge 1–3%." />
+              <Text style={styles.label}>Prepayment charges (if any)</Text>
+              <ChipRow>
+                <Chip label="Amount" icon="cash-outline" selected={chargeIn === 'amount'} onPress={() => { setChargeIn('amount'); setCharges(''); }} />
+                <Chip label="% of part payment" icon="pie-chart-outline" selected={chargeIn === 'percent'} onPress={() => { setChargeIn('percent'); setCharges(''); }} />
+              </ChipRow>
+              <Field
+                label={chargeIn === 'percent' ? 'Charge %' : 'Charge amount'}
+                value={charges}
+                onChangeText={setCharges}
+                keyboardType="decimal-pad"
+                placeholder={chargeIn === 'percent' ? 'e.g. 2' : '0'}
+                hint={chargeIn === 'percent' && fee ? `= ${money(fee)} on ${money(p)}` : 'Fee or penalty your bank charges. Many floating-rate loans have none; fixed-rate loans often charge 1–3%.'}
+              />
               <DateField label="Date paid" value={date} onChange={setDate} />
               <Text style={styles.label}>Paid from</Text>
               <ChipRow>
