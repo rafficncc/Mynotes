@@ -39,7 +39,7 @@ export default function Accounts() {
           </Text>
         </Card>
         {list.length ? (
-          <BalanceList accounts={list} balances={balances} nw={computeNetWorth(list, balances, [])} people={[]} money={money} />
+          <BalanceList accounts={list} balances={balances} people={[]} money={money} />
         ) : (
           <Card><Text style={styles.itemSub}>Nothing added yet.</Text></Card>
         )}
@@ -61,7 +61,7 @@ export default function Accounts() {
           </Row>
         </Card>
         {nw.liabilities > 0 ? (
-          <BalanceList accounts={accounts} balances={balances} nw={nw} people={people} money={money} />
+          <BalanceList accounts={accounts} balances={balances} people={people} money={money} />
         ) : (
           <Card><Text style={styles.itemSub}>No debts. Well done!</Text></Card>
         )}
@@ -85,7 +85,7 @@ export default function Accounts() {
           Free plan: {LIMIT_CATEGORIES.map((c) => `${limitUsage(data.accounts, c.key)}/${FREE_PER_CATEGORY} ${c.label}`).join(' · ')}. Tap for unlimited.
         </Text>
       ) : null}
-      <BalanceList accounts={data.accounts} balances={balances} nw={nw} people={people} money={money} />
+      <BalanceList accounts={data.accounts} balances={balances} people={people} money={money} />
       <SectionTitle title="Add" />
       <Button title="Add account or card" icon="add" onPress={() => router.push('/account-form')} />
       <Text style={[styles.hint, { textAlign: 'center' }]}>
