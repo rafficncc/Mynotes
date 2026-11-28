@@ -12,7 +12,7 @@ import { deletePhoto, keepPhoto } from '../services/billPhotos';
 import { pickImage } from '../services/scanReceipt';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
 import { emiAmount } from '../logic/emi';
-import { ACCOUNT_TYPE_ICON, SPENDABLE_TYPES } from '../logic/balances';
+import { ACCOUNT_TYPE_ICON, canPayFrom } from '../logic/balances';
 import { emiInterest } from '../logic/payments';
 import { cardCycleInfo, recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
@@ -219,7 +219,7 @@ export default function AddTransaction() {
   // Expenses and income use spendable accounts; transfers can also move money into investments, loans, etc.
   const accountChips = (selected: string, onSelect: (id: string) => void, exclude?: string) => (
     <ChipRow>
-      {accounts.filter((a) => a.id !== exclude && (type === 'transfer' || SPENDABLE_TYPES.includes(a.type) || a.id === selected)).map((a) => (
+      {accounts.filter((a) => a.id !== exclude && (type === 'transfer' || canPayFrom(a) || a.id === selected)).map((a) => (
         <Chip key={a.id} label={a.name} icon={ACCOUNT_TYPE_ICON[a.type]} selected={selected === a.id} onPress={() => onSelect(a.id)} />
       ))}
       <Chip label="New" icon="add" onPress={() => router.push('/account-form')} />

@@ -91,6 +91,7 @@ export function buildDemoData(on: Date = new Date()): AppData {
     { id: 'bank', name: 'Salary account', type: 'bank', openingBalance: 60000, createdAt: now },
     { id: 'debit', name: 'Salary debit card', type: 'debit_card', openingBalance: 0, linkedBankId: 'bank', createdAt: now },
     { id: 'upi', name: 'UPI wallet', type: 'wallet', openingBalance: 15000, createdAt: now },
+    { id: 'efund', name: 'Emergency fund – savings', type: 'bank', openingBalance: 180000, emergency: true, createdAt: now },
     { id: 'hdfc', name: 'Rewards Card', type: 'credit_card', openingBalance: 0, creditLimit: 150000, billingDay: 5, dueDay: 25, rewardRate: 1.5, rewardPoints: 4200, pointValue: 0.25, createdAt: now },
     { id: 'sbi', name: 'Shopping Card', type: 'credit_card', openingBalance: 0, creditLimit: 60000, billingDay: 18, dueDay: 7, rewardRate: 1, createdAt: now },
     {

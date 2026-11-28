@@ -8,7 +8,7 @@ import { formatDate, toISODate } from '../logic/dates';
 import { formatMoney } from '../logic/money';
 import { lastRate, remittanceStats } from '../logic/money2';
 import { currencyInfo } from '../logic/region';
-import { ledgerAccountId, SPENDABLE_TYPES } from '../logic/balances';
+import { canPayFrom, ledgerAccountId } from '../logic/balances';
 import { notifyBalance, useAppData, useBalances, useMoney } from '../store/hooks';
 import { useStore } from '../store/useStore';
 import { colors } from '../theme';
@@ -114,7 +114,7 @@ function Remittance() {
               <Field label="Sent to" value={recipient} onChangeText={setRecipient} placeholder="e.g. Amma" />
               <Text style={styles.label}>Paid from</Text>
               <ChipRow>
-                {data.accounts.filter((a) => !a.archived && SPENDABLE_TYPES.includes(a.type)).map((a) => (
+                {data.accounts.filter((a) => !a.archived && canPayFrom(a)).map((a) => (
                   <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
                 ))}
               </ChipRow>

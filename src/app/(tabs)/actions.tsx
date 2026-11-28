@@ -9,7 +9,7 @@ import { generateActions, type ActionItem, type ActionStatus } from '../../logic
 import { diffDays, toISODate } from '../../logic/dates';
 import { toast } from '../../components/Toast';
 import { ask, choose } from '../../components/Dialog';
-import { SPENDABLE_TYPES } from '../../logic/balances';
+import { canPayFrom } from '../../logic/balances';
 import { alreadyPaid, billPayment, emiInterest, emiPayment, premiumPayment } from '../../logic/payments';
 import { notifyBalance, useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
@@ -108,7 +108,7 @@ export default function Actions() {
       notifyBalance(accountId, `${name} paid`);
     };
     if (charged) return record(txn.accountId);
-    const payable = data.accounts.filter((x) => !x.archived && SPENDABLE_TYPES.includes(x.type) && !(x.type === 'debit_card' && x.linkedBankId));
+    const payable = data.accounts.filter((x) => !x.archived && canPayFrom(x) && !(x.type === 'debit_card' && x.linkedBankId));
     choose(`Paid ${name} from?`, `${money(txn.amount)} will be taken from the account you choose.`, [
       ...payable.map((x) => ({ text: `${x.name} (${money(balances[x.id] ?? 0)})`, onPress: () => record(x.id) })),
       { text: 'Cancel', style: 'cancel' as const },

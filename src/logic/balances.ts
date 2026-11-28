@@ -34,6 +34,12 @@ export const LIABILITY_TYPES: AccountType[] = ['credit_card', 'loan'];
 export const SPENDABLE_TYPES: AccountType[] = ['cash', 'bank', 'debit_card', 'credit_card', 'wallet', 'other'];
 /** Money available to spend today. */
 export const LIQUID_TYPES: AccountType[] = ['cash', 'bank', 'wallet'];
+/** Money in accounts marked as the emergency fund. */
+export const emergencyFund = (accounts: Account[], balances: Record<string, number>) =>
+  accounts.filter((a) => a.emergency && !a.archived).reduce((s, a) => s + Math.max(0, balances[a.id] ?? 0), 0);
+
+/** Accounts offered for paying: spendable types, never the emergency fund. */
+export const canPayFrom = (a: Account) => SPENDABLE_TYPES.includes(a.type) && !a.emergency;
 
 export interface NetWorth {
   assets: number;
@@ -59,7 +65,7 @@ export function computeNetWorth(accounts: Account[], balances: Record<string, nu
     const b = balances[a.id] ?? 0;
     if (b >= 0) assets += b;
     else liabilities += -b;
-    if (LIQUID_TYPES.includes(a.type) && b > 0) liquid += b;
+    if (LIQUID_TYPES.includes(a.type) && !a.emergency && b > 0) liquid += b;
     byGroup[ACCOUNT_GROUP_OF[a.type]] += b;
   }
   for (const p of people ?? []) {

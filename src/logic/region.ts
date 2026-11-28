@@ -70,7 +70,8 @@ export function limitCategoryOf(type: Account['type']): LimitCategory {
 
 /** Accounts counted in a category. Archived accounts, debit cards linked to a bank and the lend/borrow ledger don't count. */
 export function limitUsage(accounts: Account[], cat: LimitCategory): number {
-  return accounts.filter((a) => !a.archived && a.type !== 'people' && !(a.type === 'debit_card' && a.linkedBankId) && limitCategoryOf(a.type) === cat).length;
+  // The emergency fund is free and doesn't use up a free-plan slot.
+  return accounts.filter((a) => !a.archived && !a.emergency && a.type !== 'people' && !(a.type === 'debit_card' && a.linkedBankId) && limitCategoryOf(a.type) === cat).length;
 }
 
 export function accountLimitReached(accounts: Account[], type: Account['type'], premium: boolean): boolean {

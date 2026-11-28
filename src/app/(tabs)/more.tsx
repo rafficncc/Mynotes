@@ -10,6 +10,7 @@ import { PREMIUM_ROUTES } from '../../logic/premium';
 import { useStore } from '../../store/useStore';
 import { useAppData } from '../../store/hooks';
 import { readiness } from '../../logic/vault';
+import { safetyNet } from '../../logic/insights';
 import { formatDate } from '../../logic/dates';
 
 type Item = { icon: string; title: string; subtitle: string; href: Href; color: string };
@@ -82,6 +83,7 @@ export default function More() {
   const data = useAppData();
   const ready = useMemo(() => readiness(data), [data]);
   const shared = data.settings.vaultShared;
+  const ef = useMemo(() => safetyNet(data).emergency, [data]);
   const locked = (i: Item) => !premium && PREMIUM_ROUTES.includes(i.href as string);
   return (
     <Screen>
@@ -146,6 +148,21 @@ export default function More() {
             <Text style={{ color: '#ffffff99', fontSize: 11, textAlign: 'center' }}>Don’t leave your money unattended. Keep your loved ones informed.</Text>
           </View>
         </View>
+      </Pressable>
+
+      {/* Emergency fund: free, part of the family safety net */}
+      <Pressable onPress={() => router.push('/emergency')} accessibilityRole="button" accessibilityLabel="Emergency fund" style={{ borderRadius: 18, overflow: 'hidden' }}>
+        <GradientBg id="efmore" colors={['#0B5450', '#14918B']} />
+        <Row style={{ gap: 12, padding: 14 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#ffffff26', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="umbrella" size={22} color="#7FE0D8" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900' }}>Emergency fund</Text>
+            <Text style={{ color: '#ffffffcc', fontSize: 12 }}>{ef.amount ? `${ef.months.toFixed(1)} of ${ef.goal} months covered · kept untouched` : 'Set aside money for job loss or medical emergencies'}</Text>
+          </View>
+          <Icon name="chevron-forward" size={18} color="#fff" />
+        </Row>
       </Pressable>
 
       {groups().map(([title, items], gi) => {

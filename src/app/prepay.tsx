@@ -4,7 +4,7 @@ import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
 import { toast } from '../components/Toast';
 import { Button, Card, Chip, ChipRow, Empty, Field, Icon, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
-import { SPENDABLE_TYPES } from '../logic/balances';
+import { canPayFrom } from '../logic/balances';
 import { toISODate } from '../logic/dates';
 import { emiStatus } from '../logic/emi';
 import { defaultPayAccount } from '../logic/payments';
@@ -140,7 +140,7 @@ export default function Prepay() {
               <DateField label="Date paid" value={date} onChange={setDate} />
               <Text style={styles.label}>Paid from</Text>
               <ChipRow>
-                {data.accounts.filter((a) => !a.archived && SPENDABLE_TYPES.includes(a.type) && a.type !== 'credit_card' && !(a.type === 'debit_card' && a.linkedBankId)).map((a) => (
+                {data.accounts.filter((a) => !a.archived && canPayFrom(a) && a.type !== 'credit_card' && !(a.type === 'debit_card' && a.linkedBankId)).map((a) => (
                   <Chip key={a.id} label={`${a.name} (${money(balances[a.id] ?? 0)})`} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
                 ))}
               </ChipRow>

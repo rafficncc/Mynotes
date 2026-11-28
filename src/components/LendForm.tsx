@@ -35,7 +35,7 @@ export function LendForm({ kind, setKind, person, setPerson, amount, setAmount, 
 }) {
   const data = useAppData();
   const { addTransaction, ensurePeopleAccount } = useStore();
-  const accounts = data.accounts.filter((a) => !a.archived && a.type !== 'people' && a.type !== 'property');
+  const accounts = data.accounts.filter((a) => !a.archived && !a.emergency && a.type !== 'people' && a.type !== 'property');
   const [accountId, setAccountId] = useState(accounts.find((a) => a.type === 'bank' || a.type === 'cash')?.id ?? accounts[0]?.id ?? '');
   const [date, setDate] = useState(toISODate(new Date()));
   const [note, setNote] = useState('');

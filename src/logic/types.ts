@@ -62,6 +62,8 @@ export interface Account {
   investKind?: InvestKind;
   /** Gold / jewellery weight in grams */
   goldGrams?: number;
+  /** Set aside as the family emergency fund: kept out of spendable money and payment choices. */
+  emergency?: boolean;
   /** Credit cards: reward points balance and value of one point */
   rewardPoints?: number;
   pointValue?: number;
@@ -376,6 +378,10 @@ export interface Settings {
   vaultNA?: string[];
   /** When the family file was last shared, and with whom. */
   vaultShared?: { at: string; with: string };
+  /** Emergency fund target in months of expenses (default 6). */
+  emergencyMonths?: number;
+  /** Automatic monthly top-up of the emergency fund. */
+  emergencyAuto?: { amount: number; day: number; fromId: string; toId: string; last?: string };
   /** Hour of day (0–23) for bill and document reminders. Default 9. */
   reminderHour?: number;
   /** Free-plan monthly counters for scans and voice entries. */

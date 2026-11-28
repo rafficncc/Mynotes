@@ -1,6 +1,6 @@
 import { addDays, addMonths, clampedDate, parseDate, toISODate } from './dates';
 import { normalize } from './text';
-import { SPENDABLE_TYPES } from './balances';
+import { canPayFrom } from './balances';
 import type { Account, Bill, EmiPlan, InsurancePolicy, Sip, Transaction } from './types';
 
 /** Payments and money movements made from other screens become real transactions, so balances follow. */
@@ -9,8 +9,8 @@ type NewTxn = Omit<Transaction, 'id' | 'createdAt'>;
 
 /** Account to pay from when nothing else is set: the first bank account, else any spendable one. */
 export function defaultPayAccount(accounts: Account[]): string | undefined {
-  const live = accounts.filter((a) => !a.archived);
-  return (live.find((a) => a.type === 'bank') ?? live.find((a) => SPENDABLE_TYPES.includes(a.type)))?.id;
+  const live = accounts.filter((a) => !a.archived && !a.emergency);
+  return (live.find((a) => a.type === 'bank') ?? live.find(canPayFrom))?.id;
 }
 
 /** True if a payment with this name was already logged in the last 25 days (avoids double counting). */

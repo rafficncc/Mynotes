@@ -8,7 +8,7 @@ import {
   sum,
   weekdayVsWeekend,
 } from './analytics';
-import { computeBalances, computeNetWorth } from './balances';
+import { computeBalances, emergencyFund } from './balances';
 import { cardCycleInfo, isCreditCardConfigured, recommendCards } from './creditCard';
 import { addDays, currentCycleKey, cycleBounds, cycleProgress, diffDays, formatShortDate, parseDate, shiftMonthKey, toISODate } from './dates';
 import { regionalTips } from './region';
@@ -249,14 +249,14 @@ export function generateInsights(data: AppData, on: Date = new Date()): Insight[
 
   // 11. Emergency fund
   const avgMonthly = average([1, 2, 3].map((i) => sum(expenses(inMonth(txns, shiftMonthKey(thisKey, -i), sd)))).filter((x) => x > 0));
-  const nw = computeNetWorth(accounts, balances);
-  if (avgMonthly > 0 && nw.liquid < avgMonthly * 3) {
+  const fund = emergencyFund(accounts, balances);
+  if (avgMonthly > 0 && fund < avgMonthly * 3) {
     out.push({
       id: 'emergency',
       severity: 'warning',
       icon: 'umbrella',
       title: 'Build a family emergency fund',
-      detail: `Liquid money covers ${(nw.liquid / avgMonthly).toFixed(1)} months of expenses. Target at least 6 months (${money(avgMonthly * 6)}).`,
+      detail: `Your emergency fund covers ${(fund / avgMonthly).toFixed(1)} months of expenses. Target at least 6 months (${money(avgMonthly * 6)}). Set it up under More → Emergency fund.`,
     });
   }
 
@@ -357,9 +357,9 @@ export function healthScore(data: AppData, on: Date = new Date()): HealthScore {
 
   // Emergency fund (25)
   const balances = computeBalances(data.accounts, data.transactions);
-  const nw = computeNetWorth(data.accounts, balances);
+  const fund = emergencyFund(data.accounts, balances);
   const avgMonthly = spent / 3;
-  const cover = avgMonthly > 0 ? nw.liquid / avgMonthly : nw.liquid > 0 ? 6 : 0;
+  const cover = avgMonthly > 0 ? fund / avgMonthly : fund > 0 ? 6 : 0;
   parts.push({ name: 'Emergency fund', score: clamp(Math.round((cover / 6) * 25), 0, 25), max: 25, hint: `${cover.toFixed(1)} months covered (target 6)` });
 
   // Credit health (25)
@@ -384,8 +384,8 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 export interface SafetyNet {
-  /** Cash, bank and wallet money against 6 months of spending. */
-  emergency: { amount: number; months: number; target: number };
+  /** The marked emergency fund against the chosen months (default 6) of spending. */
+  emergency: { amount: number; months: number; target: number; goal: number };
   /** Life and term cover against 10 × yearly income (a common rule of thumb). */
   protection: { cover: number; target: number; times: number };
 }
@@ -397,11 +397,12 @@ export function safetyNet(data: AppData, on: Date = new Date()): SafetyNet {
   const months = [1, 2, 3].map((i) => inMonth(data.transactions, shiftMonthKey(thisKey, -i), sd));
   const income = months.reduce((s, m) => s + sum(incomes(m)), 0) / 3;
   const spend = months.reduce((s, m) => s + sum(expenses(m).filter((t) => data.categories.find((c) => c.id === t.categoryId)?.kind !== 'saving')), 0) / 3;
-  const liquid = computeNetWorth(data.accounts, computeBalances(data.accounts, data.transactions)).liquid;
+  const fund = emergencyFund(data.accounts, computeBalances(data.accounts, data.transactions));
+  const months_ = data.settings.emergencyMonths ?? 6;
   const cover = data.policies.filter((p) => p.type === 'life' || p.type === 'term').reduce((s, p) => s + (p.sumAssured ?? 0), 0);
   const yearly = income * 12;
   return {
-    emergency: { amount: liquid, months: spend > 0 ? liquid / spend : 0, target: Math.round(spend * 6) },
+    emergency: { amount: fund, months: spend > 0 ? fund / spend : 0, target: Math.round(spend * months_), goal: months_ },
     protection: { cover, target: Math.round(yearly * 10), times: yearly > 0 ? cover / yearly : 0 },
   };
 }

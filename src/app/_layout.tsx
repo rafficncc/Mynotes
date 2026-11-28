@@ -9,7 +9,7 @@ import { DialogHost } from '../components/Dialog';
 import { LockGate } from '../components/LockScreen';
 import { toast, ToastHost } from '../components/Toast';
 import { dueContributions } from '../logic/motivation';
-import { dueSipListTransfers, dueSipTransfers } from '../logic/payments';
+import { dueSipListTransfers, dueSipTransfers, monthlyDueDates } from '../logic/payments';
 import { deletePhoto } from '../services/billPhotos';
 import { syncReminders } from '../services/notifications';
 import { useAppData, useMoney } from '../store/hooks';
@@ -56,6 +56,16 @@ function StartupTasks() {
       txns.forEach((t) => useStore.getState().addTransaction(t));
       useStore.getState().updateAccount(fund.id, { sips });
       toast(`Recorded ${txns.length} SIP debit${txns.length === 1 ? '' : 's'} for ${fund.name}`);
+    }
+    // Automatic emergency-fund top-ups that fell due since the last app open
+    const auto = useStore.getState().settings.emergencyAuto;
+    if (auto?.amount && useStore.getState().accounts.some((a) => a.id === auto.toId && !a.archived)) {
+      const dates = monthlyDueDates(auto.day, auto.last, new Date());
+      dates.forEach((date) => useStore.getState().addTransaction({ type: 'transfer', amount: auto.amount, date, accountId: auto.fromId, toAccountId: auto.toId, note: 'Emergency fund top-up' }));
+      if (dates.length) {
+        useStore.getState().updateSettings({ emergencyAuto: { ...auto, last: dates[dates.length - 1] } });
+        toast(`Added ${dates.length > 1 ? `${dates.length} top-ups` : 'this month’s top-up'} to your emergency fund`);
+      }
     }
     // Automatic monthly goal contributions that fell due since the last app open
     const st = useStore.getState();
@@ -116,6 +126,7 @@ const screens: [string, string, boolean?][] = [
   ['investments', t('Investments')],
   ['vault', t('Money vault')],
   ['prepay', t('Loan prepayment')],
+  ['emergency', 'Emergency fund'],
   ['debts', t('Debt payoff planner')],
   ['reports', t('Reports')],
   ['year', t('Year in review')],

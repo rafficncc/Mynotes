@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect } from 'react';
+import type { Account } from '../logic/types';
 import { Text } from 'react-native';
 import { BalanceList } from '../components/BalanceList';
 import { Button, Card, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
@@ -18,7 +19,7 @@ export default function Accounts() {
   const navigation = useNavigation();
   const debtOnly = only === 'debt';
   // "Cash & bank" and "Investments" tiles on Home show just those accounts.
-  const group = only === 'cash' ? { title: 'Cash & bank', total: 'Money you can use now', keep: (t: string) => (LIQUID_TYPES as string[]).includes(t) } : only === 'investment' ? { title: 'Investments', total: 'Total invested value', keep: (t: string) => ACCOUNT_GROUP_OF[t as keyof typeof ACCOUNT_GROUP_OF] === 'investment' } : null;
+  const group = only === 'cash' ? { title: 'Cash & bank', total: 'Money you can use now', keep: (a: Account) => LIQUID_TYPES.includes(a.type) && !a.emergency } : only === 'investment' ? { title: 'Investments', total: 'Total invested value', keep: (a: Account) => ACCOUNT_GROUP_OF[a.type] === 'investment' } : null;
   useEffect(() => navigation.setOptions({ title: debtOnly ? 'What we owe' : group?.title ?? 'Accounts' }), [navigation, debtOnly, group?.title]);
   // "Debt" from Home shows only cards, loans and money borrowed from people.
   const allPeople = personBalances(data.transactions);
@@ -27,7 +28,7 @@ export default function Accounts() {
   const nw = computeNetWorth(accounts, balances, people);
 
   if (group) {
-    const list = data.accounts.filter((a) => !a.archived && group.keep(a.type));
+    const list = data.accounts.filter((a) => !a.archived && group.keep(a));
     const total = list.reduce((sum, a) => sum + Math.max(0, balances[a.id] ?? 0), 0);
     return (
       <Screen>

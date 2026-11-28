@@ -2,7 +2,7 @@ import { DateField } from '../components/DateField';
 import { ask } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
 import { ACCOUNT_GROUP_OF, ACCOUNT_GROUPS, ACCOUNT_TYPE_ICON, ACCOUNT_TYPE_LABEL, INVEST_OPTIONS, investOption, isLiability } from '../logic/balances';
 import { accountLimitReached, FREE_PER_CATEGORY, limitLabel } from '../logic/region';
@@ -19,7 +19,7 @@ const validDay = (s: string) => {
 };
 
 export default function AccountForm() {
-  const params = useLocalSearchParams<{ id?: string; type?: AccountType }>();
+  const params = useLocalSearchParams<{ id?: string; type?: AccountType; emergency?: string }>();
   const store = useStore();
   const existing = params.id ? store.accounts.find((a) => a.id === params.id) : undefined;
 
@@ -54,6 +54,8 @@ export default function AccountForm() {
   const [dueDay, setDueDay] = useState(existing?.dueDay ? String(existing.dueDay) : '');
   const [reward, setReward] = useState(existing?.rewardRate ? String(existing.rewardRate) : '');
   const [linkedBankId, setLinkedBankId] = useState(existing?.linkedBankId ?? '');
+  const [emergency, setEmergency] = useState(existing?.emergency ?? params.emergency === '1');
+  const canBeEmergency = ['bank', 'cash', 'wallet', 'deposit'].includes(type);
   const banks = store.accounts.filter((a) => a.type === 'bank' && !a.archived);
 
   const bd = validDay(billingDay);
@@ -67,7 +69,7 @@ export default function AccountForm() {
 
   const save = () => {
     if (!name.trim()) return ask('Give the account a name');
-    if (!existing && accountLimitReached(store.accounts, type, store.settings.premium)) {
+    if (!existing && !(canBeEmergency && emergency) && accountLimitReached(store.accounts, type, store.settings.premium)) {
       return ask(
         'Free plan limit reached',
         `The free plan includes ${FREE_PER_CATEGORY} ${limitLabel(type)}. Upgrade to Premium for unlimited accounts in every category.`,
@@ -97,6 +99,7 @@ export default function AccountForm() {
       dueDay: isCard ? dd : undefined,
       rewardRate: isCard ? parseFloat(reward) || undefined : undefined,
       linkedBankId: type === 'debit_card' ? linkedBankId || undefined : undefined,
+      emergency: canBeEmergency && emergency ? true : undefined,
     };
     if (existing) store.updateAccount(existing.id, payload);
     else store.addAccount(payload);
@@ -141,6 +144,17 @@ export default function AccountForm() {
         </>
       ) : null}
       <Field label="Name" value={name} onChangeText={setName} placeholder={isCard ? 'e.g. HDFC Millennia' : group === 'investment' ? 'e.g. Groww, Zerodha, HDFC MF' : 'e.g. SBI Savings'} />
+
+      {canBeEmergency ? (
+        <Pressable onPress={() => setEmergency((v) => !v)} accessibilityRole="checkbox" accessibilityState={{ checked: emergency }} style={{ flexDirection: 'row', gap: 10, alignItems: 'center', padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: emergency ? colors.success : colors.border, backgroundColor: emergency ? colors.successSoft : colors.card }}>
+          <Icon name={emergency ? 'checkbox' : 'square-outline'} color={emergency ? colors.success : colors.muted} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemTitle}>This is our emergency fund</Text>
+            <Text style={styles.hint}>Kept untouched: left out of Cash & bank and never offered for paying.</Text>
+          </View>
+          <Icon name="umbrella" color={colors.success} />
+        </Pressable>
+      ) : null}
 
       {type === 'debit_card' ? (
         <>
