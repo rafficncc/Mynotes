@@ -1,11 +1,15 @@
 import { router, type Href } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { GradientBg, HeroCard } from '../../components/GradientBg';
-import { Icon, Row, Screen, SectionTitle } from '../../components/ui';
+import { GradientBg } from '../../components/GradientBg';
+import { Icon, Row, Screen } from '../../components/ui';
 import { t } from '../../i18n';
 import { colors } from '../../theme';
 import { PREMIUM_ROUTES } from '../../logic/premium';
 import { useStore } from '../../store/useStore';
+import { useAppData } from '../../store/hooks';
+import { readiness } from '../../logic/vault';
+import { formatDate } from '../../logic/dates';
 
 type Item = { icon: string; title: string; subtitle: string; href: Href; color: string };
 
@@ -64,36 +68,85 @@ const groups = (): [string, Item[]][] => [
 ];
 
 // Section accents, matching the Home tile colours.
+const GOLD = '#FFD978';
+const VAULT_POINTS = [
+  ['business-outline', 'Banks & lockers'],
+  ['shield-checkmark-outline', 'Policies & nominees'],
+  ['call-outline', 'Who to call'],
+  ['document-lock-outline', 'Locked PDF to share'],
+] as const;
+
 const ACCENTS = ['#14915F', '#C9671C', '#2F6FC4', '#6E48C2', '#C2414F'];
 
 export default function More() {
   const premium = useStore((st) => st.settings.premium);
+  const data = useAppData();
+  const ready = useMemo(() => readiness(data), [data]);
+  const shared = data.settings.vaultShared;
   const crown = (i: Item) => !premium && PREMIUM_ROUTES.includes(i.href as string);
   return (
     <Screen>
-      {/* Family safety net: the Money Vault gets its own spot at the top */}
-      <SectionTitle title={t('Family safety net')} />
-      <Pressable onPress={() => router.push('/vault')} accessibilityRole="button" accessibilityLabel="Money vault. Everything your family needs if something happens to you">
-        <HeroCard id="vaultbg" style={{ gap: 10 }}>
-          <Row style={{ gap: 12 }}>
-            <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: '#ffffff26', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon name="lock-closed" size={24} color="#FFD978" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>
-                {t('Money vault')}
-                {!premium && PREMIUM_ROUTES.includes('/vault') ? '  👑' : ''}
+      {/* Family safety net: the Money Vault is FamilyFin's signature feature, so it leads the page */}
+      <Pressable onPress={() => router.push('/vault')} accessibilityRole="button" accessibilityLabel={`Money vault, ${ready.percent}% ready. Everything your family needs if something happens to you`}>
+        <View style={{ borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#FFD97866' }}>
+          <GradientBg id="vaultbg" colors={['#141A4A', '#3B2275', '#7A5A12']} />
+          <View pointerEvents="none" style={{ position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: '#FFD97814', top: -90, right: -80 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', width: 140, height: 140, borderRadius: 70, backgroundColor: '#ffffff0a', bottom: -50, left: -40 }} />
+          <View style={{ padding: 18, gap: 14 }}>
+            <Row style={{ justifyContent: 'space-between' }}>
+              <View style={{ backgroundColor: '#FFD97833', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <Text style={{ color: GOLD, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 }}>★ FAMILY SAFETY NET</Text>
+              </View>
+              {!premium ? <Text style={{ color: GOLD, fontSize: 12, fontWeight: '800' }}>👑 Premium</Text> : null}
+            </Row>
+
+            <Row style={{ gap: 14 }}>
+              {/* glowing lock */}
+              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#FFD9781f', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFD97840', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: GOLD }}>
+                  <Icon name="shield-checkmark" size={28} color={GOLD} />
+                </View>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: '#fff', fontSize: 24, fontWeight: '900', letterSpacing: -0.3 }}>{t('Money vault')}</Text>
+                <Text style={{ color: '#ffffffcc', fontSize: 13, lineHeight: 18 }}>If something happens to you, will your family find all your money?</Text>
+              </View>
+            </Row>
+
+            {/* how ready it is */}
+            <View style={{ backgroundColor: '#00000026', borderRadius: 14, padding: 12, gap: 8 }}>
+              <Row style={{ justifyContent: 'space-between' }}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{ready.percent ? `Your vault is ${ready.percent}% ready` : 'Not started yet'}</Text>
+                <Text style={{ color: '#ffffffb3', fontSize: 12 }}>
+                  {ready.done} of {ready.total} topics
+                </Text>
+              </Row>
+              <View style={{ height: 8, borderRadius: 4, backgroundColor: '#ffffff26', overflow: 'hidden' }}>
+                <View style={{ width: `${Math.max(3, ready.percent)}%`, height: '100%', borderRadius: 4, backgroundColor: GOLD }} />
+              </View>
+              <Text style={{ color: shared ? '#7EE3B5' : '#FF9E8A', fontSize: 12, fontWeight: '700' }}>
+                {shared ? `✓ Last shared with ${shared.with} on ${formatDate(shared.at.slice(0, 10))}` : '! Not shared with your family yet'}
               </Text>
-              <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Don’t leave your money unattended</Text>
             </View>
-          </Row>
-          <Text style={{ color: '#ffffffdd', fontSize: 13, lineHeight: 19 }}>
-            Bank accounts, policies, lockers, nominees and who to call, all in one place, so your family knows exactly what to do if something happens to you.
-          </Text>
-          <View style={{ alignSelf: 'flex-start', backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-            <Text style={{ color: '#1B1F5E', fontWeight: '800', fontSize: 13 }}>Open vault ›</Text>
+
+            {/* what goes in it */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {VAULT_POINTS.map(([icon, label]) => (
+                <Row key={label} style={{ gap: 6, flexBasis: '47%', flexGrow: 1, backgroundColor: '#ffffff14', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                  <Icon name={icon} size={15} color={GOLD} />
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                    {label}
+                  </Text>
+                </Row>
+              ))}
+            </View>
+
+            <View style={{ backgroundColor: GOLD, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}>
+              <Text style={{ color: '#141A4A', fontWeight: '900', fontSize: 15 }}>{ready.percent ? 'Open your vault  ›' : 'Start your vault in 5 minutes  ›'}</Text>
+            </View>
+            <Text style={{ color: '#ffffff99', fontSize: 11, textAlign: 'center' }}>Don’t leave your money unattended. Keep your loved ones informed.</Text>
           </View>
-        </HeroCard>
+        </View>
       </Pressable>
 
       {groups().map(([title, items], gi) => {
