@@ -8,7 +8,8 @@ export const HERO: [string, string, string] = ['#1B1F5E', '#0E4D64', '#0B6E4F'];
 /** Diagonal gradient filling its parent; put it first inside a View with overflow hidden. */
 export function GradientBg({ id, colors = HERO }: { id: string; colors?: string[] }) {
   return (
-    <Svg style={{ position: 'absolute', top: 0, left: 0 }} width="100%" height="100%">
+    // Stretch a 100×100 drawing over the whole parent: percentage sizes leave gaps on some Android phones.
+    <Svg style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} viewBox="0 0 100 100" preserveAspectRatio="none">
       <Defs>
         <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
           {colors.map((c, i) => (
@@ -16,7 +17,7 @@ export function GradientBg({ id, colors = HERO }: { id: string; colors?: string[
           ))}
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+      <Rect x="0" y="0" width="100" height="100" fill={`url(#${id})`} />
     </Svg>
   );
 }

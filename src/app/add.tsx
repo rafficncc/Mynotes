@@ -133,6 +133,7 @@ export default function AddTransaction() {
   const save = async () => {
     if (fxOn && (!fxAmt || !fxR)) return ask('Enter the foreign amount and the exchange rate');
     if (!amt || amt <= 0) return ask('Enter an amount');
+    if (amt > 99_999_999_999) return ask('That amount looks too large', 'Please check the number you entered.');
     if (!accountId) return ask('Choose an account');
     if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) return ask('Choose a different destination account');
     if (!date) return ask('Pick a date');

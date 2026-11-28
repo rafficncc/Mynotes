@@ -79,6 +79,7 @@ export default function Budgets() {
               placeholder={avg > 0 ? `${Math.round((avg * 0.9) / 100) * 100}` : 'Set limit'}
               placeholderTextColor={colors.muted}
               keyboardType="number-pad"
+              maxLength={12}
               accessibilityLabel={`${c.name} monthly limit`}
               style={[styles.input, { paddingVertical: 8, textAlign: 'right', borderRadius: 12, fontWeight: '700' }]}
             />

@@ -98,11 +98,20 @@ export function Button({
   );
 }
 
+const NUMERIC = ['decimal-pad', 'number-pad', 'numeric', 'numbers-and-punctuation'];
+
 export function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} style={styles.input} accessibilityLabel={label || props.placeholder} {...props} />
+      <TextInput
+        placeholderTextColor={colors.muted}
+        style={styles.input}
+        accessibilityLabel={label || props.placeholder}
+        // Number boxes: at most 12 characters (up to 99,999,999,999), so a stray long number can't break totals.
+        maxLength={NUMERIC.includes(props.keyboardType ?? '') ? 12 : undefined}
+        {...props}
+      />
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
