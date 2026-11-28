@@ -63,7 +63,7 @@ function Remittance() {
   };
 
   const theirs = stats.currency ? currencyInfo(stats.currency) : null;
-  const showForm = open || list.length === 0;
+  const showForm = open;
 
   return (
     <Screen>
@@ -123,7 +123,7 @@ function Remittance() {
             </Step>
 
             <Button title="Save transfer" icon="checkmark" onPress={save} />
-            {list.length ? <Button title="Cancel" variant="secondary" onPress={() => setOpen(false)} /> : null}
+            <Button title="Cancel" variant="secondary" onPress={() => setOpen(false)} />
           </Card>
         </>
       ) : null}

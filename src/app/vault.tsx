@@ -36,6 +36,7 @@ function Vault() {
   const groups = allGroups(cats);
   const custom = data.settings.vaultCustom ?? [];
   const [newTopic, setNewTopic] = useState('');
+  const [addingTopic, setAddingTopic] = useState(false);
   const [newGroup, setNewGroup] = useState('');
 
   if (!unlocked) return <PinPad title={t('Unlock the money vault')} useBiometrics={!!data.settings.useBiometrics} onUnlock={() => setUnlocked(true)} />;
@@ -109,6 +110,7 @@ function Vault() {
     const key = `custom-${randomUUID().slice(0, 8)}`;
     updateSettings({ vaultCustom: [...custom, { key, group, label }] });
     setNewTopic('');
+    setAddingTopic(false);
     setOpen(key);
     toast(`Added “${label}” to ${group}`);
   };
@@ -244,8 +246,10 @@ function Vault() {
           })}
         </View>
       ))}
-      <SectionTitle title="Add your own topic" />
+      {!addingTopic ? <Button title="Add your own topic" variant="secondary" icon="add" onPress={() => setAddingTopic(true)} /> : null}
+      {addingTopic ? (
       <Card style={{ gap: 8 }}>
+        <Text style={styles.itemTitle}>Add your own topic</Text>
         <Text style={styles.itemSub}>Something that isn’t listed? Add it. For example a chit fund, a business share, kids’ savings or a property abroad.</Text>
         <Field label="Topic name" value={newTopic} onChangeText={setNewTopic} placeholder="e.g. Chit fund" />
         <Text style={styles.label}>Group</Text>
@@ -256,7 +260,9 @@ function Vault() {
         </Row>
         <Field label="…or a new group" value={groups.includes(newGroup) || newGroup === 'My own topics' ? '' : newGroup} onChangeText={setNewGroup} placeholder="e.g. Business" />
         <Button title="Add topic" icon="add" onPress={addTopic} />
+        <Button title="Cancel" variant="secondary" onPress={() => setAddingTopic(false)} />
       </Card>
+      ) : null}
       <Text style={[styles.hint, { textAlign: 'center' }]}>Never store PINs, passwords or full card numbers. Account numbers: last 4 digits only.</Text>
     </Screen>
   );

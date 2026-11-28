@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Text } from 'react-native';
 import { LendForm, type LendKind } from '../components/LendForm';
 import { TxnRow } from '../components/TxnRow';
-import { Card, Empty, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Empty, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { PEOPLE_ACCOUNT_ID, personBalances } from '../logic/money2';
 import { normalize } from '../logic/text';
 import { useAppData, useMoney } from '../store/hooks';
@@ -25,6 +25,7 @@ export default function Person() {
   const [kind, setKind] = useState<LendKind>(balance > 0 ? 'got_back' : balance < 0 ? 'paid_back' : 'lent');
   const [person, setPerson] = useState(name);
   const [amount, setAmount] = useState(balance ? String(Math.abs(balance)) : '');
+  const [recording, setRecording] = useState(false);
 
   useEffect(() => navigation.setOptions({ title: name }), [navigation, name]);
 
@@ -41,8 +42,15 @@ export default function Person() {
         <Text style={styles.hint}>“You gave” = money lent + your repayments. “You received” = money borrowed + their repayments.</Text>
       </Card>
 
-      <SectionTitle title="Record a payment" />
-      <LendForm kind={kind} setKind={setKind} person={person} setPerson={setPerson} amount={amount} setAmount={setAmount} known={[]} fixedPerson />
+      {recording ? (
+        <>
+          <SectionTitle title="Record a payment" />
+          <LendForm kind={kind} setKind={setKind} person={person} setPerson={setPerson} amount={amount} setAmount={setAmount} known={[]} fixedPerson onSaved={() => setRecording(false)} />
+          <Button title="Cancel" variant="secondary" onPress={() => setRecording(false)} />
+        </>
+      ) : (
+        <Button title="Record a payment" icon="add" onPress={() => setRecording(true)} />
+      )}
 
       <SectionTitle title={`History (${history.length})`} />
       {history.length ? (
