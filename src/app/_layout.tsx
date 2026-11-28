@@ -31,6 +31,8 @@ function StartupTasks() {
       { id: 'scan', title: t('Scan a bill'), icon: Platform.OS === 'ios' ? 'symbol:doc.viewfinder' : null, params: { href: '/scan' } },
       { id: 'add', title: 'Add expense', icon: Platform.OS === 'ios' ? 'add' : null, params: { href: '/add?type=expense' } },
     ]).catch(() => undefined);
+    // Web preview only (flag set by the preview build script): always open with Premium on, even with older saved data.
+    if (process.env.EXPO_PUBLIC_PREVIEW_PREMIUM === '1' && !useStore.getState().settings.premium) useStore.getState().updateSettings({ premium: true });
     // Yearly plans end when not renewed; a reinstall gets Premium back from the store.
     ownedPlan().then((owned) => {
       const st = useStore.getState();
