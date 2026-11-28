@@ -10,7 +10,7 @@ import { diffDays, toISODate } from '../../logic/dates';
 import { toast } from '../../components/Toast';
 import { ask, choose } from '../../components/Dialog';
 import { SPENDABLE_TYPES } from '../../logic/balances';
-import { alreadyPaid, billPayment, emiPayment, premiumPayment } from '../../logic/payments';
+import { alreadyPaid, billPayment, emiInterest, emiPayment, premiumPayment } from '../../logic/payments';
 import { notifyBalance, useAppData, useBalances, useCycle, useMoney } from '../../store/hooks';
 import { useStore } from '../../store/useStore';
 import { colors, isDark } from '../../theme';
@@ -70,6 +70,7 @@ export default function Actions() {
   const markDone = (a: ActionItem) => {
     const today = toISODate(new Date());
     let txn: Parameters<typeof addTransaction>[0] | null = null;
+    let interest = 0;
     let name = '';
     let markPaid = () => {};
     if (a.kind === 'bill' && a.billId?.startsWith('policy:')) {
@@ -90,6 +91,8 @@ export default function Actions() {
       markPaid = () => saveEmi({ ...e, lastPaid: today });
       name = `${e.name} EMI`;
       txn = emiPayment(e, data.accounts, today);
+      // Loan EMI: only the principal reduces the loan; the interest part is an expense.
+      if (txn?.type === 'transfer') interest = emiInterest(e, data.accounts, balances, txn.amount);
     }
     if (alreadyPaid(name, data.transactions, new Date())) {
       markPaid();
@@ -100,7 +103,8 @@ export default function Actions() {
     const charged = txn.type === 'expense' && data.accounts.find((x) => x.id === txn!.accountId)?.type === 'credit_card' && a.kind === 'emi';
     const record = (accountId: string) => {
       markPaid();
-      addTransaction({ ...txn!, accountId });
+      addTransaction({ ...txn!, accountId, amount: txn!.amount - interest });
+      if (interest) addTransaction({ type: 'expense', amount: interest, date: txn!.date, accountId, categoryId: 'emi', merchant: `${name} interest` });
       notifyBalance(accountId, `${name} paid`);
     };
     if (charged) return record(txn.accountId);

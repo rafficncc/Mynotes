@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { premiumOnly } from '../components/PremiumGate';
-import { Card, Chip, ChipRow, Empty, Field, ListItem, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Card, Chip, ChipRow, Empty, Field, Icon, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { listDebts, payoffPlan, type Method } from '../logic/debt';
 import { addMonths } from '../logic/dates';
 import { personBalances } from '../logic/money2';
@@ -18,7 +18,7 @@ function Debts() {
   const balances = useBalances();
   const { money } = useMoney();
   const [extra, setExtra] = useState('');
-  const [method, setMethod] = useState<Method>('avalanche');
+  const [method, setMethod] = useState<Method>('snowball');
   const debts = useMemo(() => listDebts(data.accounts, balances, data.emis, personBalances(data.transactions)), [data, balances]);
   const extraAmt = parseFloat(extra) || 0;
   const plan = useMemo(() => payoffPlan(debts, extraAmt, method), [debts, extraAmt, method]);
@@ -29,15 +29,23 @@ function Debts() {
 
   if (!debts.length) return <Screen><Empty icon="happy-outline" title="No debts. Well done!" text="Credit card balances, loans and money you borrowed from people will appear here." /></Screen>;
 
+  const start = debts.reduce((s2, d) => s2 + d.minPayment, 0) + extraAmt;
+
   return (
     <Screen>
+      {/* Where the journey ends */}
       <Card gradient>
+        <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Your debt-free journey</Text>
+        <Text style={{ color: plan.months === null ? '#FF9E8A' : '#fff', fontSize: 26, fontWeight: '900' }}>
+          {plan.months === null ? 'Not reachable yet' : `Debt-free by ${monthName(plan.months)}`}
+        </Text>
         <Row>
           <Stat light label="Total debt" value={money(total)} color={colors.danger} />
-          <Stat light label="Paying each month" value={money(monthly)} />
+          <Stat light label="Paying monthly" value={money(monthly)} />
+          <Stat light label="Milestones" value={`${plan.steps.length}`} color={colors.warning} />
         </Row>
-        <Text style={[styles.itemTitle, { color: plan.months === null ? '#FF9E8A' : '#7EE3B5' }]}>
-          {plan.months === null ? 'At this payment the interest grows faster than you pay. Add an extra amount below.' : `Debt-free by ${monthName(plan.months)} · interest ${money(plan.totalInterest)}`}
+        <Text style={{ color: '#ffffffb3', fontSize: 12 }}>
+          {plan.months === null ? 'At this payment the interest grows faster than you pay. Add an extra amount below.' : `${plan.months} months away · interest on the way ${money(plan.totalInterest)}`}
         </Text>
       </Card>
 
@@ -45,54 +53,97 @@ function Debts() {
         <Field label="Extra I can pay each month (on top of minimums)" value={extra} onChangeText={setExtra} keyboardType="decimal-pad" placeholder="e.g. 5000" />
         {extraAmt > 0 && plan.months !== null && base.months !== null && base.months > plan.months ? (
           <Text style={[styles.insightText, { color: colors.success, fontWeight: '700' }]}>
-            {money(extraAmt)} extra makes you debt-free {base.months - plan.months} months sooner and saves {money(base.totalInterest - plan.totalInterest)} interest.
+            🚀 {money(extraAmt)} extra gets you there {base.months - plan.months} months sooner and saves {money(base.totalInterest - plan.totalInterest)} interest.
           </Text>
         ) : null}
         <ChipRow>
-          <Chip label="Highest interest first" icon="trending-down-outline" selected={method === 'avalanche'} onPress={() => setMethod('avalanche')} />
-          <Chip label="Smallest debt first" icon="podium-outline" selected={method === 'snowball'} onPress={() => setMethod('snowball')} />
+          <Chip label="Snowball: smallest first" icon="snow-outline" selected={method === 'snowball'} onPress={() => setMethod('snowball')} />
+          <Chip label="Avalanche: costliest first" icon="trending-down-outline" selected={method === 'avalanche'} onPress={() => setMethod('avalanche')} />
         </ChipRow>
         <Text style={styles.hint}>
-          {method === 'avalanche'
-            ? 'Clears the costliest debt first. Saves the most money.'
-            : 'Clears small debts first. Quick wins keep you motivated.'}
+          {method === 'snowball'
+            ? 'Clear the smallest debt first for a quick win, then roll its payment into the next one. The payment grows like a snowball.'
+            : 'Clear the costliest debt first. Saves the most interest.'}
           {plan.months !== null && other.months !== null && other.totalInterest !== plan.totalInterest
             ? ` The other way costs ${money(Math.abs(other.totalInterest - plan.totalInterest))} ${other.totalInterest > plan.totalInterest ? 'more' : 'less'} in interest.`
             : ''}
         </Text>
       </Card>
 
-      <SectionTitle title="Clear them in this order" />
-      <Card>
-        {plan.steps.map((s, i) => {
-          const d = debts.find((x) => x.id === s.id)!;
+      <SectionTitle title="The journey" />
+      <View>
+        <Milestone color="#5B6B7A" icon="walk" title="Today: the start" sub={`${debts.length} debt${debts.length === 1 ? '' : 's'} · ${money(total)} to clear`} note={`You put ${money(start)} a month towards debts`} first />
+        {plan.steps.map((st, i) => {
+          const d = debts.find((x) => x.id === st.id)!;
+          // What has been cleared so far, and how big the snowball payment has become.
+          const clearedSoFar = plan.steps.slice(0, i + 1).reduce((s2, x) => s2 + debts.find((y) => y.id === x.id)!.balance, 0);
+          const rolled = extraAmt + plan.steps.slice(0, i + 1).reduce((s2, x) => s2 + debts.find((y) => y.id === x.id)!.minPayment, 0);
+          const next = plan.steps[i + 1] ? debts.find((y) => y.id === plan.steps[i + 1].id) : undefined;
+          const pct = Math.round((clearedSoFar / total) * 100);
           return (
-            <ListItem
-              key={s.id}
+            <Milestone
+              key={st.id}
+              color={STOP_COLORS[Math.min(i, STOP_COLORS.length - 1)]}
               icon={KIND_ICON[d.kind]}
-              iconColor={i === 0 ? colors.danger : colors.muted}
-              title={`${i + 1}. ${d.name}`}
-              subtitle={`${d.rate}% interest${d.rateAssumed ? ' (assumed – tap to set)' : ''} · minimum ${money(d.minPayment)}/month`}
-              right={money(d.balance)}
-              rightSub={`paid off ${monthName(s.month)}`}
-              rightColor={colors.danger}
+              step={i + 1}
+              title={`Clear ${d.name}`}
+              sub={`${money(d.balance)} · ${d.rate}% interest${d.rateAssumed ? ' (assumed)' : ''} · ${monthName(st.month)} (month ${st.month})`}
+              note={next ? `🎉 Then ${money(rolled)} a month rolls into ${next.name}` : undefined}
+              pct={pct}
               onPress={d.kind === 'person' ? () => router.push(`/person?name=${encodeURIComponent(d.name)}`) : () => router.push(`/account-form?id=${d.id}`)}
             />
           );
         })}
-        {plan.months === null ? <Text style={styles.hint}>Some debts can’t be cleared at the current payment.</Text> : null}
-      </Card>
+        {plan.months !== null ? (
+          <Milestone color="#14915F" icon="trophy" title={`Debt-free! ${monthName(plan.months)}`} sub={`All ${money(total)} cleared · ${money(plan.totalInterest)} interest on the way`} note="Keep paying yourself the same amount into savings" last />
+        ) : (
+          <Text style={[styles.hint, { color: colors.danger }]}>Some debts can’t be cleared at the current payment. Add an extra amount above.</Text>
+        )}
+      </View>
 
       <Card style={{ backgroundColor: colors.infoSoft }}>
         <View style={{ gap: 4 }}>
-          <Text style={styles.itemTitle}>How to use this</Text>
-          <Text style={styles.insightText}>1. Always pay the minimum on every debt, so you never pay late fees.</Text>
-          <Text style={styles.insightText}>2. Put every extra rupee on debt no. 1 until it is gone.</Text>
-          <Text style={styles.insightText}>3. Then add what you paid on it to debt no. 2, and so on.</Text>
-          <Text style={styles.hint}>Interest rates marked “assumed” use typical rates. Tap the debt and enter the rate from your statement for an exact plan.</Text>
+          <Text style={styles.itemTitle}>How the snowball works</Text>
+          <Text style={styles.insightText}>1. Pay the minimum on every debt, so there are no late fees.</Text>
+          <Text style={styles.insightText}>2. Put every extra rupee on milestone 1 until it is gone.</Text>
+          <Text style={styles.insightText}>3. Roll what you paid on it into milestone 2, and so on. Each win makes the next one faster.</Text>
+          <Text style={styles.hint}>Rates marked “assumed” use typical rates. Tap a milestone and enter the rate from your statement for an exact plan.</Text>
         </View>
       </Card>
     </Screen>
+  );
+}
+
+const STOP_COLORS = ['#C2414F', '#C9671C', '#B9860F', '#2F6FC4', '#6E48C2'];
+
+/** One stop on the journey: a coloured node on a vertical line, with its details beside it. */
+function Milestone({ color, icon, title, sub, note, step, pct, first, last, onPress }: { color: string; icon: string; title: string; sub: string; note?: string; step?: number; pct?: number; first?: boolean; last?: boolean; onPress?: () => void }) {
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} style={{ flexDirection: 'row', gap: 12 }}>
+      <View style={{ width: 44, alignItems: 'center' }}>
+        <View style={{ width: 3, height: 10, backgroundColor: first ? 'transparent' : colors.border }} />
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: color + '40' }}>
+          {step ? <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>{step}</Text> : <Icon name={icon} size={20} color="#fff" />}
+        </View>
+        <View style={{ width: 3, flex: 1, backgroundColor: last ? 'transparent' : colors.border, borderRadius: 2 }} />
+      </View>
+      <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, borderLeftWidth: 4, borderLeftColor: color, padding: 12, marginVertical: 6, gap: 4 }}>
+        <Row style={{ gap: 6 }}>
+          {step ? <Icon name={icon} size={15} color={color} /> : null}
+          <Text style={{ flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' }}>{title}</Text>
+        </Row>
+        <Text style={{ color: colors.muted, fontSize: 12 }}>{sub}</Text>
+        {pct !== undefined ? (
+          <View style={{ gap: 3 }}>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' }}>
+              <View style={{ width: `${pct}%`, height: '100%', borderRadius: 3, backgroundColor: color }} />
+            </View>
+            <Text style={{ color: colors.muted, fontSize: 11 }}>{pct}% of all debt cleared here</Text>
+          </View>
+        ) : null}
+        {note ? <Text style={{ color: last ? colors.success : colors.text, fontSize: 12, fontWeight: '700' }}>{note}</Text> : null}
+      </View>
+    </Pressable>
   );
 }
 

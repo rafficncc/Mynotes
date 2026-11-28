@@ -1,9 +1,15 @@
 import { useState } from 'react';
+import { ask } from '../components/Dialog';
+import { toast } from '../components/Toast';
+import { SPENDABLE_TYPES } from '../logic/balances';
+import { defaultPayAccount } from '../logic/payments';
+import { toISODate } from '../logic/dates';
+import { useStore } from '../store/useStore';
 import { Text, View } from 'react-native';
-import { Card, Chip, ChipRow, Field, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, Row, Screen, SectionTitle, Stat, styles } from '../components/ui';
 import { emiStatus } from '../logic/emi';
 import { prepayment } from '../logic/trackers';
-import { useAppData, useBalances, useMoney } from '../store/hooks';
+import { notifyBalance, useAppData, useBalances, useMoney } from '../store/hooks';
 import { colors } from '../theme';
 
 const years = (m: number) => (m >= 12 ? `${Math.floor(m / 12)} yr ${m % 12} mo` : `${m} mo`);
@@ -17,8 +23,14 @@ export default function Prepay() {
   const [rate, setRate] = useState('');
   const [emi, setEmi] = useState('');
   const [prepay, setPrepay] = useState('100000');
+  const [planId, setPlanId] = useState('');
+  const [choice, setChoice] = useState<'shorter' | 'lower'>('shorter');
+  const [fromId, setFromId] = useState(defaultPayAccount(data.accounts) ?? '');
+  const addTransaction = useStore((s) => s.addTransaction);
+  const saveEmi = useStore((s) => s.saveEmi);
 
   const pick = (id: string) => {
+    setPlanId(id);
     const e = data.emis.find((x) => x.id === id)!;
     const loanAcc = data.accounts.find((a) => a.id === e.accountId && a.type === 'loan');
     const st = emiStatus(e, new Date());
@@ -34,6 +46,23 @@ export default function Prepay() {
   const e = parseFloat(emi) || 0;
   const p = parseFloat(prepay) || 0;
   const result = o && r && e && p ? prepayment(o, r, e, Math.min(p, o)) : null;
+  const plan = data.emis.find((x) => x.id === planId);
+  const loanAcc = plan ? data.accounts.find((a) => a.id === plan.accountId && a.type === 'loan') : undefined;
+
+  // Part payment: money moves from the bank to the loan (so the loan balance drops), and the EMI plan
+  // either ends earlier (same EMI) or keeps its end date with a lower EMI.
+  const record = () => {
+    if (!plan || !result) return;
+    if (!loanAcc) return ask('Link this EMI to its loan', 'Open More → EMIs, edit this EMI and pick the loan account, so the part payment can reduce the loan balance.');
+    const amount = Math.min(p, o);
+    addTransaction({ type: 'transfer', amount, date: toISODate(new Date()), accountId: fromId, toAccountId: loanAcc.id, note: `Part payment – ${plan.name}` });
+    const done = emiStatus(plan, new Date()).done;
+    if (choice === 'shorter') saveEmi({ ...plan, totalMonths: Math.max(done + 1, plan.totalMonths - result.shorterTenure.monthsSaved) });
+    else saveEmi({ ...plan, monthlyAmount: result.lowerEmi.emi });
+    notifyBalance(fromId, `Part payment of ${money(amount)} recorded`);
+    toast(choice === 'shorter' ? `${plan.name} now ends ${years(result.shorterTenure.monthsSaved)} sooner` : `${plan.name} EMI is now ${money(result.lowerEmi.emi)}`);
+    setOutstanding(String(Math.round(o - amount)));
+  };
 
   return (
     <Screen>
@@ -81,6 +110,31 @@ export default function Prepay() {
           <Text style={styles.hint}>
             Option 1 usually saves more. Check your bank’s prepayment charges; most floating-rate home loans have none. Keep an emergency fund before prepaying.
           </Text>
+
+          {plan ? (
+            <>
+              <SectionTitle title="Made a part payment? Record it" />
+              <Card style={{ gap: 10 }}>
+                <Text style={styles.label}>After the part payment</Text>
+                <ChipRow>
+                  <Chip label="Keep EMI, finish earlier" icon="flag-outline" selected={choice === 'shorter'} onPress={() => setChoice('shorter')} />
+                  <Chip label="Lower my EMI" icon="trending-down-outline" selected={choice === 'lower'} onPress={() => setChoice('lower')} />
+                </ChipRow>
+                <Text style={styles.label}>Paid from</Text>
+                <ChipRow>
+                  {data.accounts.filter((a) => !a.archived && SPENDABLE_TYPES.includes(a.type) && a.type !== 'credit_card').map((a) => (
+                    <Chip key={a.id} label={`${a.name} (${money(balances[a.id] ?? 0)})`} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+                  ))}
+                </ChipRow>
+                <Button title={`Record part payment of ${money(Math.min(p, o))}`} icon="checkmark" onPress={record} />
+                <Text style={styles.hint}>
+                  The loan balance drops by this amount{loanAcc ? ` (${loanAcc.name})` : ''}, and {plan.name} is updated: {choice === 'shorter' ? `${years(result.shorterTenure.monthsSaved)} fewer EMIs` : `new EMI ${money(result.lowerEmi.emi)}`}.
+                </Text>
+              </Card>
+            </>
+          ) : (
+            <Text style={styles.hint}>To record a part payment, pick your loan at the top.</Text>
+          )}
         </>
       ) : (
         <Text style={styles.hint}>Fill in the loan details{loans.length ? ' or pick a loan above' : ''}.</Text>

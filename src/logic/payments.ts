@@ -77,3 +77,14 @@ export function dueSipListTransfers(fund: Account, accounts: Account[], on: Date
 
 /** Total monthly SIP into an account (old single SIP plus the SIP list). */
 export const monthlySip = (a: Account) => (a.sipAmount ?? 0) + (a.sips ?? []).reduce((s, x) => s + x.amount, 0);
+
+/**
+ * Interest inside a loan EMI this month (outstanding × yearly rate ÷ 12). Only the rest of the EMI
+ * reduces the loan; the interest is recorded as an expense. 0 when the loan or its rate is unknown.
+ */
+export function emiInterest(plan: EmiPlan, accounts: Account[], balances: Record<string, number>, amount: number): number {
+  const loan = accounts.find((a) => a.id === plan.accountId && a.type === 'loan');
+  const rate = plan.interestRate ?? loan?.interestRate ?? 0;
+  if (!loan || !rate) return 0;
+  return Math.min(amount, Math.round((Math.max(0, -(balances[loan.id] ?? 0)) * rate) / 1200));
+}

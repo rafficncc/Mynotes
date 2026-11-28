@@ -142,6 +142,7 @@ export default function Emis() {
                 <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
               ))}
             </ChipRow>
+            {kind === 'loan_emi' ? <Text style={styles.hint}>Pick the loan account so each EMI reduces the loan balance (the interest part is recorded as an expense). Add the loan under Accounts first if it isn’t here.</Text> : null}
           </>
         ) : null}
         <Row style={{ alignItems: 'flex-start' }}>

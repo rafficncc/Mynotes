@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseDate } from './dates';
-import { alreadyPaid, billPayment, dueSipListTransfers, dueSipTransfers, emiPayment, monthlySip, premiumPayment } from './payments';
+import { alreadyPaid, billPayment, dueSipListTransfers, dueSipTransfers, emiInterest, emiPayment, monthlySip, premiumPayment } from './payments';
 import type { Account, Transaction } from './types';
 
 const on = parseDate('2026-11-18');
@@ -19,6 +19,14 @@ describe('payments from other screens become transactions', () => {
     const plan = { id: 'e', name: 'Car loan', kind: 'loan_emi' as const, accountId: 'loan', principal: 1, monthlyAmount: 12500, totalMonths: 60, startDate: '2026-01-05', remindDaysBefore: 3 };
     expect(emiPayment(plan, accounts, '2026-11-18')).toMatchObject({ type: 'transfer', accountId: 'bank', toAccountId: 'loan', amount: 12500 });
     expect(emiPayment({ ...plan, kind: 'card_emi', accountId: 'card' }, accounts, '2026-11-18')).toMatchObject({ type: 'expense', accountId: 'card', categoryId: 'emi' });
+  });
+
+  it('splits a loan EMI into interest and principal', () => {
+    const plan = { id: 'e', name: 'Car loan', kind: 'loan_emi' as const, accountId: 'loan', principal: 1, monthlyAmount: 12500, totalMonths: 60, startDate: '2026-01-05', remindDaysBefore: 3, interestRate: 9 };
+    // ₹6,00,000 at 9% → ₹4,500 interest this month; ₹8,000 reduces the loan
+    expect(emiInterest(plan, accounts, { loan: -600000 }, 12500)).toBe(4500);
+    expect(emiInterest({ ...plan, interestRate: undefined }, accounts, { loan: -600000 }, 12500)).toBe(0);
+    expect(emiInterest({ ...plan, accountId: 'bank' }, accounts, { bank: 1000 }, 12500)).toBe(0);
   });
 
   it('spots a payment that was already logged', () => {

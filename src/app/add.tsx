@@ -13,6 +13,7 @@ import { pickImage } from '../services/scanReceipt';
 import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, styles } from '../components/ui';
 import { emiAmount } from '../logic/emi';
 import { ACCOUNT_TYPE_ICON, SPENDABLE_TYPES } from '../logic/balances';
+import { emiInterest } from '../logic/payments';
 import { cardCycleInfo, recommendCards } from '../logic/creditCard';
 import { addDays, formatShortDate, parseDate, toISODate } from '../logic/dates';
 import { normalize } from '../logic/text';
@@ -149,9 +150,11 @@ export default function AddTransaction() {
       }
       if (existing?.photoUri && existing.photoUri !== photoUri) deletePhoto(existing.photoUri);
     }
+    // Paying a loan EMI: the interest part is an expense, only the rest reduces the loan.
+    const interest = emi && emiIsTransfer && type === 'transfer' && !existing ? emiInterest(emi, store.accounts, balances, amt) : 0;
     const payload = {
       type,
-      amount: split ? split.mine : amt,
+      amount: split ? split.mine : amt - interest,
       photoUri: type === 'expense' ? photoUri : undefined,
       warrantyUntil: type === 'expense' ? warranty || undefined : undefined,
       fx: fxOn ? { currency: fxCurrency, amount: fxAmt, rate: fxR } : existing?.categoryId === 'remittance' ? existing.fx : undefined,
@@ -177,6 +180,7 @@ export default function AddTransaction() {
         store.addTransaction({ type: 'transfer', amount: split.each, date, accountId, toAccountId: PEOPLE_ACCOUNT_ID, person, note: `Share of ${merchant.trim() || 'bill'}`, eventId: eventId || undefined });
       }
     }
+    if (interest) store.addTransaction({ type: 'expense', amount: interest, date, accountId, categoryId: 'emi', merchant: `${emi!.name} EMI interest`, memberId: memberId || undefined });
     if (policy) store.saveItem('policies', { ...policy, lastPaid: date });
     else if (bill) store.saveBill({ ...bill, lastPaid: date });
     if (emi) store.saveEmi({ ...emi, lastPaid: date });
