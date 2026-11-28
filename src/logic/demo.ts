@@ -198,6 +198,7 @@ export function buildDemoData(on: Date = new Date()): AppData {
       { id: 'd3', type: 'visa', name: 'Visa', memberId: 'wife', expiryDate: toISODate(addDays(on, 25)), remindDaysBefore: 30, notes: 'Family trip' },
       { id: 'd4', type: 'aadhaar', name: 'Aadhaar', memberId: 'kid1', remindDaysBefore: 30, notes: 'Biometric update due at age 15' },
     ],
-    settings: { ...DEFAULT_SETTINGS, onboarded: true, currentMemberId: 'me', vaultNA: ['crypto', 'pension', 'accident'], vaultShared: { at: addDays(on, -215).toISOString(), with: 'Priya (wife)' } },
+    // Web preview only (set in the preview build script): explore the demo with Premium on.
+    settings: { ...DEFAULT_SETTINGS, premium: process.env.EXPO_PUBLIC_PREVIEW_PREMIUM === '1', onboarded: true, currentMemberId: 'me', vaultNA: ['crypto', 'pension', 'accident'], vaultShared: { at: addDays(on, -215).toISOString(), with: 'Priya (wife)' } },
   };
 }
