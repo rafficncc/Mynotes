@@ -54,14 +54,15 @@ export function monthRange(key: string): [string, string] {
  * Net worth at the end of each of the last `months` months, replaying transactions up to that day.
  * shortcut: property / investment values use today's figure for every month (no valuation history).
  */
-export function netWorthHistory(accounts: Account[], txns: Transaction[], on: Date, months = 12): { key: string; label: string; net: number; liabilities: number }[] {
+type NetWorthPoint = { key: string; label: string; net: number; liabilities: number; investments: number; liquid: number };
+export function netWorthHistory(accounts: Account[], txns: Transaction[], on: Date, months = 12): NetWorthPoint[] {
   const nowKey = toISODate(on).slice(0, 7);
-  const out: { key: string; label: string; net: number; liabilities: number }[] = [];
+  const out: NetWorthPoint[] = [];
   for (let i = months - 1; i >= 0; i--) {
     const key = shiftMonthKey(nowKey, -i);
     const end = i === 0 ? toISODate(on) : monthRange(key)[1];
     const nw = computeNetWorth(accounts, computeBalances(accounts, txns.filter((t) => t.date <= end)));
-    out.push({ key, label: monthLabel(key), net: Math.round(nw.net), liabilities: Math.round(nw.liabilities) });
+    out.push({ key, label: monthLabel(key), net: Math.round(nw.net), liabilities: Math.round(nw.liabilities), investments: Math.round(nw.byGroup.investment), liquid: Math.round(nw.liquid) });
   }
   return out;
 }
