@@ -24,7 +24,7 @@ export interface ActionItem {
   accountId?: string;
   documentId?: string;
   transactionId?: string;
-  /** Screen to open for items that come from trackers (policies, vehicles, deposits). */
+  /** Screen to open for items that come from trackers (policies, deposits). */
   route?: string;
 }
 
@@ -153,7 +153,7 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
   }
 
   // Document renewals
-  for (const doc of [...data.documents, ...trackerDocuments(data.vehicles, data.policies, data.accounts)]) {
+  for (const doc of [...data.documents, ...trackerDocuments(data.policies, data.accounts)]) {
     if (!doc.expiryDate) continue;
     const exp = parseDate(doc.expiryDate);
     const remindOn = addDays(exp, -doc.remindDaysBefore);
@@ -170,7 +170,7 @@ export function generateActions(data: AppData, on: Date = new Date()): ActionIte
       status: days < 0 ? 'overdue' : status(exp, remindOn, on),
       icon: documentTypeInfo(doc.type).icon,
       documentId: doc.id,
-      route: doc.id.startsWith('vehicle:') ? '/vehicles' : doc.id.startsWith('policy:') ? '/policies' : doc.id.startsWith('account:') ? '/investments' : undefined,
+      route: doc.id.startsWith('policy:') ? '/policies' : doc.id.startsWith('account:') ? '/investments' : undefined,
     });
   }
 
@@ -247,7 +247,7 @@ export function upcomingReminders(data: AppData, on: Date = new Date(), days = 9
     const info = cardCycleInfo(card, data.transactions, balances[card.id] ?? 0, on, data.emis);
     if (info.amountDue > 0) push(`card-${card.id}-${toISODate(info.dueDate)}`, `${card.name} bill`, info.dueDate, card.remindDaysBefore ?? CARD_REMIND_DEFAULT, info.amountDue);
   }
-  for (const doc of [...data.documents, ...trackerDocuments(data.vehicles, data.policies, data.accounts)]) {
+  for (const doc of [...data.documents, ...trackerDocuments(data.policies, data.accounts)]) {
     if (!doc.expiryDate) continue;
     const exp = parseDate(doc.expiryDate);
     const remindOn = addDays(exp, -doc.remindDaysBefore);

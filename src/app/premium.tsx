@@ -16,9 +16,9 @@ const PERKS: [string, string, string][] = [
   ['scan-outline', 'Unlimited bill scans & voice entry', `Free plan: ${FREE_MONTHLY} of each a month.`],
   ['people-outline', 'Family group', 'Everyone logs spends against their own allowance.'],
   ['shield-checkmark-outline', 'Money Vault for your family', 'Keep accounts, nominees and contacts ready for your loved ones.'],
-  ['trending-up-outline', 'Investments, gold & insurance', 'FDs, SIPs, gold, policies, claims and net worth trend.'],
+  ['trending-up-outline', 'Investments, gold & insurance', 'Mutual funds, SIPs, stocks, FDs, PPF, gold, policies and net worth trend.'],
   ['document-text-outline', 'Reports & year in review', 'Any dates, month comparison, PDF sharing.'],
-  ['airplane-outline', 'Money sent home, trips & vehicles', 'Remittances, events, fuel and challenges.'],
+  ['airplane-outline', 'Money sent home & trips', 'Remittances, events and challenges.'],
 ];
 
 /** Test builds can unlock Premium without paying; app.config.js turns this off for production (store) builds. */

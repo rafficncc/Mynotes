@@ -31,7 +31,7 @@ const TYPES: { key: TxnType; label: string; icon: string }[] = [
 ];
 
 export default function AddTransaction() {
-  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string; billId?: string; emiId?: string; scanned?: string; policyId?: string; vehicleId?: string; merchant?: string; categoryId?: string; accountId?: string; voice?: string }>();
+  const params = useLocalSearchParams<{ id?: string; type?: TxnType; to?: string; amount?: string; billId?: string; emiId?: string; scanned?: string; policyId?: string; merchant?: string; categoryId?: string; accountId?: string; voice?: string }>();
   // A bill scanned on the Scan screen becomes ONE expense for its total.
   const [scan] = useState(() => (params.scanned ? takeScanDraft() : null));
   const receipt = scan?.receipt;
@@ -66,7 +66,7 @@ export default function AddTransaction() {
       '',
   );
   const [toAccountId, setToAccountId] = useState(existing?.toAccountId ?? params.to ?? (emiIsTransfer ? emi!.accountId! : ''));
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? bill?.categoryId ?? (emi ? 'emi' : params.vehicleId ? 'transport' : params.categoryId ?? receipt?.categoryId ?? ''));
+  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? bill?.categoryId ?? (emi ? 'emi' : params.categoryId ?? receipt?.categoryId ?? ''));
   const [merchant, setMerchant] = useState(existing?.merchant ?? bill?.name ?? (emi && !emiIsTransfer ? `${emi.name} EMI` : params.merchant ?? receipt?.merchant ?? ''));
   const [memberId, setMemberId] = useState(existing ? existing.memberId ?? '' : store.settings.currentMemberId ?? '');
   const [emiOn, setEmiOn] = useState(!!existingEmi);
@@ -79,9 +79,6 @@ export default function AddTransaction() {
   const [photo, setPhoto] = useState(existing?.photoUri ?? scan?.uri ?? '');
   const [viewPhoto, setViewPhoto] = useState(false);
   const [warranty, setWarranty] = useState(existing?.warrantyUntil ?? '');
-  const [vehicleId, setVehicleId] = useState(existing?.vehicleId ?? params.vehicleId ?? '');
-  const [odometer, setOdometer] = useState(existing?.odometer ? String(existing.odometer) : '');
-  const [litres, setLitres] = useState(existing?.litres ? String(existing.litres) : '');
   const [splitWith, setSplitWith] = useState<string[]>([]);
   const [splitName, setSplitName] = useState('');
   const [fxOn, setFxOn] = useState(!!existing?.fx && existing.categoryId !== 'remittance');
@@ -159,9 +156,10 @@ export default function AddTransaction() {
       warrantyUntil: type === 'expense' ? warranty || undefined : undefined,
       fx: fxOn ? { currency: fxCurrency, amount: fxAmt, rate: fxR } : existing?.categoryId === 'remittance' ? existing.fx : undefined,
       eventId: type !== 'transfer' ? eventId || undefined : undefined,
-      vehicleId: type === 'expense' ? vehicleId || undefined : undefined,
-      odometer: type === 'expense' && vehicleId ? parseFloat(odometer) || undefined : undefined,
-      litres: type === 'expense' && vehicleId ? parseFloat(litres) || undefined : undefined,
+      // Vehicles were removed; older expenses keep whatever they had.
+      vehicleId: existing?.vehicleId,
+      odometer: existing?.odometer,
+      litres: existing?.litres,
       date,
       accountId,
       toAccountId: type === 'transfer' ? toAccountId : undefined,
@@ -364,24 +362,6 @@ export default function AddTransaction() {
       ) : null}
 
       <DateField label={t('Date')} value={date} onChange={setDate} />
-
-      {type === 'expense' && store.vehicles.length && (categoryId === 'transport' || vehicleId) ? (
-        <Card style={{ padding: 12 }}>
-          <Text style={styles.label}>Vehicle (for mileage)</Text>
-          <ChipRow>
-            <Chip label={t('None')} selected={!vehicleId} onPress={() => setVehicleId('')} />
-            {store.vehicles.map((v) => (
-              <Chip key={v.id} label={v.name} icon="car-outline" selected={vehicleId === v.id} onPress={() => setVehicleId(v.id)} />
-            ))}
-          </ChipRow>
-          {vehicleId ? (
-            <Row style={{ alignItems: 'flex-start' }}>
-              <View style={{ flex: 1 }}><Field label="Odometer (km)" value={odometer} onChangeText={setOdometer} keyboardType="number-pad" /></View>
-              <View style={{ flex: 1 }}><Field label="Litres (fuel only)" value={litres} onChangeText={setLitres} keyboardType="decimal-pad" /></View>
-            </Row>
-          ) : null}
-        </Card>
-      ) : null}
 
       {type !== 'transfer' && store.events.some((e) => !e.closed || e.id === eventId) ? (
         <>

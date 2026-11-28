@@ -35,8 +35,6 @@ const groups = (): [string, Item[]][] => [
       { icon: 'calendar-number-outline', title: t('EMIs & instalments'), subtitle: 'Card EMIs, loan EMIs and what is left to pay', href: '/emis', color: '#8D6E63' },
       { icon: 'shield-checkmark-outline', title: t('Insurance policies'), subtitle: 'Premiums, cover, nominees, renewals', href: '/policies', color: colors.info },
       { icon: 'id-card-outline', title: t('Document expiry'), subtitle: 'Passport, visa, Emirates ID, licence, Aadhaar…', href: '/documents', color: colors.danger },
-      { icon: 'car-outline', title: t('Vehicles'), subtitle: 'Mileage, service, insurance and PUC', href: '/vehicles', color: colors.info },
-      { icon: 'medkit-outline', title: t('Medical claims'), subtitle: 'Claims and medical spending per person', href: '/claims', color: colors.danger },
     ],
   ],
   [

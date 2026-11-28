@@ -24,7 +24,6 @@ export function buildDemoData(on: Date = new Date()): AppData {
     txns.push({ ...t, id: `demo${n++}`, createdAt: t.date });
   };
 
-  let odometer = 24_000;
   for (let m = 3; m >= 0; m--) {
     const y = on.getFullYear();
     const mi = on.getMonth() - m;
@@ -55,11 +54,10 @@ export function buildDemoData(on: Date = new Date()): AppData {
         add({ type: 'expense', amount: Math.round(150 + r() * (weekend ? 1200 : 400)), date, accountId: r() < 0.5 ? 'upi' : 'sbi', categoryId: 'dining', merchant: place });
       }
       if (r() < 0.12) {
-        // Fuel fill-ups with odometer and litres, for the vehicle mileage log
+        // Fuel fill-ups
         const amount = Math.round(1000 + r() * 1500);
-        const litres = Math.round((amount / 102.9) * 10) / 10;
-        odometer += Math.round(litres * (15 + r() * 2));
-        add({ type: 'expense', amount, date, accountId: 'hdfc', categoryId: 'transport', merchant: 'City Fuels', vehicleId: 'swift', odometer, litres });
+        r(); // was the odometer step; kept so the rest of the demo's random data stays the same
+        add({ type: 'expense', amount, date, accountId: 'hdfc', categoryId: 'transport', merchant: 'City Fuels' });
       }
       if (r() < 0.08) add({ type: 'expense', amount: Math.round(800 + r() * 3500), date, accountId: r() < 0.5 ? 'sbi' : 'debit', categoryId: 'shopping', merchant: r() < 0.5 ? 'MegaMall' : 'ShopKart Online', memberId: r() < 0.5 ? 'wife' : undefined });
       if (r() < 0.15) add({ type: 'expense', amount: Math.round(40 + r() * 260), date, accountId: 'cash', categoryId: 'other', merchant: 'Tea & snacks' });
@@ -163,8 +161,8 @@ export function buildDemoData(on: Date = new Date()): AppData {
       { id: 'pol-health', type: 'health', name: 'Family floater health', insurer: 'Star Health', policyNo: 'FH-2231', sumAssured: 1000000, premium: 24000, frequency: 'yearly', nextDue: toISODate(addDays(on, 40)), remindDaysBefore: 30, nominee: 'Priya (wife)', memberId: undefined },
       { id: 'pol-term', type: 'term', name: 'Term insurance', insurer: 'LIC', policyNo: 'TL-90812', sumAssured: 10000000, premium: 18000, frequency: 'yearly', nextDue: toISODate(addDays(on, 9)), remindDaysBefore: 15, nominee: 'Priya (wife)', memberId: 'me' },
     ],
-    vehicles: [{ id: 'swift', name: 'Swift', regNo: 'KA 05 MN 4412', insuranceExpiry: toISODate(addDays(on, 11)), pucExpiry: toISODate(addDays(on, 70)), nextServiceDate: toISODate(addDays(on, 25)), remindDaysBefore: 15 }],
-    claims: [{ id: 'cl1', title: 'Fever – hospital visit', memberId: 'kid1', policyId: 'pol-health', amount: 8500, date: ago(12), submittedOn: ago(8), status: 'submitted' }],
+    vehicles: [],
+    claims: [],
     vault: [
       { id: 'v1', section: 'instruction', title: 'First steps', detail: 'Call Rajesh first. All papers are in the blue file in the bedroom cupboard. Inform my employer HR for end-of-service pay and group life cover.' },
       { id: 'v2', section: 'contact', title: 'Rajesh (brother)', contact: '+91 98xxx xxx10', detail: 'Knows about all accounts and the locker.' },
@@ -183,7 +181,7 @@ export function buildDemoData(on: Date = new Date()): AppData {
       { id: 'v15', section: 'gold', linkedId: 'gold', title: 'Gold jewellery', where: 'SBI locker 214 (most); daily wear at home', detail: 'Bills in the blue file.' },
       { id: 'v16', section: 'property', linkedId: 'flat', title: 'Apartment', holder: 'Joint with Priya', where: 'Sale deed original in locker; copy in blue file', contact: 'Builder office, Whitefield', detail: 'Home loan with HDFC.', extra: { address: 'Flat 4B, Green Meadows, Whitefield' } },
       { id: 'v17', section: 'property', title: 'Family land in Thrissur', holder: 'Me and Rajesh', where: 'Documents with Amma in Thrissur', value: 1500000, detail: '', extra: { address: 'Survey no. 112/3, Thrissur' } },
-      { id: 'v18', section: 'vehicle', linkedId: 'swift', title: 'Swift', where: 'RC and insurance in the car glove box', detail: '' },
+      { id: 'v18', section: 'vehicle', title: 'Swift', extra: { regNo: 'KA 05 MN 4412' }, where: 'RC and insurance in the car glove box', detail: '' },
       { id: 'v19', section: 'epf', title: 'EPF (previous job in India)', holder: 'Me', nominee: 'Priya (wife)', where: 'EPFO portal / UMANG app', value: 410000, detail: '', extra: { uan: '8812', employer: 'Infotech Ltd, Bengaluru' } },
       { id: 'v20', section: 'ppf', title: 'PPF account', holder: 'Me', nominee: 'Aarav (son)', where: 'Post office passbook in blue file', value: 230000, detail: '', extra: { last4: '3344' } },
       { id: 'v21', section: 'gratuity', title: 'End-of-service gratuity', where: 'Employment contract in blue file', contact: 'HR: hr@company.ae, +971 4 xxx xx00', value: 95000, detail: 'About 3 weeks of basic salary per year worked.', extra: { employer: 'Gulf Tech LLC, Dubai' } },

@@ -1,4 +1,4 @@
-import type { Account, Bill, DocumentRecord, InsurancePolicy, Transaction, Vehicle } from './types';
+import type { Account, Bill, DocumentRecord, InsurancePolicy, Transaction } from './types';
 
 /* ------------------------- Loan prepayment ------------------------- */
 
@@ -46,38 +46,6 @@ export function prepayment(outstanding: number, annualRate: number, emi: number,
   };
 }
 
-/* ------------------------- Vehicle mileage ------------------------- */
-
-export interface Mileage {
-  kmPerLitre: number | null;
-  costPerKm: number | null;
-  distance: number;
-  litres: number;
-  fuelCost: number;
-  lastOdometer?: number;
-}
-
-/** Mileage from fuel fills with odometer readings: km driven ÷ litres filled after the first fill. */
-export function mileage(txns: Transaction[], vehicleId: string): Mileage {
-  const fills = txns
-    .filter((t) => t.vehicleId === vehicleId && t.type === 'expense' && t.odometer && t.litres)
-    .sort((a, b) => a.odometer! - b.odometer!);
-  const fuelCost = txns.filter((t) => t.vehicleId === vehicleId && t.type === 'expense' && t.litres).reduce((s, t) => s + t.amount, 0);
-  if (fills.length < 2) return { kmPerLitre: null, costPerKm: null, distance: 0, litres: 0, fuelCost, lastOdometer: fills[0]?.odometer };
-  const distance = fills[fills.length - 1].odometer! - fills[0].odometer!;
-  const later = fills.slice(1);
-  const litres = later.reduce((s, t) => s + t.litres!, 0);
-  const cost = later.reduce((s, t) => s + t.amount, 0);
-  return {
-    kmPerLitre: litres > 0 ? Math.round((distance / litres) * 10) / 10 : null,
-    costPerKm: distance > 0 ? Math.round((cost / distance) * 100) / 100 : null,
-    distance,
-    litres,
-    fuelCost,
-    lastOdometer: fills[fills.length - 1].odometer,
-  };
-}
-
 /* ------------------------- Reminders from trackers ------------------------- */
 
 /** Insurance premiums behave like bills (repeating, remind N days before, mark paid). */
@@ -96,16 +64,9 @@ export function policyBills(policies: InsurancePolicy[]): Bill[] {
   }));
 }
 
-/** Vehicle renewals, policy renewals and deposit maturities behave like document expiries. */
-export function trackerDocuments(vehicles: Vehicle[], policies: InsurancePolicy[], accounts: Account[]): DocumentRecord[] {
+/** Policy renewals and deposit maturities behave like document expiries. */
+export function trackerDocuments(policies: InsurancePolicy[], accounts: Account[]): DocumentRecord[] {
   const out: DocumentRecord[] = [];
-  for (const v of vehicles) {
-    const d = (key: string, name: string, date?: string, type: DocumentRecord['type'] = 'vehicle_registration') =>
-      date && out.push({ id: `vehicle:${v.id}:${key}`, type, name: `${v.name} ${name}`, expiryDate: date, remindDaysBefore: v.remindDaysBefore });
-    d('ins', 'insurance', v.insuranceExpiry, 'insurance_policy');
-    d('puc', 'PUC / emission test', v.pucExpiry);
-    d('svc', 'service', v.nextServiceDate, 'other');
-  }
   for (const p of policies) {
     if (p.renewalDate) out.push({ id: `policy:${p.id}:renew`, type: 'insurance_policy', name: `${p.name} policy`, expiryDate: p.renewalDate, remindDaysBefore: 30 });
   }

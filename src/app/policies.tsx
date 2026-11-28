@@ -159,7 +159,6 @@ function Policies() {
             />
             <ChipRow>
               <Chip label="Pay premium" icon="wallet-outline" onPress={() => router.push(`/add?type=expense&policyId=${p.id}`)} />
-              <Chip label="Claims" icon="medkit-outline" onPress={() => router.push('/claims')} />
             </ChipRow>
           </Card>
         );

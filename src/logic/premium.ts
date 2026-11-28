@@ -2,7 +2,7 @@
 export const FREE_MONTHLY = 10;
 
 /** Screens that need Premium. */
-export const PREMIUM_ROUTES = ['/family', '/vault', '/investments', '/policies', '/claims', '/remittance', '/events', '/vehicles', '/reports', '/year', '/challenges', '/debts'];
+export const PREMIUM_ROUTES = ['/family', '/vault', '/investments', '/policies', '/remittance', '/events', '/reports', '/year', '/challenges', '/debts'];
 
 export type UseKind = 'scans' | 'voice';
 export type Usage = { month: string; scans: number; voice: number };

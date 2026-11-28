@@ -61,8 +61,6 @@ Gulf (VAT), US and European bill formats, including slightly tilted photos. Need
 - **Insurance policies** (premium reminders, cover, nominee, renewal), **fixed deposits** (maturity reminder), **SIPs** (debit reminder), **gold** by weight.
 - **Loan prepayment calculator**: interest saved by finishing earlier vs. paying a lower EMI.
 - **Card rewards**: estimated rewards since the last bill, points balance and value, plus a Cashback category.
-- **Vehicle log**: mileage and cost per km from fuel fills, with insurance, PUC and service reminders.
-- **Medical claims** by status and medical spend per family member.
 
 ### Reports & motivation
 - Reports for **any date range**, a **month vs month** comparison by category, a **net worth trend** over 12 months, and a **PDF** to share with your spouse or CA.

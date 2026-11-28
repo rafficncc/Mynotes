@@ -76,7 +76,7 @@ FamilyFin only **tracks** money the user types in. It does not lend, hold money,
   insurance policies but provides none of them.
 
 ### 9. Health
-**My app does not have any health features.** (Medical claims are only tracked as expenses.)
+**My app does not have any health features.** (Medical bills are only tracked as expenses.)
 
 ### 10. If Play asks about other declarations
 - **News app:** No
@@ -157,7 +157,7 @@ If something happens to you, would your family know where everything is? Keep ac
 • 25+ currencies, including INR, AED, SAR, QAR, USD, GBP and EUR
 • English, Hindi, Malayalam, Tamil and Arabic
 • Dark mode, large text and screen reader support
-• Tracks money sent home, foreign-currency spending, trips and events, vehicle fuel, and medical claims
+• Tracks money sent home, foreign-currency spending, trips and events
 
 ★ PRIVATE BY DESIGN
 • No bank login needed and no SMS reading

@@ -114,8 +114,6 @@ const screens: [string, string, boolean?][] = [
   ['events', t('Events & trips')],
   ['policies', t('Insurance policies')],
   ['investments', t('Investments')],
-  ['vehicles', t('Vehicles')],
-  ['claims', t('Medical claims')],
   ['vault', t('Money vault')],
   ['prepay', t('Loan prepayment')],
   ['debts', t('Debt payoff planner')],
