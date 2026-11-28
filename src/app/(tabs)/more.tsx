@@ -25,7 +25,7 @@ const groups = (): [string, Item[]][] => [
       { icon: 'flag-outline', title: t('Events & trips'), subtitle: 'Budget for a wedding, trip or festival', href: '/events', color: colors.accent },
       { icon: 'trending-up-outline', title: t('Investments'), subtitle: 'Mutual funds, SIPs, stocks, FD, PPF, EPF, NPS, gold', href: '/investments', color: colors.success },
       { icon: 'trending-down-outline', title: t('Debt payoff planner'), subtitle: 'Which debt to clear first, debt-free date', href: '/debts', color: colors.danger },
-      { icon: 'calculator-outline', title: t('Loan prepayment'), subtitle: 'How much interest a prepayment saves', href: '/prepay', color: colors.warning },
+      { icon: 'calculator-outline', title: t('Loan prepayment'), subtitle: 'Part payment on a loan: what it saves, record it', href: '/prepay', color: colors.warning },
     ],
   ],
   [
