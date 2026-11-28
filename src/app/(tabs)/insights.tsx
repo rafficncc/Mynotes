@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
-import { AreaChart, BarChart, CompareLines, HBars, HealthGauge } from '../../components/charts';
+import { AreaChart, BarChart, CompareLines, HealthGauge } from '../../components/charts';
 import { GradientBg } from '../../components/GradientBg';
 import { t } from '../../i18n';
 import { Button, Card, Chip, ChipRow, Icon, InsightCard, ProgressBar, Row, Screen, SectionTitle, styles } from '../../components/ui';
@@ -58,7 +58,11 @@ export default function Insights() {
       rates: savingsRates(months),
       weekday: spendByWeekday(txns),
       byMode: spendByPaymentMode(txns, data.accounts),
-      merchants: spendByMerchant(txns, 5),
+      // Shops only: rent, EMIs and savings aren't places you choose to spend.
+      merchants: spendByMerchant(
+        txns.filter((t) => t.categoryId !== 'rent' && t.categoryId !== 'emi' && data.categories.find((c) => c.id === t.categoryId)?.kind !== 'saving'),
+        5,
+      ),
       members: spendByMember(txns, data.members),
       nws: needsWantsSavings(txns, data.categories),
       income: sum(incomes(txns)),
@@ -77,6 +81,7 @@ export default function Insights() {
   const avgRate = ratesWithIncome.length ? Math.round(ratesWithIncome.reduce((s, r) => s + r, 0) / ratesWithIncome.length) : null;
   const topDay = v.weekday.indexOf(Math.max(...v.weekday));
   const tips = allTips ? v.insights : v.insights.slice(0, 3);
+  const spentTotal = v.byMode.reduce((t2, m) => t2 + m.value, 0);
 
   return (
     <Screen>
@@ -219,25 +224,104 @@ export default function Insights() {
       ) : null}
 
       {v.byMode.length ? (
-        <Card style={{ gap: 6 }}>
-          <Text style={styles.itemTitle}>How you pay</Text>
-          <HBars rows={v.byMode.map((m) => ({ label: m.label, value: m.value, color: m.color }))} format={money} />
+        <Card style={{ gap: 12 }}>
+          <CardHead icon="card-outline" color={colors.info} title="How you pay" note={`Most by ${v.byMode[0].label} · ${pct(v.byMode[0].value, spentTotal)}%`} />
+          <Breakdown
+            rows={v.byMode.map((m) => ({ key: m.key, label: m.label, value: m.value, color: MODE_COLOR[m.key] ?? m.color, icon: MODE_ICON[m.key] ?? 'ellipsis-horizontal' }))}
+            money={money}
+          />
+          {pct(v.byMode.find((m) => m.key === 'credit_card')?.value ?? 0, spentTotal) >= 40 ? (
+            <Text style={[styles.hint, { color: colors.warning }]}>💡 Over 40% goes on credit cards. Pay the full bill each month to avoid interest.</Text>
+          ) : null}
         </Card>
       ) : null}
 
       {v.merchants.length ? (
-        <Card style={{ gap: 6 }}>
-          <Text style={styles.itemTitle}>Top shops</Text>
-          <HBars rows={v.merchants.map((m) => ({ label: m.merchant, value: m.total, sub: `${m.count} visit${m.count === 1 ? '' : 's'}` }))} format={money} />
+        <Card style={{ gap: 10 }}>
+          <CardHead icon="storefront-outline" color={colors.accent} title="Top places you spend" note={`${v.merchants[0].merchant} leads with ${money(v.merchants[0].total)}`} />
+          {v.merchants.map((m, i) => (
+            <Row key={m.merchant} style={{ gap: 12 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: (MEDALS[i] ?? colors.muted) + '2e' }}>
+                <Text style={{ color: MEDALS[i] ?? colors.muted, fontWeight: '900', fontSize: 13 }}>{i + 1}</Text>
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Row style={{ gap: 8 }}>
+                  <Text style={{ flex: 1, color: colors.text, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                    {m.merchant}
+                  </Text>
+                  <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>{money(m.total)}</Text>
+                </Row>
+                <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' }}>
+                  <View style={{ width: `${Math.max(3, (m.total / v.merchants[0].total) * 100)}%`, height: '100%', borderRadius: 3, backgroundColor: MEDALS[i] ?? colors.accent }} />
+                </View>
+                <Text style={{ color: colors.muted, fontSize: 12 }}>
+                  {m.count} visit{m.count === 1 ? '' : 's'}
+                  {m.count > 1 ? ` · about ${money(Math.round(m.total / m.count))} each time` : ''}
+                </Text>
+              </View>
+            </Row>
+          ))}
         </Card>
       ) : null}
 
       {v.members.length > 1 || (v.members[0] && v.members[0].id !== '_family') ? (
-        <Card style={{ gap: 6 }}>
-          <Text style={styles.itemTitle}>By family member</Text>
-          <HBars rows={v.members.map((m) => ({ label: m.name, value: m.total, color: colors.info }))} format={money} />
+        <Card style={{ gap: 12 }}>
+          <CardHead icon="people-outline" color={colors.primary} title="Who spends" note={`Shared and personal spending · ${money(spentTotal)}`} />
+          <Breakdown rows={v.members.map((m, i) => ({ key: m.id, label: m.name, value: m.total, color: PEOPLE_COLORS[i % PEOPLE_COLORS.length], initial: m.id === '_family' ? '👪' : m.name.slice(0, 1).toUpperCase() }))} money={money} />
         </Card>
       ) : null}
     </Screen>
+  );
+}
+
+const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+const MODE_ICON: Record<string, string> = { bank: 'business-outline', credit_card: 'card-outline', debit_card: 'card-outline', wallet: 'phone-portrait-outline', cash: 'cash-outline', people: 'people-outline' };
+const MODE_COLOR: Record<string, string> = { bank: '#4C8DF6', credit_card: '#F0616D', debit_card: '#22B8CF', wallet: '#A066E8', cash: '#3BB273' };
+const MEDALS = ['#F5B700', '#9AA5B1', '#CD7F32'];
+const PEOPLE_COLORS = ['#4C8DF6', '#F0616D', '#3BB273', '#F5A524', '#A066E8', '#22B8CF'];
+
+function CardHead({ icon, color, title, note }: { icon: string; color: string; title: string; note: string }) {
+  return (
+    <Row style={{ gap: 10 }}>
+      <View style={{ width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: color + '22' }}>
+        <Icon name={icon} size={18} color={color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.itemTitle}>{title}</Text>
+        <Text style={{ color: colors.muted, fontSize: 12 }} numberOfLines={1}>
+          {note}
+        </Text>
+      </View>
+    </Row>
+  );
+}
+
+/** One stacked bar showing each share, then a row per item with its amount and percentage. */
+function Breakdown({ rows, money }: { rows: { key: string; label: string; value: number; color: string; icon?: string; initial?: string }[]; money: (n: number) => string }) {
+  const total = rows.reduce((t2, r) => t2 + r.value, 0);
+  return (
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', height: 14, borderRadius: 7, overflow: 'hidden', gap: 2 }}>
+        {rows.map((r) => (
+          <View key={r.key} style={{ flex: Math.max(r.value, total * 0.01), backgroundColor: r.color }} />
+        ))}
+      </View>
+      <View style={{ gap: 10 }}>
+        {rows.map((r) => (
+          <Row key={r.key} style={{ gap: 10 }}>
+            <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: r.color + '26' }}>
+              {r.icon ? <Icon name={r.icon} size={16} color={r.color} /> : <Text style={{ color: r.color, fontWeight: '900', fontSize: 14 }}>{r.initial}</Text>}
+            </View>
+            <Text style={{ flex: 1, color: colors.text, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>
+              {r.label}
+            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ color: colors.text, fontWeight: '800', fontSize: 14 }}>{money(r.value)}</Text>
+              <Text style={{ color: r.color, fontWeight: '700', fontSize: 11 }}>{pct(r.value, total)}%</Text>
+            </View>
+          </Row>
+        ))}
+      </View>
+    </View>
   );
 }
