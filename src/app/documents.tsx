@@ -1,17 +1,28 @@
 import { ask } from '../components/Dialog';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { GradientBg } from '../components/GradientBg';
 import { DateField } from '../components/DateField';
-import { Button, Card, Chip, ChipRow, Field, ListItem, Screen, SectionTitle, styles } from '../components/ui';
+import { Button, Card, Chip, ChipRow, Field, Icon, Row, Screen, SectionTitle, styles } from '../components/ui';
 import { DOCUMENT_TYPES, documentTypeInfo } from '../logic/actions';
-import { diffDays, formatDate, parseDate } from '../logic/dates';
+import { diffDays, parseDate } from '../logic/dates';
 import type { DocumentRecord, DocumentType } from '../logic/types';
 import { useAppData } from '../store/hooks';
 import { useStore } from '../store/useStore';
-import { colors } from '../theme';
+import { colors, isDark } from '../theme';
 
 const REMIND = [7, 15, 30, 60, 90, 180];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+type DocStatus = 'expired' | 'soon' | 'valid' | 'none';
+// Same colours as the Actions tab (dark → light gradient per status).
+const STATUS: { key: DocStatus; title: string; short: string; icon: string; dark: string; light: string }[] = [
+  { key: 'expired', title: 'Expired', short: 'Expired', icon: 'alert-circle', dark: '#C8324A', light: '#FF9E8A' },
+  { key: 'soon', title: 'Renew soon', short: 'Renew soon', icon: 'time', dark: '#D9861A', light: '#FFD978' },
+  { key: 'valid', title: 'Valid', short: 'Valid', icon: 'checkmark-done', dark: '#0B6E4F', light: '#7EE3B5' },
+  { key: 'none', title: 'No expiry date', short: 'No date', icon: 'help-circle', dark: '#2F5FC4', light: '#9CC3FF' },
+];
 
 export default function Documents() {
   const params = useLocalSearchParams<{ edit?: string }>();
@@ -29,6 +40,7 @@ export default function Documents() {
   const [expiry, setExpiry] = useState(initial?.expiryDate ?? '');
   const [remind, setRemind] = useState(initial?.remindDaysBefore ?? 180);
   const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [filter, setFilter] = useState<DocStatus | null>(null);
 
   const edit = (d: DocumentRecord) => {
     setEditing(d.id);
@@ -73,29 +85,131 @@ export default function Documents() {
     [data.documents],
   );
 
+  const statusOf = (d: DocumentRecord): DocStatus => {
+    if (!d.expiryDate) return 'none';
+    const days = diffDays(parseDate(d.expiryDate), on);
+    return days < 0 ? 'expired' : days <= d.remindDaysBefore ? 'soon' : 'valid';
+  };
+  const count = (k: DocStatus) => sorted.filter((d) => statusOf(d) === k).length;
+  const sel = STATUS.find((x) => x.key === filter);
+
   return (
     <Screen>
-      <Card>
-        {sorted.length === 0 ? <Text style={styles.itemSub}>Track passports, visas, Emirates ID, driving licences and more. FamilyFin reminds you well before they expire.</Text> : null}
-        {sorted.map((d) => {
-          const info = documentTypeInfo(d.type);
-          const member = data.members.find((m) => m.id === d.memberId)?.name;
-          const days = d.expiryDate ? diffDays(parseDate(d.expiryDate), on) : null;
-          const color = days === null ? colors.muted : days < 0 ? colors.danger : days <= d.remindDaysBefore ? colors.warning : colors.success;
-          return (
-            <ListItem
-              key={d.id}
-              icon={info.icon}
-              iconColor={color}
-              title={`${d.name}${member ? ` · ${member}` : ''}`}
-              subtitle={[d.number, d.expiryDate ? `Expires ${formatDate(d.expiryDate)}` : 'No expiry date', d.notes].filter(Boolean).join(' · ')}
-              right={days === null ? '' : days < 0 ? 'Expired' : `${days} days`}
-              rightColor={color}
-              onPress={() => edit(d)}
-            />
-          );
-        })}
-      </Card>
+      {/* Summary: tap a tile to show only that group */}
+      <View style={{ borderRadius: 20, overflow: 'hidden' }}>
+        <GradientBg id="docbg" />
+        <View pointerEvents="none" style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: '#ffffff10', top: -80, right: -60 }} />
+        <View style={{ padding: 16, gap: 12 }}>
+          <View>
+            <Text style={{ color: '#ffffffb3', fontSize: 13 }}>Family documents</Text>
+            <Text style={{ color: '#fff', fontSize: 28, fontWeight: '900' }}>{sorted.length} tracked</Text>
+            <Text style={{ color: count('expired') + count('soon') ? '#FFD978' : '#7EE3B5', fontSize: 13, fontWeight: '700' }}>
+              {count('expired') + count('soon') ? `${count('expired') + count('soon')} need attention` : 'All up to date'}
+            </Text>
+          </View>
+          <Row style={{ gap: 8 }}>
+            {STATUS.map((x) => {
+              const on2 = filter === x.key;
+              return (
+                <Pressable
+                  key={x.key}
+                  onPress={() => setFilter(on2 ? null : x.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on2 }}
+                  accessibilityLabel={`${x.short}: ${count(x.key)}`}
+                  style={{ flex: 1, backgroundColor: on2 ? '#fff' : '#ffffff1a', borderRadius: 14, paddingVertical: 10, alignItems: 'center', gap: 2, borderWidth: 1.5, borderColor: on2 ? x.light : '#ffffff26' }}
+                >
+                  <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: on2 ? '#1B1F5E' : x.light + '33' }}>
+                    <Icon name={x.icon} size={15} color={x.light} />
+                  </View>
+                  <Text style={{ color: on2 ? '#1B1F5E' : x.light, fontSize: 22, fontWeight: '900' }}>{count(x.key)}</Text>
+                  <Text style={{ color: on2 ? '#1B1F5E' : '#ffffffd9', fontSize: 11, fontWeight: '700' }}>{x.short}</Text>
+                </Pressable>
+              );
+            })}
+          </Row>
+        </View>
+      </View>
+
+      {sel ? (
+        <Pressable onPress={() => setFilter(null)} accessibilityRole="button" style={{ borderRadius: 14, overflow: 'hidden' }}>
+          <GradientBg id="docfilter" />
+          <Row style={{ gap: 10, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sel.light }} />
+            <Text style={{ flex: 1, color: '#fff', fontWeight: '700', fontSize: 14 }}>
+              Showing only <Text style={{ color: sel.light, fontWeight: '900' }}>{sel.short}</Text>
+            </Text>
+            <View style={{ backgroundColor: '#ffffff26', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Clear ✕</Text>
+            </View>
+          </Row>
+        </Pressable>
+      ) : null}
+
+      {sorted.length === 0 ? (
+        <Card>
+          <Text style={styles.itemSub}>Track passports, visas, Emirates ID, driving licences and more. FamilyFin reminds you well before they expire.</Text>
+        </Card>
+      ) : null}
+
+      {STATUS.filter((x) => !filter || x.key === filter).map((sec) => {
+        const items = sorted.filter((d) => statusOf(d) === sec.key);
+        if (!items.length) return null;
+        return (
+          <View key={sec.key} style={{ gap: 10 }}>
+            <Row style={{ gap: 8, marginTop: 6 }}>
+              <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: sec.light }} />
+              <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 1, color: colors.muted, flex: 1 }}>{sec.title.toUpperCase()}</Text>
+              <Text style={{ color: colors.muted, fontWeight: '700', fontSize: 13 }}>
+                {items.length} document{items.length === 1 ? '' : 's'}
+              </Text>
+            </Row>
+            {items.map((d) => {
+              const info = documentTypeInfo(d.type);
+              const member = data.members.find((m) => m.id === d.memberId)?.name;
+              const date = d.expiryDate ? parseDate(d.expiryDate) : null;
+              const days = date ? diffDays(date, on) : null;
+              const chip = days === null ? 'No expiry date' : days < 0 ? `Expired ${-days} day${days === -1 ? '' : 's'} ago` : days === 0 ? 'Expires today' : days < 60 ? `${days} day${days === 1 ? '' : 's'} left` : `${Math.round(days / 30)} months left`;
+              return (
+                <Pressable key={d.id} onPress={() => edit(d)} accessibilityRole="button" accessibilityLabel={`${d.name}, ${chip}. Edit`} style={{ backgroundColor: colors.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: editing === d.id ? sec.dark : colors.border }}>
+                  <Row style={{ gap: 12 }}>
+                    {/* Calendar-style expiry date in the status colour */}
+                    <View style={{ width: 56, height: 62, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
+                      <GradientBg id={`dg${d.id.replace(/[^a-zA-Z0-9]/g, '')}`} colors={[sec.dark, sec.light]} />
+                      {date ? (
+                        <>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 1 }}>{MONTHS[date.getMonth()]}</Text>
+                          <Text style={{ color: '#fff', fontSize: 21, fontWeight: '900', lineHeight: 24 }}>{date.getDate()}</Text>
+                          <Text style={{ color: '#ffffffd9', fontSize: 10, fontWeight: '700' }}>{date.getFullYear()}</Text>
+                        </>
+                      ) : (
+                        <Icon name={info.icon} size={24} color="#fff" />
+                      )}
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Row style={{ gap: 6 }}>
+                        <Icon name={info.icon} color={sec.dark} size={15} />
+                        <Text style={{ flex: 1, fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={1}>
+                          {d.name}
+                        </Text>
+                      </Row>
+                      <Text style={{ fontSize: 12, color: colors.muted }} numberOfLines={1}>
+                        {[member, d.number, d.notes].filter(Boolean).join(' · ') || info.label}
+                      </Text>
+                      <Row style={{ gap: 8 }}>
+                        <View style={{ backgroundColor: sec.light + '33', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color: isDark ? sec.light : sec.dark, fontSize: 11, fontWeight: '800' }}>{chip}</Text>
+                        </View>
+                        <Text style={{ marginLeft: 'auto', color: colors.primary, fontSize: 12, fontWeight: '800' }}>Edit ›</Text>
+                      </Row>
+                    </View>
+                  </Row>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      })}
 
       <SectionTitle title={editing ? 'Edit document' : 'Add a document'} />
       <Card>
